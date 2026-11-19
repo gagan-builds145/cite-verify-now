@@ -182,6 +182,9 @@ export type AnalysisRecord = {
   referencesFound?: number;
   referencesSkipped?: number;
   reviewComplete?: number;
+  correctionsFound?: number;
+  correctionsApplied?: number;
+  correctionsPending?: number;
   completedAt?: number;
   _creationTime: number;
   summary?: AnalysisSummary;

@@ -37,7 +37,7 @@ function parseJson<T>(content: string): T | null {
   }
 }
 
-async function complete(system: string, user: string, maxTokens: number): Promise<string | null> {
+export async function complete(system: string, user: string, maxTokens: number): Promise<string | null> {
   const client = getClient();
   if (!client) return null;
   try {

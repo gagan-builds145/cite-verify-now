@@ -1,5 +1,6 @@
 import { ClaimDetail } from "@/components/app/ClaimDetail";
 import { ClaimList } from "@/components/app/ClaimList";
+import { CorrectionWorkbench } from "@/components/app/CorrectionWorkbench";
 import { EngineBadge, PrivacyBadge } from "@/components/app/Badges";
 import { OverviewPanel } from "@/components/app/OverviewPanel";
 import { PdfViewer } from "@/components/app/PdfViewer";
@@ -47,7 +48,7 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { toast } from "sonner";
 
-type Panel = "overview" | "claims" | "references";
+type Panel = "overview" | "claims" | "references" | "errors" | "corrections";
 type MobileView = "document" | "results";
 
 export default function AnalysisWorkspace() {
@@ -79,7 +80,11 @@ export default function AnalysisWorkspace() {
 
   const panelParam = searchParams.get("panel");
   const initialPanel: Panel =
-    panelParam === "claims" || panelParam === "references" || panelParam === "overview"
+    panelParam === "claims" ||
+    panelParam === "references" ||
+    panelParam === "errors" ||
+    panelParam === "corrections" ||
+    panelParam === "overview"
       ? panelParam
       : "overview";
   const [panel, setPanel] = useState<Panel>(initialPanel);
@@ -303,7 +308,11 @@ export default function AnalysisWorkspace() {
     <div className="flex h-dvh flex-col overflow-hidden bg-background">
       <WorkspaceHeader
         title={analysis.title}
-        subtitle={`${analysis.pageCount} pages · ${claims.length} claims · ${references.length} references`}
+        subtitle={`${analysis.pageCount} pages · ${claims.length} claims · ${references.length} references${
+          analysis.correctionsFound !== undefined
+            ? ` · ${analysis.correctionsFound} correction findings`
+            : ""
+        }`}
         onReport={handleReport}
         onCsv={handleCsv}
         onReferencesCsv={handleReferencesCsv}
@@ -363,7 +372,9 @@ export default function AnalysisWorkspace() {
               [
                 { key: "overview" as const, label: "Overview", count: undefined },
                 { key: "claims" as const, label: "Claims", count: claims.length },
-                { key: "references" as const, label: "References", count: references.length },
+                { key: "references" as const, label: "Citations", count: references.length },
+                { key: "errors" as const, label: "Errors", count: analysis.correctionsFound },
+                { key: "corrections" as const, label: "Corrections", count: analysis.correctionsApplied },
               ]
             ).map((tab) => (
               <button
@@ -423,6 +434,16 @@ export default function AnalysisWorkspace() {
             ))}
 
           {panel === "references" && <ReferenceList references={references} />}
+
+          {(panel === "errors" || panel === "corrections") && (
+            <CorrectionWorkbench
+              key={panel}
+              analysis={analysis}
+              analysisId={analysisId}
+              initialStatus={panel === "corrections" ? "APPLIED" : "ALL"}
+              onShowPage={handleShowPage}
+            />
+          )}
 
           <div className="shrink-0 border-t border-border px-4 py-2">
             <div className="flex flex-wrap items-center justify-between gap-2">

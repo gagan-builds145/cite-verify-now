@@ -70,6 +70,86 @@ export const reviewDecisionValidator = v.union(
   v.literal("overridden"),
 );
 
+export const correctionCategoryValidator = v.union(
+  v.literal("LANGUAGE"),
+  v.literal("CITATION"),
+  v.literal("SCIENTIFIC_CLAIM"),
+  v.literal("STATISTICAL"),
+  v.literal("METHODOLOGY"),
+  v.literal("STRUCTURE"),
+);
+
+export const correctionSeverityValidator = v.union(
+  v.literal("CRITICAL"),
+  v.literal("MAJOR"),
+  v.literal("MINOR"),
+  v.literal("INFO"),
+);
+
+export const correctionLevelValidator = v.union(
+  v.literal("SAFE_AUTO_FIX"),
+  v.literal("EVIDENCE_BACKED_CORRECTION"),
+  v.literal("HUMAN_APPROVAL_REQUIRED"),
+);
+
+export const correctionValidationValidator = v.union(
+  v.literal("PASSED"),
+  v.literal("FAILED"),
+  v.literal("PENDING"),
+);
+
+export const correctionApprovalValidator = v.union(
+  v.literal("AUTO_APPROVED"),
+  v.literal("PENDING"),
+  v.literal("APPROVED"),
+  v.literal("REJECTED"),
+  v.literal("INTENTIONAL"),
+  v.literal("NEEDS_EVIDENCE"),
+);
+
+export const correctionApplicationValidator = v.union(
+  v.literal("APPLIED"),
+  v.literal("NOT_APPLIED"),
+  v.literal("RESTORED"),
+  v.literal("BLOCKED"),
+);
+
+export const correctionEvidenceValidator = v.object({
+  quote: v.string(),
+  page: v.optional(v.number()),
+  section: v.optional(v.string()),
+  sourceTitle: v.optional(v.string()),
+  sourceDoi: v.optional(v.string()),
+  sourceUrl: v.optional(v.string()),
+  relationship: v.optional(v.string()),
+});
+
+export const correctionInputValidator = v.object({
+  correctionId: v.string(),
+  documentId: v.string(),
+  errorCategory: correctionCategoryValidator,
+  errorType: v.string(),
+  severity: correctionSeverityValidator,
+  originalText: v.string(),
+  proposedText: v.string(),
+  reason: v.string(),
+  evidence: v.array(correctionEvidenceValidator),
+  sourceReference: v.optional(v.string()),
+  sourceDoi: v.optional(v.string()),
+  sourceUrl: v.optional(v.string()),
+  pageNumber: v.number(),
+  section: v.optional(v.string()),
+  confidenceLevel: v.number(),
+  correctionLevel: correctionLevelValidator,
+  validationStatus: correctionValidationValidator,
+  validationNotes: v.array(v.string()),
+  approvalStatus: correctionApprovalValidator,
+  applicationStatus: correctionApplicationValidator,
+  version: v.number(),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+});
+
 export const statementRelevanceValidator = v.union(
   v.literal("RELEVANT"),
   v.literal("PARTIALLY_RELEVANT"),
@@ -173,6 +253,9 @@ const schema = defineSchema(
       referencesFound: v.optional(v.number()),
       referencesSkipped: v.optional(v.number()),
       reviewComplete: v.optional(v.number()),
+      correctionsFound: v.optional(v.number()),
+      correctionsApplied: v.optional(v.number()),
+      correctionsPending: v.optional(v.number()),
       completedAt: v.optional(v.number()),
     }).index("by_user", ["userId"]),
 
@@ -221,6 +304,54 @@ const schema = defineSchema(
       fullTextUrl: v.optional(v.string()),
       fullTextSource: v.optional(v.string()),
       identityJson: v.optional(v.string()),
+    }).index("by_analysis", ["analysisId"]),
+
+    // Structured, evidence-backed correction proposals. The original PDF is
+    // never modified; application status is recorded here for reconstruction.
+    analysisCorrections: defineTable({
+      analysisId: v.id("analyses"),
+      correctionId: v.string(),
+      documentId: v.string(),
+      errorCategory: correctionCategoryValidator,
+      errorType: v.string(),
+      severity: correctionSeverityValidator,
+      originalText: v.string(),
+      proposedText: v.string(),
+      reason: v.string(),
+      evidence: v.array(correctionEvidenceValidator),
+      sourceReference: v.optional(v.string()),
+      sourceDoi: v.optional(v.string()),
+      sourceUrl: v.optional(v.string()),
+      pageNumber: v.number(),
+      section: v.optional(v.string()),
+      confidenceLevel: v.number(),
+      correctionLevel: correctionLevelValidator,
+      validationStatus: correctionValidationValidator,
+      validationNotes: v.array(v.string()),
+      approvalStatus: correctionApprovalValidator,
+      applicationStatus: correctionApplicationValidator,
+      reviewerName: v.optional(v.string()),
+      reviewedAt: v.optional(v.number()),
+      version: v.number(),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_analysis", ["analysisId"])
+      .index("by_analysis_status", ["analysisId", "approvalStatus"]),
+
+    // Append-only audit history for every correction decision. Rows are never
+    // updated or deleted by correction mutations.
+    correctionHistory: defineTable({
+      analysisId: v.id("analyses"),
+      correctionId: v.string(),
+      actorId: v.union(v.id("users"), v.literal("system")),
+      actorName: v.string(),
+      action: v.string(),
+      note: v.optional(v.string()),
+      beforeJson: v.string(),
+      afterJson: v.string(),
+      version: v.number(),
+      createdAt: v.number(),
     }).index("by_analysis", ["analysisId"]),
 
     // Messages sent through the public contact form (no email is sent).

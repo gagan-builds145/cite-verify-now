@@ -13,6 +13,10 @@ import {
   type ExtractedClaim,
   type Verdict,
 } from "./lib/ai";
+import { reviewCorrectionsWithAI } from "./lib/aiCorrectionReview";
+import { runCorrectionEngine } from "./lib/correction/engine";
+import { correctionStats } from "./lib/correction/correctionAudit";
+import type { CorrectionDraft } from "./lib/correction/types";
 import {
   selectRelevantPassage,
   verifyReference,
@@ -910,6 +914,92 @@ export const run = action({
         });
       }
 
+      /* -------------------- correction audit -------------------- */
+      let correctionRows: CorrectionDraft[] = [];
+      await setStage(
+        "corrections_generated",
+        "active",
+        "Scanning language, citations, claims, statistics, methods and structure",
+      );
+      try {
+        const correctionClaims = drafts.map((draft) => {
+          const verdict = verdicts.get(draft.claimId);
+          return {
+            claimId: draft.claimId,
+            text: draft.text,
+            page: draft.page,
+            section: draft.section,
+            verdict: verdict?.verdict ?? ("UNVERIFIED" as const),
+            explanation: verdict?.explanation ?? "No evidence assessment was produced.",
+            evidenceQuote: verdict?.evidenceQuote,
+            evidenceLevel: verdict?.level ?? ("unavailable" as const),
+            referenceKeys: draft.referenceKeys,
+            citationMarkers: draft.citationMarkers,
+            duplicateOf: draft.duplicateOf,
+          };
+        });
+        const correctionReferences = Array.from(refRows.values());
+        const aiReview =
+          aiConfigured() && pages.length > 0
+            ? await reviewCorrectionsWithAI({
+                pages,
+                claims: correctionClaims.map((claim) => ({
+                  claimId: claim.claimId,
+                  text: claim.text,
+                  verdict: claim.verdict,
+                  evidenceQuote: claim.evidenceQuote,
+                })),
+                references: correctionReferences.map((reference) => ({
+                  rawText: reference.rawText,
+                  status: reference.status,
+                  title: reference.matchedTitle ?? reference.title,
+                })),
+                question: analysis.question,
+              })
+            : null;
+        if (aiReview && !aiReview.ok) {
+          limitations.push(
+            aiReview.error ?
+              `AI correction review was incomplete: ${aiReview.error}`
+            : "AI correction review returned no usable suggestions; deterministic checks still scanned the complete extracted document.",
+          );
+        }
+        const correctionResult = runCorrectionEngine({
+          analysisId,
+          pages,
+          claims: correctionClaims,
+          references: correctionReferences,
+          question: analysis.question,
+          aiSuggestions: aiReview?.suggestions ?? [],
+        });
+        correctionRows = correctionResult.corrections;
+        limitations.push(...correctionResult.limitations);
+        if (correctionRows.length > 0) {
+          await ctx.runMutation(internal.analyses.addCorrections, {
+            analysisId,
+            corrections: correctionRows,
+          });
+        }
+        const stats = correctionStats(correctionRows);
+        await setStage(
+          "corrections_generated",
+          "complete",
+          `${stats.total} issue(s) · ${stats.applied} safe auto-fix(es) · ${stats.pendingApprovals} awaiting approval`,
+        );
+        if (correctionRows.length === 0) {
+          limitations.push(
+            "No correction issues were detected by this pass. That is not proof that the manuscript is error-free.",
+          );
+        }
+      } catch (correctionError) {
+        const message =
+          correctionError instanceof Error ? correctionError.message : "Unknown correction-audit error";
+        limitations.push(
+          `The correction audit could not complete: ${message}. Verification results are still available, but no correction completeness claim is made.`,
+        );
+        await setStage("corrections_generated", "failed", "Correction audit did not complete");
+      }
+
       /* -------------------- question-aware answer -------------------- */
       const question = analysis.question?.trim();
       if (question) {
@@ -1069,12 +1159,16 @@ export const run = action({
       limitations.push(
         "Automated verification is assistive, not authoritative. Every verdict should be reviewed by a human before it is cited as evidence of misconduct.",
       );
+      const correctionSummary = correctionStats(correctionRows);
       await ctx.runMutation(internal.analyses.complete, {
         analysisId,
         engine,
         limitations,
         referencesFound: parsedReferences.length,
         referencesSkipped: Math.max(0, parsedReferences.length - targets.length),
+        correctionsFound: correctionSummary.total,
+        correctionsApplied: correctionSummary.applied,
+        correctionsPending: correctionSummary.pendingApprovals,
       });
       await ctx.runMutation(internal.analyses.purgeDocument, { analysisId });
       await setStage("report_ready", "complete", `${supported} supported · ${drafts.length} claims assessed`);
@@ -1083,6 +1177,7 @@ export const run = action({
         ok: true,
         claims: drafts.length,
         references: refRows.size,
+        corrections: correctionRows.length,
         engine,
         aiVerdictCount,
       };

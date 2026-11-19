@@ -19,6 +19,7 @@ import {
 } from "./lib/text";
 import {
   claimCategoryValidator,
+  correctionInputValidator,
   extractionLocationValidator,
   questionAnswerValidator,
   referenceStatusValidator,
@@ -36,6 +37,7 @@ export const STAGES = [
   { key: "references_searched", label: "References verified" },
   { key: "sources_retrieved", label: "Original sources retrieved" },
   { key: "evidence_analyzed", label: "Claim–evidence analysis" },
+  { key: "corrections_generated", label: "Correction audit" },
   { key: "report_ready", label: "Report ready" },
 ] as const;
 
@@ -47,6 +49,7 @@ import {
   reconcileClaimsWithReferences,
   type CurrentReferenceStatus,
 } from "./lib/reconcile";
+import { validateEditedText } from "./lib/correction/correctionValidator";
 
 function normalizeReferenceRow<T extends { status: string }>(row: T) {
   return { ...row, status: normalizeReferenceStatus(row.status) as CurrentReferenceStatus };
@@ -107,6 +110,38 @@ export const references = query({
       .withIndex("by_analysis", (q) => q.eq("analysisId", args.analysisId))
       .collect();
     return rows.map(normalizeReferenceRow);
+  },
+});
+
+export const corrections = query({
+  args: { analysisId: v.id("analyses") },
+  handler: async (ctx, args) => {
+    const analysis = await assertOwner(ctx, args.analysisId);
+    if (!analysis) return [];
+    const rows = await ctx.db
+      .query("analysisCorrections")
+      .withIndex("by_analysis", (q) => q.eq("analysisId", args.analysisId))
+      .collect();
+    const rank: Record<string, number> = { CRITICAL: 0, MAJOR: 1, MINOR: 2, INFO: 3 };
+    return rows.sort(
+      (a, b) =>
+        rank[a.severity] - rank[b.severity] ||
+        a.pageNumber - b.pageNumber ||
+        a.correctionId.localeCompare(b.correctionId),
+    );
+  },
+});
+
+export const correctionHistory = query({
+  args: { analysisId: v.id("analyses") },
+  handler: async (ctx, args) => {
+    const analysis = await assertOwner(ctx, args.analysisId);
+    if (!analysis) return [];
+    const rows = await ctx.db
+      .query("correctionHistory")
+      .withIndex("by_analysis", (q) => q.eq("analysisId", args.analysisId))
+      .collect();
+    return rows.sort((a, b) => b.createdAt - a.createdAt);
   },
 });
 
@@ -183,6 +218,14 @@ export const bundle = query({
       .query("reviews")
       .withIndex("by_analysis", (q) => q.eq("analysisId", args.analysisId))
       .collect();
+    const correctionRows = await ctx.db
+      .query("analysisCorrections")
+      .withIndex("by_analysis", (q) => q.eq("analysisId", args.analysisId))
+      .collect();
+    const auditRows = await ctx.db
+      .query("correctionHistory")
+      .withIndex("by_analysis", (q) => q.eq("analysisId", args.analysisId))
+      .collect();
     return {
       analysis,
       claims: reconcileClaimsWithReferences(claims, references).sort(
@@ -190,6 +233,8 @@ export const bundle = query({
       ),
       references,
       reviews: reviewRows.sort((a, b) => b.createdAt - a.createdAt),
+      corrections: correctionRows,
+      correctionHistory: auditRows.sort((a, b) => b.createdAt - a.createdAt),
     };
   },
 });
@@ -421,6 +466,117 @@ export const reviewClaim = mutation({
   },
 });
 
+export const decideCorrection = mutation({
+  args: {
+    analysisId: v.id("analyses"),
+    correctionId: v.string(),
+    action: v.union(
+      v.literal("ACCEPT"),
+      v.literal("REJECT"),
+      v.literal("EDIT"),
+      v.literal("RESTORE"),
+      v.literal("INTENTIONAL"),
+      v.literal("REQUEST_EVIDENCE"),
+    ),
+    expectedVersion: v.number(),
+    proposedText: v.optional(v.string()),
+    note: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const analysis = await assertOwner(ctx, args.analysisId);
+    if (!analysis) throw new Error("Analysis not found in this session.");
+    const userId = await requireUser(ctx);
+    if (!userId) throw new Error("A session is required to review a correction.");
+    const rows = await ctx.db
+      .query("analysisCorrections")
+      .withIndex("by_analysis", (q) => q.eq("analysisId", args.analysisId))
+      .collect();
+    const correction = rows.find((row) => row.correctionId === args.correctionId);
+    if (!correction) throw new Error("Correction not found in this analysis.");
+    if (correction.version !== args.expectedVersion) {
+      throw new Error("This correction changed since it was opened. Refresh and try again.");
+    }
+
+    const beforeJson = JSON.stringify(correction);
+    let proposedText = correction.proposedText;
+    let approvalStatus = correction.approvalStatus;
+    let applicationStatus = correction.applicationStatus;
+    let validationStatus = correction.validationStatus;
+    let validationNotes = correction.validationNotes;
+
+    if (args.action === "ACCEPT") {
+      if (validationStatus !== "PASSED") {
+        throw new Error("Cannot apply a correction that did not pass validation.");
+      }
+      if (!proposedText.trim()) {
+        throw new Error("This issue has no safe replacement text. Edit a proposed correction first.");
+      }
+      approvalStatus = "APPROVED";
+      applicationStatus = "APPLIED";
+    } else if (args.action === "REJECT") {
+      approvalStatus = "REJECTED";
+      applicationStatus = "NOT_APPLIED";
+    } else if (args.action === "EDIT") {
+      proposedText = args.proposedText?.trim().slice(0, 1400) ?? "";
+      const validation = validateEditedText(
+        correction.originalText,
+        proposedText,
+        correction.errorCategory,
+        correction.errorType,
+      );
+      validationStatus = validation.status;
+      validationNotes = validation.notes;
+      approvalStatus = "PENDING";
+      applicationStatus = "NOT_APPLIED";
+    } else if (args.action === "RESTORE") {
+      applicationStatus = "RESTORED";
+    } else if (args.action === "INTENTIONAL") {
+      approvalStatus = "INTENTIONAL";
+      applicationStatus = "NOT_APPLIED";
+    } else {
+      approvalStatus = "NEEDS_EVIDENCE";
+      applicationStatus = "NOT_APPLIED";
+    }
+
+    const profile = await ctx.db.get(userId);
+    const reviewerName = profile?.name?.trim() || profile?.email || "Reviewer";
+    const now = Date.now();
+    const patch = {
+      proposedText,
+      approvalStatus,
+      applicationStatus,
+      validationStatus,
+      validationNotes,
+      reviewerName,
+      reviewedAt: now,
+      updatedAt: now,
+      version: correction.version + 1,
+    } as const;
+    await ctx.db.patch(correction._id, patch);
+    const after = { ...correction, ...patch };
+    await ctx.db.insert("correctionHistory", {
+      analysisId: args.analysisId,
+      correctionId: correction.correctionId,
+      actorId: userId,
+      actorName: reviewerName,
+      action: args.action,
+      note: args.note?.trim().slice(0, 1200),
+      beforeJson,
+      afterJson: JSON.stringify(after),
+      version: after.version,
+      createdAt: now,
+    });
+    await ctx.db.insert("activity", {
+      userId,
+      kind: "correction_reviewed",
+      message: `${args.action.replace(/_/g, " ").toLowerCase()} ${correction.correctionId}`,
+      analysisId: args.analysisId,
+      createdAt: now,
+    });
+    return { correction: after };
+  },
+});
+
 export const remove = mutation({
   args: { analysisId: v.id("analyses") },
   handler: async (ctx, args) => {
@@ -444,6 +600,18 @@ export const remove = mutation({
       .withIndex("by_analysis", (q) => q.eq("analysisId", args.analysisId))
       .collect();
     for (const document of documents) await ctx.db.delete(document._id);
+
+    const corrections = await ctx.db
+      .query("analysisCorrections")
+      .withIndex("by_analysis", (q) => q.eq("analysisId", args.analysisId))
+      .collect();
+    for (const correction of corrections) await ctx.db.delete(correction._id);
+
+    const history = await ctx.db
+      .query("correctionHistory")
+      .withIndex("by_analysis", (q) => q.eq("analysisId", args.analysisId))
+      .collect();
+    for (const event of history) await ctx.db.delete(event._id);
 
     await ctx.db.delete(args.analysisId);
     return { deleted: true };
@@ -472,6 +640,53 @@ export const setStage = internalMutation({
   },
 });
 
+export const addCorrections = internalMutation({
+  args: {
+    analysisId: v.id("analyses"),
+    corrections: v.array(correctionInputValidator),
+  },
+  handler: async (ctx, args) => {
+    const analysis = await ctx.db.get(args.analysisId);
+    if (!analysis) return null;
+    const now = Date.now();
+    const existing = await ctx.db
+      .query("analysisCorrections")
+      .withIndex("by_analysis", (q) => q.eq("analysisId", args.analysisId))
+      .collect();
+    for (const correction of args.corrections) {
+      const row = {
+        analysisId: args.analysisId,
+        ...correction,
+      };
+      await ctx.db.insert("analysisCorrections", row);
+      await ctx.db.insert("correctionHistory", {
+        analysisId: args.analysisId,
+        correctionId: correction.correctionId,
+        actorId: "system" as const,
+        actorName: "CiteVerify correction engine",
+        action: "DETECTED",
+        note: correction.reason.slice(0, 1200),
+        beforeJson: "{}",
+        afterJson: JSON.stringify(row),
+        version: correction.version,
+        createdAt: now,
+      });
+    }
+    await ctx.db.patch(args.analysisId, {
+      correctionsFound: existing.length + args.corrections.length,
+      correctionsApplied: existing.filter(
+        (correction) => correction.applicationStatus === "APPLIED",
+      ).length +
+        args.corrections.filter((correction) => correction.applicationStatus === "APPLIED").length,
+      correctionsPending: existing.filter(
+        (correction) => correction.approvalStatus === "PENDING",
+      ).length +
+        args.corrections.filter((correction) => correction.approvalStatus === "PENDING").length,
+    });
+    return args.corrections.length;
+  },
+});
+
 export const complete = internalMutation({
   args: {
     analysisId: v.id("analyses"),
@@ -480,6 +695,9 @@ export const complete = internalMutation({
     claimsSkipped: v.optional(v.number()),
     referencesFound: v.optional(v.number()),
     referencesSkipped: v.optional(v.number()),
+    correctionsFound: v.optional(v.number()),
+    correctionsApplied: v.optional(v.number()),
+    correctionsPending: v.optional(v.number()),
     error: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -492,6 +710,9 @@ export const complete = internalMutation({
       claimsSkipped: args.claimsSkipped,
       referencesFound: args.referencesFound,
       referencesSkipped: args.referencesSkipped,
+      correctionsFound: args.correctionsFound,
+      correctionsApplied: args.correctionsApplied,
+      correctionsPending: args.correctionsPending,
       completedAt: Date.now(),
     });
     await ctx.db.insert("notifications", {
@@ -639,6 +860,18 @@ export const currentUserId = internalQuery({
   args: {},
   handler: async (ctx) => {
     return await getAuthUserId(ctx);
+  },
+});
+
+export const correctionsForAction = internalQuery({
+  args: { analysisId: v.id("analyses"), userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const analysis = await ctx.db.get(args.analysisId);
+    if (!analysis || analysis.userId !== args.userId) return null;
+    return await ctx.db
+      .query("analysisCorrections")
+      .withIndex("by_analysis", (q) => q.eq("analysisId", args.analysisId))
+      .collect();
   },
 });
 
