@@ -8,12 +8,8 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { useAuth } from "@/hooks/use-auth";
 import { formatFileSize } from "@/lib/analysis-ui";
 import { buildDemoPdf } from "@/lib/demo-paper";
-import {
-  MAX_FILE_BYTES,
-  MAX_PAGES,
-  extractPdfText,
-  type ExtractedPdf,
-} from "@/lib/pdf";
+import { MAX_PAGES, extractPdfText, type ExtractedPdf } from "@/lib/pdf";
+import { PAPER_FILE_ACCEPT, validateResearchPaperFile } from "@/lib/paper-file";
 import { deletePdfLocally, savePdfLocally } from "@/lib/pdf-store";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { motion } from "framer-motion";
@@ -43,15 +39,6 @@ type FileState = {
   totalPages: number;
   isDemo: boolean;
 };
-
-function validateFile(file: { name: string; size: number; type: string }): string | null {
-  const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
-  if (!isPdf) return "That file is not a PDF. CiteVerify only accepts .pdf documents.";
-  if (file.size === 0) return "That file is empty. Choose a PDF that contains text.";
-  if (file.size > MAX_FILE_BYTES)
-    return `This PDF is ${formatFileSize(file.size)}. The upload limit is 25 MB.`;
-  return null;
-}
 
 export default function Analyze() {
   const [searchParams] = useSearchParams();
@@ -219,7 +206,7 @@ export default function Analyze() {
 
   const handleFile = useCallback(
     async (file: File) => {
-      const problem = validateFile(file);
+      const problem = validateResearchPaperFile(file);
       if (problem) {
         setError(problem);
         setPhase(fileState ? "ready" : "idle");
@@ -380,7 +367,7 @@ export default function Analyze() {
                 <input
                   ref={inputRef}
                   type="file"
-                  accept="application/pdf,.pdf"
+                  accept={PAPER_FILE_ACCEPT}
                   className="hidden"
                   onClick={(event) => event.stopPropagation()}
                   onChange={(event) => {

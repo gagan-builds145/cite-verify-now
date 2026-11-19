@@ -1,5 +1,6 @@
 import * as pdfjs from "pdfjs-dist";
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+import { MAX_FILE_BYTES } from "./paper-file";
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
@@ -12,7 +13,7 @@ export type ExtractedPdf = {
   totalPages: number;
 };
 
-export const MAX_FILE_BYTES = 25 * 1024 * 1024;
+export { MAX_FILE_BYTES };
 export const MAX_PAGES = 80;
 
 export type PdfDocumentHandle = Awaited<ReturnType<typeof pdfjs.getDocument>["promise"]>;
