@@ -19,11 +19,11 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 
-type SearchMode = "research" | "paper" | "statement";
+export type SearchMode = "research" | "paper" | "statement";
 
 type AttachmentStage =
   | "ready"
@@ -102,21 +102,35 @@ function stageBadgeClass(stage: AttachmentStage): string {
 export function IntelligentSearch({
   className = "max-w-[650px]",
   idPrefix = "hero",
+  initialMode = "research",
+  presetQuery,
+  presetKey,
+  requireAttachment = false,
+  workspacePanel,
+  onProcessingChange,
 }: {
   className?: string;
   idPrefix?: string;
+  initialMode?: SearchMode;
+  presetQuery?: string;
+  presetKey?: number;
+  requireAttachment?: boolean;
+  workspacePanel?: "overview" | "claims" | "references" | "errors" | "corrections";
+  onProcessingChange?: (active: boolean) => void;
 }) {
   const navigate = useNavigate();
   const { isAuthenticated, signIn } = useAuth();
   const createAnalysis = useMutation(api.analyses.create);
   const runAnalysis = useAction(api.runAnalysis.run);
 
-  const [mode, setMode] = useState<SearchMode>("research");
+  const [mode, setMode] = useState<SearchMode>(initialMode);
   const [query, setQuery] = useState("");
   const [attachment, setAttachment] = useState<PaperAttachment | null>(null);
   const [inputError, setInputError] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const questionInputRef = useRef<HTMLInputElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
   const tokenRef = useRef(0);
   const busyRef = useRef(false);
 
@@ -135,6 +149,23 @@ export function IntelligentSearch({
   const completedStages =
     liveAnalysis?.stages.filter((stage) => stage.status === "complete").length ?? 0;
   const totalStages = liveAnalysis?.stages.length ?? 0;
+
+  useEffect(() => {
+    onProcessingChange?.(Boolean(busy));
+  }, [busy, onProcessingChange]);
+
+  useEffect(() => {
+    if (presetQuery === undefined) return;
+    const timer = window.setTimeout(() => {
+      setMode(initialMode);
+      setQuery(presetQuery);
+      setInputError(null);
+      rootRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      questionInputRef.current?.focus({ preventScroll: true });
+    }, 80);
+    return () => window.clearTimeout(timer);
+    // A new presetKey intentionally reapplies the same audit question.
+  }, [initialMode, presetKey, presetQuery]);
 
   const patchAttachment = (token: number, patch: Partial<PaperAttachment>) => {
     if (tokenRef.current !== token) return;
@@ -282,6 +313,13 @@ export function IntelligentSearch({
       return;
     }
 
+    if (requireAttachment && !attachment) {
+      const message = "Attach a PDF to run this paper-specific audit.";
+      setInputError(message);
+      fileInputRef.current?.click();
+      return;
+    }
+
     const value = query.trim();
     if (!value) return;
     navigate(`${activeMode.to}?q=${encodeURIComponent(value)}`);
@@ -299,7 +337,7 @@ export function IntelligentSearch({
       : "Search";
 
   return (
-    <div className={`w-full ${className}`}>
+    <div ref={rootRef} className={`w-full ${className}`}>
       <div
         className="flex flex-wrap items-center gap-1 rounded-xl border border-border/80 bg-card/75 p-1 shadow-[0_1px_0_rgba(20,35,61,0.03)] backdrop-blur"
         role="group"
@@ -334,6 +372,7 @@ export function IntelligentSearch({
       >
         <input
           ref={fileInputRef}
+          id={`${idPrefix}-paper-file`}
           type="file"
           accept={PAPER_FILE_ACCEPT}
           className="hidden"
@@ -461,7 +500,9 @@ export function IntelligentSearch({
                         </p>
                         {attachment.analysisId && (
                           <Link
-                            to={`/analysis/${attachment.analysisId}`}
+                            to={`/analysis/${attachment.analysisId}${
+                              workspacePanel ? `?panel=${workspacePanel}` : ""
+                            }`}
                             className="inline-flex items-center gap-1 rounded-full bg-[var(--action-bg)] px-3 py-1.5 text-[10.5px] font-semibold text-[var(--action-fg)] transition-colors hover:bg-[var(--action-bg-hover)]"
                           >
                             Open workspace
@@ -493,13 +534,14 @@ export function IntelligentSearch({
             {activeMode.label}
           </label>
           <input
+            ref={questionInputRef}
             id={`${idPrefix}-research-search`}
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder={
               attachment
-                ? "Attached paper will be verified"
+                ? "Ask anything about this research paper..."
                 : "Ask anything about research papers, citations or scientific claims..."
             }
             autoComplete="off"
