@@ -74,6 +74,53 @@ function initialsFirst(name: string): string {
   return initials ? `${initials} ${surname}` : surname;
 }
 
+function authorInitials(raw: string): { surname: string; initials: string } | null {
+  const yearIndex = raw.search(/\b(?:19|20)\d{2}\b/);
+  const prefix = (yearIndex > 0 ? raw.slice(0, yearIndex) : raw)
+    .replace(/^\[?\s*\d{1,3}[\].)]\s*/, "")
+    .trim();
+  const surnameFirst = /^([A-Z][A-Za-z'’-]+),\s*((?:[A-Z]\.\s*){1,4})/.exec(prefix);
+  if (surnameFirst) {
+    return {
+      surname: surnameFirst[1],
+      initials: surnameFirst[2].replace(/[^A-Z]/g, ""),
+    };
+  }
+  const initialsFirst = /^((?:[A-Z]\.\s*){1,4})\s+([A-Z][A-Za-z'’-]+)/.exec(prefix);
+  if (initialsFirst) {
+    return {
+      surname: initialsFirst[2],
+      initials: initialsFirst[1].replace(/[^A-Z]/g, ""),
+    };
+  }
+  return null;
+}
+
+function verifiedInitials(name: string): string {
+  const parts = name.split(/\s+/).filter(Boolean);
+  parts.pop();
+  return parts
+    .filter((part) => !/^(jr|sr|ii|iii|iv)$/i.test(part))
+    .map((part) => part.charAt(0).toUpperCase())
+    .join("");
+}
+
+function initialsMismatch(reference: ReferenceInput): boolean {
+  if (!reference.matchedAuthors.length) return false;
+  const original = authorInitials(reference.rawText);
+  if (!original) return false;
+  const verified = reference.matchedAuthors[0];
+  const verifiedSurname = normalizeForMatch(verified).split(" ").filter(Boolean).pop();
+  if (verifiedSurname !== normalizeForMatch(original.surname)) return false;
+  const expected = verifiedInitials(verified);
+  return (
+    original.initials.length > 0 &&
+    expected.length > 0 &&
+    original.initials.length === expected.length &&
+    original.initials !== expected
+  );
+}
+
 function formatAuthors(verified: string[], originalAuthors: string): string {
   const hasAmpersand = /&/.test(originalAuthors);
   const commaStyle = /,\s*[A-Z]\./.test(originalAuthors) || /,\s*[A-Z][a-z]+/.test(originalAuthors);
@@ -313,6 +360,20 @@ export function findBibliographyCorrections(
             reference.authors.join("; "),
             reference.matchedAuthors.join("; "),
             "The extracted author list differs from the identity-matched record.",
+          ),
+        );
+      } else if (initialsMismatch(reference)) {
+        output.push(
+          candidate(
+            reference,
+            page,
+            identity,
+            "authors",
+            "BIBLIOGRAPHY_AUTHOR_INITIALS_MISMATCH",
+            "MAJOR",
+            reference.authors.join("; "),
+            reference.matchedAuthors.join("; "),
+            "The author surname matches the identity-matched record, but the cited initials do not. The full verified name is proposed for human review.",
           ),
         );
       }

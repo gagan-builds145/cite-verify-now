@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { applyBibliographyFields } from "./bibliographyCorrection";
 import { applyAcceptedCorrections } from "./correctionApplier";
 import { correctionStats } from "./correctionAudit";
 import {
@@ -519,6 +520,112 @@ test("approved author and year fields merge into one reference while rejected fi
   assert.doesNotMatch(applied.pages[0].text, /Topal/);
   assert.match(applied.pages[0].text, /Nature Medicine, 24, 44-56/);
   assert.equal(bibliographyPages[0].text, source);
+});
+
+const initialsPages: PageText[] = [
+  {
+    page: 1,
+    text:
+      "References\n[1] Topol, A. B. (2019). High-performance medicine. Nature Medicine, 25, 44-56. doi:10.1038/s41591-018-0300-7",
+  },
+];
+const initialsResult = runCorrectionEngine({
+  analysisId: "initials-fixture",
+  pages: initialsPages,
+  claims: [],
+  references: [
+    bibliographyReference("1", initialsPages[0].text.split("\n")[1], {
+      authors: ["Topol"],
+      matchedAuthors: ["Eric J. Topol"],
+    }),
+  ],
+  now: 1,
+});
+
+test("author initials are detected when the surname matches", () => {
+  const row = initialsResult.corrections.find(
+    (item) => item.errorType === "BIBLIOGRAPHY_AUTHOR_INITIALS_MISMATCH",
+  );
+  assert.ok(row);
+  assert.equal(row.bibliography?.field, "authors");
+  assert.equal(row.bibliography?.verifiedValue, "Eric J. Topol");
+  assert.equal(row.correctionLevel, "HUMAN_APPROVAL_REQUIRED");
+});
+
+const missingAuthorPages: PageText[] = [
+  {
+    page: 1,
+    text:
+      "References\n[1] Topol, E. J. (2019). High-performance medicine. Nature Medicine, 25, 44-56. doi:10.1038/s41591-018-0300-7",
+  },
+];
+const missingAuthorResult = runCorrectionEngine({
+  analysisId: "missing-author-fixture",
+  pages: missingAuthorPages,
+  claims: [],
+  references: [
+    bibliographyReference("1", missingAuthorPages[0].text.split("\n")[1], {
+      authors: ["Topol"],
+      matchedAuthors: ["Eric J. Topol", "Jane Smith"],
+    }),
+  ],
+  now: 1,
+});
+
+const missingAuthorRow = missingAuthorResult.corrections.find(
+  (item) => item.errorType === "BIBLIOGRAPHY_MISSING_AUTHOR",
+);
+
+test("a missing author is proposed as a field-level human-review correction", () => {
+  assert.ok(missingAuthorRow);
+  assert.equal(missingAuthorRow.bibliography?.field, "authors");
+  assert.match(missingAuthorRow.bibliography?.verifiedValue ?? "", /Jane Smith/);
+  assert.equal(missingAuthorRow.applicationStatus, "NOT_APPLIED");
+});
+
+test("approved missing-author and journal fields are applied to the corrected reference", () => {
+  assert.ok(missingAuthorRow);
+  const journalRow = fieldRows("4", "venue")[0];
+  assert.ok(journalRow);
+  const acceptedMissing = {
+    ...missingAuthorRow,
+    approvalStatus: "APPROVED" as const,
+    applicationStatus: "APPLIED" as const,
+  };
+  const acceptedJournal = {
+    ...journalRow,
+    approvalStatus: "APPROVED" as const,
+    applicationStatus: "APPLIED" as const,
+  };
+  const appliedMissing = applyAcceptedCorrections(missingAuthorPages, [acceptedMissing]);
+  assert.match(appliedMissing.pages[0].text, /Topol, E\. J\., & Smith, J\./);
+  const appliedJournal = applyAcceptedCorrections(bibliographyPages, [acceptedJournal]);
+  assert.match(appliedJournal.pages[0].text, /Nature Medicine/);
+  assert.doesNotMatch(appliedJournal.pages[0].text, /Nature Med, 25/);
+});
+
+test("a manual field edit overrides the provider value only for the approved field", () => {
+  const author = fieldRows("1", "authors")[0];
+  assert.ok(author.bibliography);
+  const edited = applyBibliographyFields(bibliographyPages[0].text.split("\n")[1], [
+    { ...author.bibliography, acceptedValue: "Eric Topol" },
+  ]);
+  assert.match(edited, /Topol, E\./);
+  assert.doesNotMatch(edited, /Topal/);
+});
+
+test("restoring accepted bibliography fields removes the merged replacement", () => {
+  const accepted = [fieldRows("1", "authors")[0], fieldRows("1", "year")[0]].map((item) => ({
+    ...item,
+    approvalStatus: "APPROVED" as const,
+    applicationStatus: "APPLIED" as const,
+  }));
+  const applied = applyAcceptedCorrections(bibliographyPages, accepted);
+  assert.equal(applied.appliedCorrectionIds.length, 2);
+  const restored = accepted.map((item) => ({ ...item, applicationStatus: "RESTORED" as const }));
+  const unchanged = applyAcceptedCorrections(bibliographyPages, restored);
+  assert.equal(unchanged.appliedCorrectionIds.length, 0);
+  assert.equal(unchanged.pages[0].text, bibliographyPages[0].text);
 });
 
 if (failures > 0) {
