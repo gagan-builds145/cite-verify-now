@@ -336,6 +336,13 @@ export const addResult = internalMutation({
       }),
     ),
     limitations: v.array(v.string()),
+    modelVersions: v.optional(
+      v.object({
+        relevance: v.optional(v.string()),
+        evidence: v.optional(v.string()),
+        retrieval: v.optional(v.string()),
+      }),
+    ),
     humanReviewRequired: v.boolean(),
     sortIndex: v.number(),
   },

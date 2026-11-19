@@ -25,6 +25,7 @@ const LibraryPage = lazy(() => import("./pages/Library.tsx"));
 const ResearchGraph = lazy(() => import("./pages/ResearchGraph.tsx"));
 const Assistant = lazy(() => import("./pages/Assistant.tsx"));
 const Reports = lazy(() => import("./pages/Reports.tsx"));
+const AdminModels = lazy(() => import("./pages/AdminModels.tsx"));
 const Notifications = lazy(() => import("./pages/Notifications.tsx"));
 const Settings = lazy(() => import("./pages/Settings.tsx"));
 const Info = lazy(() => import("./pages/Info.tsx"));
@@ -208,6 +209,17 @@ createRoot(document.getElementById("root")!).render(
                     description="Report and verification updates appear here."
                   >
                     <Notifications />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/admin/models"
+                element={
+                  <RequireAuth
+                    title="Sign in to manage verification models"
+                    description="Training data, evaluations and deployment controls are administrator-only."
+                  >
+                    <AdminModels />
                   </RequireAuth>
                 }
               />

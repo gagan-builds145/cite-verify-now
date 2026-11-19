@@ -1,0 +1,312 @@
+from __future__ import annotations
+
+import os
+import subprocess
+import sys
+import threading
+import time
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+from fastapi import Depends, FastAPI, Header, HTTPException  # noqa: E402
+
+from common.io import read_json  # noqa: E402
+from common.registry import (  # noqa: E402
+    ROOT as REGISTRY_ROOT,
+    create_job,
+    get_job,
+    load_jobs,
+    load_registry,
+    save_registry,
+    update_job,
+)
+from common.schema import SAFE_DATASET_NAME  # noqa: E402
+from inference.predictor import ModelUnavailable, get_predictor  # noqa: E402
+
+from .schemas import (  # noqa: E402
+    AdminStatusResponse,
+    DatasetUploadRequest,
+    DeployRequest,
+    EvaluateRequest,
+    EvidenceRequest,
+    EvidenceResponse,
+    RelevanceRequest,
+    RelevanceResponse,
+    RetrieveRequest,
+    RetrieveResponse,
+    RollbackRequest,
+    TrainRequest,
+    ValidateDatasetRequest,
+)
+
+app = FastAPI(
+    title="CiteVerify ML Service",
+    version="0.1.0",
+    description="Specialized relevance, NLI evidence and hybrid retrieval service. Trained weights are optional and must be deployed explicitly.",
+)
+
+SERVICE_TOKEN = os.environ.get("CITEVERIFY_ML_TOKEN") or os.environ.get("ML_SERVICE_TOKEN")
+ALLOW_UNAUTHENTICATED = os.environ.get("CITEVERIFY_ML_ALLOW_UNAUTHENTICATED") == "1"
+
+
+def require_service_token(x_service_token: str | None = Header(default=None)) -> None:
+    if ALLOW_UNAUTHENTICATED and not SERVICE_TOKEN:
+        return
+    if not SERVICE_TOKEN or x_service_token != SERVICE_TOKEN:
+        raise HTTPException(status_code=401, detail="A valid service token is required.")
+
+
+def _safe_dataset_path(name: str) -> Path:
+    if not SAFE_DATASET_NAME.match(name) or not name.lower().endswith((".csv", ".jsonl")):
+        raise HTTPException(status_code=400, detail="Dataset name must be a safe .csv or .jsonl filename.")
+    return REGISTRY_ROOT / "datasets" / "raw" / name
+
+
+def _dataset_summary() -> dict:
+    report = read_json(REGISTRY_ROOT / "datasets" / "processed" / "last_prepare_report.json", {})
+    prepared = {}
+    for kind in ("relevance", "evidence"):
+        directory = REGISTRY_ROOT / "datasets" / "processed" / kind
+        manifest = read_json(directory / "manifest.json", {})
+        prepared[kind] = manifest or {"ready": False, "directory": str(directory)}
+    return {"prepared": prepared, "last_prepare": report, "raw_dir": str(REGISTRY_ROOT / "datasets" / "raw")}
+
+
+def _evaluation_reports() -> list[dict]:
+    reports = []
+    directory = REGISTRY_ROOT / "evaluation" / "reports"
+    for path in sorted(directory.glob("evaluation-*.json"), reverse=True):
+        report = read_json(path, {})
+        if report:
+            reports.append({"file": path.name, **report})
+    return reports
+
+
+def _evaluation_for(kind: str, version: str) -> dict | None:
+    for report in _evaluation_reports():
+        section = report.get(kind)
+        if section and str(section.get("model_version")) == version and section.get("test_rows", 0) > 0:
+            return {"file": report.get("file"), **section}
+    return None
+
+
+def _newest_version(kind: str) -> str | None:
+    directory = REGISTRY_ROOT / "models" / kind
+    if not directory.exists():
+        return None
+    versions = sorted(path.name for path in directory.iterdir() if path.is_dir() and path.name.startswith(f"{kind}-"))
+    return versions[-1] if versions else None
+
+
+def _activate(kind: str, version: str) -> dict:
+    directory = REGISTRY_ROOT / "models" / kind / version
+    if not directory.exists():
+        raise HTTPException(status_code=404, detail=f"Model directory not found: {kind}/{version}")
+    registry = load_registry()
+    if version not in [item.get("version") for item in registry["models"].get(kind, [])]:
+        registry["models"].setdefault(kind, []).append({"version": version, "activated_at": int(time.time())})
+    registry["active"][kind] = version
+    save_registry(registry)
+    return registry
+
+
+def _job_command(kind: str, dataset_dir: Path) -> list[str]:
+    train = dataset_dir / "train.jsonl"
+    validation = dataset_dir / "validation.jsonl"
+    if kind == "relevance":
+        return [
+            sys.executable,
+            str(ROOT / "training" / "train_relevance.py"),
+            "--train", str(train),
+            "--validation", str(validation),
+            "--register",
+        ]
+    return [
+        sys.executable,
+        str(ROOT / "training" / "train_evidence.py"),
+        "--train", str(train),
+        "--validation", str(validation),
+        "--register",
+    ]
+
+
+def _run_job(job_id: str, command: list[str], kind: str, activate: bool) -> None:
+    log_path = REGISTRY_ROOT / "models" / f"job-{job_id}.log"
+    try:
+        with log_path.open("w", encoding="utf-8") as log:
+            process = subprocess.Popen(
+                command,
+                cwd=str(ROOT),
+                stdout=log,
+                stderr=subprocess.STDOUT,
+                text=True,
+            )
+            code = process.wait()
+        log_text = log_path.read_text(encoding="utf-8", errors="replace")[-12000:]
+        if code == 0:
+            version = _newest_version(kind)
+            if activate and version:
+                _activate(kind, version)
+            update_job(job_id, status="complete", finished_at=int(time.time()), log=log_text, version=version)
+        else:
+            update_job(job_id, status="failed", finished_at=int(time.time()), log=log_text, exit_code=code)
+    except Exception as error:  # noqa: BLE001
+        update_job(job_id, status="failed", finished_at=int(time.time()), log=str(error))
+
+
+@app.get("/health")
+def health() -> dict:
+    return get_predictor().health()
+
+
+@app.get("/model-info", dependencies=[Depends(require_service_token)])
+def model_info() -> dict:
+    return get_predictor().model_info()
+
+
+@app.post("/predict/relevance", response_model=RelevanceResponse, dependencies=[Depends(require_service_token)])
+def predict_relevance(request: RelevanceRequest) -> dict:
+    try:
+        return get_predictor().relevance(
+            request.statement,
+            request.paper_title,
+            request.paper_abstract,
+            request.paper_keywords,
+        )
+    except ModelUnavailable as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+
+
+@app.post("/predict/evidence", response_model=EvidenceResponse, dependencies=[Depends(require_service_token)])
+def predict_evidence(request: EvidenceRequest) -> dict:
+    try:
+        return get_predictor().evidence(
+            request.statement,
+            [passage.model_dump() for passage in request.passages],
+        )
+    except ModelUnavailable as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+
+
+@app.post("/retrieve", response_model=RetrieveResponse, dependencies=[Depends(require_service_token)])
+def retrieve(request: RetrieveRequest) -> dict:
+    try:
+        return get_predictor().retrieve(
+            request.statement,
+            [passage.model_dump() for passage in request.passages],
+            request.top_k,
+        )
+    except ModelUnavailable as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+
+
+@app.get("/admin/status", response_model=AdminStatusResponse, dependencies=[Depends(require_service_token)])
+def admin_status() -> dict:
+    jobs = load_jobs().get("jobs", [])
+    return {
+        "health": get_predictor().health(),
+        "registry": load_registry(),
+        "jobs": [
+            {**job, "log": str(job.get("log", ""))[-4000:]}
+            for job in sorted(jobs, key=lambda item: item.get("created_at", 0), reverse=True)[:30]
+        ],
+        "datasets": _dataset_summary(),
+        "evaluations": _evaluation_reports()[:20],
+    }
+
+
+@app.post("/admin/datasets/upload", dependencies=[Depends(require_service_token)])
+def upload_dataset(request: DatasetUploadRequest) -> dict:
+    path = _safe_dataset_path(request.name)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(request.content, encoding="utf-8")
+    return {"ok": True, "path": str(path), "bytes": len(request.content.encode("utf-8"))}
+
+
+@app.post("/admin/validate", dependencies=[Depends(require_service_token)])
+def validate_dataset(request: ValidateDatasetRequest) -> dict:
+    path = _safe_dataset_path(request.file)
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Dataset file not found.")
+    command = [
+        sys.executable,
+        str(ROOT / "scripts" / "prepare_dataset.py"),
+        f"--{request.kind}",
+        str(path),
+        "--output-dir",
+        str(REGISTRY_ROOT / "datasets" / "processed"),
+    ]
+    if request.allow_unreviewed:
+        command.append("--allow-unreviewed")
+    result = subprocess.run(command, cwd=str(ROOT), capture_output=True, text=True, timeout=120)
+    if result.returncode != 0:
+        raise HTTPException(status_code=400, detail=(result.stderr or result.stdout)[-4000:])
+    return {"ok": True, "output": result.stdout[-4000:], "report": _dataset_summary()}
+
+
+@app.post("/admin/train", dependencies=[Depends(require_service_token)])
+def train(request: TrainRequest) -> dict:
+    dataset_dir = Path(request.dataset_dir) if request.dataset_dir else REGISTRY_ROOT / "datasets" / "processed" / request.kind
+    if not dataset_dir.is_absolute():
+        dataset_dir = ROOT / dataset_dir
+    if not (dataset_dir / "train.jsonl").exists():
+        raise HTTPException(status_code=400, detail="Prepared train.jsonl not found. Validate a dataset first.")
+    command = _job_command(request.kind, dataset_dir)
+    job_id = create_job("train", f"{request.kind} from {dataset_dir}")
+    # Training never promotes a model. An independent evaluation and an explicit
+    # deploy call are required before production traffic can use it.
+    threading.Thread(
+        target=_run_job,
+        args=(job_id, command, request.kind, False),
+        daemon=True,
+    ).start()
+    return {"ok": True, "job_id": job_id}
+
+
+@app.post("/admin/evaluate", dependencies=[Depends(require_service_token)])
+def evaluate(request: EvaluateRequest) -> dict:
+    command = [sys.executable, str(ROOT / "evaluation" / "evaluate_models.py")]
+    if request.model_version:
+        command.extend([f"--{request.kind}-model", str(ROOT / "models" / request.kind / request.model_version)])
+    job_id = create_job("evaluate", request.kind)
+    threading.Thread(target=_run_job, args=(job_id, command, request.kind, False), daemon=True).start()
+    return {"ok": True, "job_id": job_id}
+
+
+@app.get("/admin/jobs/{job_id}", dependencies=[Depends(require_service_token)])
+def job_status(job_id: str) -> dict:
+    job = get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    return job
+
+
+@app.post("/admin/deploy", dependencies=[Depends(require_service_token)])
+def deploy(request: DeployRequest) -> dict:
+    evaluation = _evaluation_for(request.kind, request.version)
+    if not evaluation:
+        raise HTTPException(
+            status_code=409,
+            detail="This version has no independent test evaluation. Run /admin/evaluate before deployment.",
+        )
+    return {
+        "ok": True,
+        "evaluation": evaluation,
+        "registry": _activate(request.kind, request.version),
+    }
+
+
+@app.post("/admin/rollback", dependencies=[Depends(require_service_token)])
+def rollback(request: RollbackRequest) -> dict:
+    registry = load_registry()
+    versions = [item.get("version") for item in registry["models"].get(request.kind, []) if item.get("version")]
+    active = registry["active"].get(request.kind)
+    candidates = [version for version in versions if version != active]
+    if not candidates:
+        raise HTTPException(status_code=400, detail="No previous model version is available.")
+    for previous in sorted(candidates, reverse=True):
+        if _evaluation_for(request.kind, previous):
+            return {"ok": True, "registry": _activate(request.kind, previous)}
+    raise HTTPException(status_code=409, detail="No previous version has a passing evaluation report.")

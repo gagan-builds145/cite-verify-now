@@ -257,6 +257,7 @@ export default function StatementResults() {
               source: ref.sourceName ?? null,
             })),
             limitations: result.limitations,
+            model_versions: result.modelVersions ?? {},
             human_review_required: result.humanReviewRequired,
             review: result.reviewStatus
               ? {

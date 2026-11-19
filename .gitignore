@@ -2,3 +2,12 @@
 node_modules
 dist
 src/convex/_generated
+ml-service/.venv/
+ml-service/**/__pycache__/
+ml-service/datasets/raw/*
+!ml-service/datasets/raw/.gitkeep
+ml-service/datasets/processed/*
+!ml-service/datasets/processed/.gitkeep
+ml-service/models/*
+!ml-service/models/README.md
+!ml-service/models/.gitkeep

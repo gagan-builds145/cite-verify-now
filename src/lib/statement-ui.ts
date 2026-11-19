@@ -44,6 +44,11 @@ export type StatementResultRecord = {
   evidence: StatementEvidence[];
   references: StatementReference[];
   limitations: string[];
+  modelVersions?: {
+    relevance?: string;
+    evidence?: string;
+    retrieval?: string;
+  };
   humanReviewRequired: boolean;
   reviewStatus?: "approved" | "rejected" | "overridden";
   reviewNote?: string;

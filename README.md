@@ -255,6 +255,19 @@ src/
   `use-mobile.ts`, and one purity finding in the shadcn sidebar. No errors remain in the files added or
   changed for this work.
 
+## Specialized ML service
+
+The optional `ml-service/` workspace implements a paper-level dataset pipeline, a relevance
+classifier, an NLI evidence verifier and hybrid BM25 + embedding retrieval. It is wired into the
+statement workflow through server-side Convex actions and falls back to the existing AI/BM25 path
+whenever the service or a deployed model is unavailable. Administrators manage datasets, training,
+evaluation and deployment at `/admin/models`.
+
+**No trained weights or accuracy metrics are included.** The repository contains empty dataset
+templates and the complete training/evaluation tooling; a human-reviewed dataset must be supplied
+before training can be completed. See [`ml-service/README.md`](ml-service/README.md) for the Windows
+setup, annotation requirements, commands and security notes.
+
 ## Limitations
 
 - Only extractable text is analysed; figures, image-only tables and image footnotes are not. OCR is not

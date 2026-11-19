@@ -56,6 +56,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const unread = useQuery(api.workspace.unreadCount) ?? 0;
+  const admin = useQuery(api.adminData.me);
 
   const handleSignOut = async () => {
     await signOut();
@@ -103,6 +104,26 @@ export function AppShell({ children }: { children: ReactNode }) {
               </div>
             </div>
           ))}
+          {admin?.isAdmin && (
+            <div>
+              <p className="px-2 pb-1.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/75">
+                Administration
+              </p>
+              <NavLink
+                to="/admin/models"
+                className={({ isActive }) =>
+                  `group flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-[12.5px] font-medium transition-all ${
+                    isActive
+                      ? "bg-accent text-accent-foreground shadow-[inset_0_0_0_1px_var(--border)]"
+                      : "text-muted-foreground hover:bg-card/70 hover:text-foreground"
+                  }`
+                }
+              >
+                <ShieldCheck className="size-4 shrink-0" />
+                <span className="flex-1">Models</span>
+              </NavLink>
+            </div>
+          )}
         </nav>
 
         <div className="border-t border-border px-3 py-3">
@@ -171,6 +192,18 @@ export function AppShell({ children }: { children: ReactNode }) {
                 {item.label}
               </NavLink>
             ))}
+            {admin?.isAdmin && (
+              <NavLink
+                to="/admin/models"
+                className={({ isActive }) =>
+                  `whitespace-nowrap rounded-full px-3 py-1.5 text-[11.5px] font-medium transition-colors ${
+                    isActive ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted"
+                  }`
+                }
+              >
+                Models
+              </NavLink>
+            )}
           </nav>
         </div>
 

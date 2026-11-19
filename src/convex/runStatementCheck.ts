@@ -12,6 +12,13 @@ import {
 } from "./lib/ai";
 import { verifyReference, type ReferenceVerification } from "./lib/academic";
 import {
+  mlEvidence,
+  mlRelevance,
+  mlRetrieve,
+  mlServiceConfigured,
+  type MlPassage,
+} from "./lib/mlService";
+import {
   buildPaperModel,
   buildRetrievalContext,
   bestEvidenceSentence,
@@ -148,18 +155,82 @@ export const run = action({
         evidence: EvidenceResult[];
         references: ReferenceResult[];
         limitations: string[];
+        modelVersions: {
+          relevance?: string;
+          evidence?: string;
+          retrieval?: string;
+        };
         humanReviewRequired: boolean;
         sortIndex: number;
       }[] = [];
 
+      const mlConfigured = mlServiceConfigured();
+      let mlUnavailable = false;
       for (const [index, statementRow] of check.statements.entries()) {
         const statement = statementRow.text;
-        const expansion = aiConfigured()
+        const mlPassages: MlPassage[] = model.chunks.map((chunk) => ({
+          id: chunk.id,
+          page: chunk.page,
+          section: chunk.section,
+          text: chunk.text,
+          order: chunk.order,
+        }));
+
+        let chunks = retrieveEvidenceChunks(statement, model, 12);
+        let mlRetrievalUsed = false;
+        let mlRetrievalModel: string | undefined;
+        if (mlConfigured) {
+          const mlRetrieval = await mlRetrieve({ statement, passages: mlPassages, topK: 12 });
+          if (mlRetrieval?.chunks?.length) {
+            const localById = new Map(model.chunks.map((chunk) => [chunk.id, chunk]));
+            const mapped = mlRetrieval.chunks
+              .map((chunk) => localById.get(chunk.id))
+              .filter((chunk): chunk is NonNullable<typeof chunk> => Boolean(chunk));
+            if (mapped.length > 0) {
+              chunks = mapped;
+              mlRetrievalUsed = true;
+              mlRetrievalModel = mlRetrieval.retrieval_model;
+            }
+          }
+        }
+
+        const expansion = !mlRetrievalUsed && aiConfigured()
           ? await expandStatementQuery(statement)
           : { terms: [], ok: false };
-        const retrievalQuery = [statement, ...expansion.terms].join(" ").slice(0, 4000);
-        const chunks = retrieveEvidenceChunks(retrievalQuery, model, 12);
+        if (!mlRetrievalUsed) {
+          const retrievalQuery = [statement, ...expansion.terms].join(" ").slice(0, 4000);
+          chunks = retrieveEvidenceChunks(retrievalQuery, model, 12);
+        }
         const context = buildRetrievalContext(chunks);
+
+        let mlRelevanceResult: Awaited<ReturnType<typeof mlRelevance>> = null;
+        let mlEvidenceResult: Awaited<ReturnType<typeof mlEvidence>> = null;
+        if (mlConfigured) {
+          const [relevanceResult, evidenceResult] = await Promise.all([
+            mlRelevance({
+              statement,
+              paperTitle: model.title,
+              paperAbstract: model.abstract ?? "",
+              paperKeywords: model.keywords.slice(0, 20),
+            }),
+            chunks.length > 0
+              ? mlEvidence({
+                  statement,
+                  passages: chunks.map((chunk) => ({
+                    id: chunk.id,
+                    page: chunk.page,
+                    section: chunk.section,
+                    text: chunk.text,
+                    order: chunk.order,
+                  })),
+                })
+              : Promise.resolve(null),
+          ]);
+          mlRelevanceResult = relevanceResult;
+          mlEvidenceResult = evidenceResult;
+          if (!relevanceResult && !evidenceResult) mlUnavailable = true;
+          if (relevanceResult || evidenceResult) aiUsed = true;
+        }
 
         let analysis: StatementAnalysis | undefined;
         if (aiConfigured() && chunks.length > 0) {
@@ -203,6 +274,35 @@ export const run = action({
             ],
             humanReviewRequired: true,
           };
+        }
+
+        if (mlRelevanceResult) {
+          analysis.relevance = mlRelevanceResult.label;
+          analysis.relevanceExplanation = `The specialized relevance classifier classified this statement as ${mlRelevanceResult.label.replace(/_/g, " ").toLowerCase()} (model ${mlRelevanceResult.model_version}).`;
+        }
+        if (mlEvidenceResult) {
+          analysis.verdict = mlEvidenceResult.verdict;
+          analysis.confidence = mlEvidenceResult.confidence;
+          analysis.explanation = mlEvidenceResult.explanation;
+          analysis.limitations = uniqueStrings([
+            ...analysis.limitations,
+            ...mlEvidenceResult.limitations,
+          ]);
+          analysis.humanReviewRequired = mlEvidenceResult.human_review_required;
+          if (mlEvidenceResult.evidence.length > 0) {
+            analysis.evidence = mlEvidenceResult.evidence.map((item) => ({
+              sourceId: item.source_id,
+              quote: item.quote ?? "",
+              relationship: item.relationship,
+            }));
+          }
+        }
+        if (analysis.relevance === "IRRELEVANT" || analysis.relevance === "CANNOT_DETERMINE") {
+          if (["SUPPORTED", "PARTIALLY_SUPPORTED", "CONTRADICTED"].includes(analysis.verdict)) {
+            analysis.verdict = "INSUFFICIENT_EVIDENCE";
+            analysis.explanation =
+              "The statement was not classified as topically relevant to this paper, so no support or contradiction verdict is asserted.";
+          }
         }
 
         const bySource = new Map(chunks.map((chunk) => [chunk.id, chunk]));
@@ -276,7 +376,7 @@ export const run = action({
                 `The statement uses absolute language (“${absoluteLanguage[1]}”). Check that the study's scope, population and effect size justify that strength of claim.`,
               ]
             : []),
-          ...(expansion.ok
+          ...(expansion.ok || mlRetrievalUsed
             ? []
             : ["Semantic query expansion was unavailable; retrieval relied on the statement's own terms."]),
           ...(evidence.length === 0
@@ -287,6 +387,9 @@ export const run = action({
             : []),
           ...(analysis.confidence !== undefined
             ? ["Confidence is an uncalibrated model signal, not a statistical probability."]
+            : []),
+          ...(mlUnavailable
+            ? ["The specialized ML service was unavailable; the existing AI/BM25 fallback was used."]
             : []),
         ]);
 
@@ -374,6 +477,11 @@ export const run = action({
           evidence,
           references: referenceResults,
           limitations: uniqueStrings(statementLimitations).slice(0, 8),
+          modelVersions: {
+            relevance: mlRelevanceResult?.model_version,
+            evidence: mlEvidenceResult?.model_version,
+            retrieval: mlRetrievalModel,
+          },
           humanReviewRequired:
             analysis.humanReviewRequired ||
             verdict !== "SUPPORTED" ||
