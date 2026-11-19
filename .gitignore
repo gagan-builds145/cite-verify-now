@@ -18,3 +18,4 @@ ml-service/models/*
 !ml-service/models/README.md
 !ml-service/models/.gitkeep
 ml-service/datasets/**/*.bak-*
+ml-service/datasets/cache/

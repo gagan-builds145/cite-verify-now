@@ -1,0 +1,56 @@
+{
+  "generated_at": "2026-11-19T16:21:48Z",
+  "target": 25,
+  "collection": {
+    "records": 25,
+    "downloaded": 25,
+    "validated": 25,
+    "discovered": 46,
+    "duplicates": 0,
+    "failed_downloads": 5,
+    "rejected_downloads": 0,
+    "extracted": 25,
+    "extraction_warnings": 22,
+    "license_review_required": 25
+  },
+  "sources": {
+    "arXiv": {
+      "discovered": 46,
+      "downloaded": 24,
+      "validated": 24,
+      "training_eligible": 0,
+      "review_required": 24
+    },
+    "OpenAlex": {
+      "discovered": 0,
+      "downloaded": 1,
+      "validated": 1,
+      "training_eligible": 0,
+      "review_required": 1
+    }
+  },
+  "dataset": {
+    "relevance_candidates": 346,
+    "evidence_candidates": 600,
+    "pending": 946,
+    "human_reviewed": 0,
+    "approved": 0,
+    "validation_errors": 0,
+    "unique_papers": 25,
+    "training_eligible_papers": 0,
+    "split_ready": false
+  },
+  "licenses": {
+    "PERMITTED": 0,
+    "REVIEW_REQUIRED": 25,
+    "RESTRICTED": 0,
+    "UNKNOWN": 0
+  },
+  "training_readiness": "BLOCKED",
+  "blockers": [
+    "946 candidate row(s) remain pending human review.",
+    "No candidate rows are approved.",
+    "No paper has established training eligibility under an explicit permissive license.",
+    "No paper-level prepared split exists."
+  ]
+}

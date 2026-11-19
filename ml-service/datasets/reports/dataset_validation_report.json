@@ -1,21 +1,37 @@
 {
-  "generated_at": "2026-11-19T15:23:43Z",
+  "generated_at": "2026-11-19T16:20:14Z",
   "status": "needs_human_review",
-  "source_papers": 1,
-  "extracted_papers": 1,
+  "source_papers": 25,
+  "extracted_papers": 25,
   "relevance": {
     "path": "/home/daytona/codebase/ml-service/datasets/raw/pilot_relevance.csv",
     "exists": true,
-    "rows": 12,
+    "rows": 346,
     "labels": {
-      "RELEVANT": 12
+      "RELEVANT": 300,
+      "IRRELEVANT": 46
     },
     "review_status": {
-      "pending": 12
+      "pending": 346
     },
     "errors": [],
-    "warnings": [],
-    "pending": 12,
+    "warnings": [
+      "row 266: source paper has no extracted abstract",
+      "row 267: source paper has no extracted abstract",
+      "row 268: source paper has no extracted abstract",
+      "row 269: source paper has no extracted abstract",
+      "row 270: source paper has no extracted abstract",
+      "row 271: source paper has no extracted abstract",
+      "row 272: source paper has no extracted abstract",
+      "row 273: source paper has no extracted abstract",
+      "row 274: source paper has no extracted abstract",
+      "row 275: source paper has no extracted abstract",
+      "row 276: source paper has no extracted abstract",
+      "row 277: source paper has no extracted abstract",
+      "row 340: source paper has no extracted abstract",
+      "row 341: source paper has no extracted abstract"
+    ],
+    "pending": 346,
     "reviewed": 0,
     "approved": 0,
     "rejected": 0,
@@ -27,17 +43,17 @@
   "evidence": {
     "path": "/home/daytona/codebase/ml-service/datasets/raw/pilot_evidence.jsonl",
     "exists": true,
-    "rows": 24,
+    "rows": 600,
     "labels": {
-      "ENTAILMENT": 12,
-      "NEUTRAL": 12
+      "ENTAILMENT": 301,
+      "NEUTRAL": 299
     },
     "review_status": {
-      "pending": 24
+      "pending": 600
     },
     "errors": [],
     "warnings": [],
-    "pending": 24,
+    "pending": 600,
     "reviewed": 0,
     "approved": 0,
     "rejected": 0,
@@ -48,12 +64,12 @@
   },
   "ready_for_training": false,
   "summary": {
-    "extracted_examples": 36,
-    "pending_annotations": 36,
+    "extracted_examples": 946,
+    "pending_annotations": 946,
     "human_reviewed": 0,
     "approved": 0,
     "rejected": 0,
     "validation_errors": 0,
-    "validation_warnings": 0
+    "validation_warnings": 14
   }
 }

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+import time
 from pathlib import Path
 from typing import Any
 
@@ -341,6 +342,7 @@ def extract_pdf(path: Path) -> dict[str, Any]:
         "conclusion": by_name.get("Conclusion", ""),
         "bibliography": "\n\n".join(bibliography),
         "limitations": limitations,
+        "extracted_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "provenance": "PDF supplied by the CiteVerify project owner; extracted locally without external enrichment.",
         "pages": pages,
         "sections": sections,

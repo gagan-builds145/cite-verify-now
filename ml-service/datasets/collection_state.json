@@ -1,0 +1,817 @@
+{
+  "target": 25,
+  "topics": [
+    "Computer Science"
+  ],
+  "discovered": [
+    {
+      "paper_id": "paper_f0befd677241e758",
+      "title": "UltraTex: Aligning Physical Knowledge for High-Fidelity PBR Texture Generation",
+      "arxiv_id": "2611.24941",
+      "doi": "10.1145/3842583",
+      "original_source": "arXiv",
+      "source_record_url": "https://arxiv.org/abs/2611.24941",
+      "download_url": "https://arxiv.org/pdf/2611.24941v1",
+      "license": "",
+      "reuse_status": "",
+      "research_topics": [
+        "Computer Science",
+        "cs.CV"
+      ]
+    },
+    {
+      "paper_id": "paper_c0ee940431c58b76",
+      "title": "$Z$-sight: Unifying Vision-Language-Action and Latent World Modeling",
+      "arxiv_id": "2611.24940",
+      "doi": "",
+      "original_source": "arXiv",
+      "source_record_url": "https://arxiv.org/abs/2611.24940",
+      "download_url": "https://arxiv.org/pdf/2611.24940v1",
+      "license": "",
+      "reuse_status": "",
+      "research_topics": [
+        "Computer Science",
+        "cs.RO",
+        "cs.CV"
+      ]
+    },
+    {
+      "paper_id": "paper_f098e281aaf1e39f",
+      "title": "Phoenix: Learning Scene Structure Representations for Generalizable World-Action Models",
+      "arxiv_id": "2611.24938",
+      "doi": "",
+      "original_source": "arXiv",
+      "source_record_url": "https://arxiv.org/abs/2611.24938",
+      "download_url": "https://arxiv.org/pdf/2611.24938v1",
+      "license": "",
+      "reuse_status": "",
+      "research_topics": [
+        "Computer Science",
+        "cs.RO"
+      ]
+    },
+    {
+      "paper_id": "paper_1b64bfdae0f6cf12",
+      "title": "Jailbreak Detection on Large Language Models via Contrastive Prototype Structures",
+      "arxiv_id": "2611.24936",
+      "doi": "",
+      "original_source": "arXiv",
+      "source_record_url": "https://arxiv.org/abs/2611.24936",
+      "download_url": "https://arxiv.org/pdf/2611.24936v1",
+      "license": "",
+      "reuse_status": "",
+      "research_topics": [
+        "Computer Science",
+        "cs.CL"
+      ]
+    },
+    {
+      "paper_id": "paper_346e92b35321c1e3",
+      "title": "Sharp Complexity Thresholds for Network Cournot Competition",
+      "arxiv_id": "2611.24931",
+      "doi": "",
+      "original_source": "arXiv",
+      "source_record_url": "https://arxiv.org/abs/2611.24931",
+      "download_url": "https://arxiv.org/pdf/2611.24931v1",
+      "license": "",
+      "reuse_status": "",
+      "research_topics": [
+        "Computer Science",
+        "cs.GT",
+        "cs.CC"
+      ]
+    },
+    {
+      "paper_id": "paper_4a7ef8edaf6bb2dd",
+      "title": "Grana: Compositional Reward Modeling for Long-Horizon Robot Manipulation",
+      "arxiv_id": "2611.24926",
+      "doi": "",
+      "original_source": "arXiv",
+      "source_record_url": "https://arxiv.org/abs/2611.24926",
+      "download_url": "https://arxiv.org/pdf/2611.24926v1",
+      "license": "",
+      "reuse_status": "",
+      "research_topics": [
+        "Computer Science",
+        "cs.RO"
+      ]
+    },
+    {
+      "paper_id": "paper_72b398104ad16937",
+      "title": "Render the Robot, Generate the World: One Video World Model Across Embodiments",
+      "arxiv_id": "2611.24925",
+      "doi": "",
+      "original_source": "arXiv",
+      "source_record_url": "https://arxiv.org/abs/2611.24925",
+      "download_url": "https://arxiv.org/pdf/2611.24925v1",
+      "license": "",
+      "reuse_status": "",
+      "research_topics": [
+        "Computer Science",
+        "cs.RO"
+      ]
+    },
+    {
+      "paper_id": "paper_9af4903992ea66a4",
+      "title": "Agentic Harness Engineering Beta: Requirement-Centered Evolution of Agent Harnesses",
+      "arxiv_id": "2611.24924",
+      "doi": "",
+      "original_source": "arXiv",
+      "source_record_url": "https://arxiv.org/abs/2611.24924",
+      "download_url": "https://arxiv.org/pdf/2611.24924v1",
+      "license": "",
+      "reuse_status": "",
+      "research_topics": [
+        "Computer Science",
+        "cs.SE",
+        "cs.AI"
+      ]
+    },
+    {
+      "paper_id": "paper_32341104d5b20017",
+      "title": "The Optimal Competitive Ratio for Subadditive Online Combinatorial Auctions is Less Than 1/2",
+      "arxiv_id": "2611.24920",
+      "doi": "",
+      "original_source": "arXiv",
+      "source_record_url": "https://arxiv.org/abs/2611.24920",
+      "download_url": "https://arxiv.org/pdf/2611.24920v1",
+      "license": "",
+      "reuse_status": "",
+      "research_topics": [
+        "Computer Science",
+        "cs.GT"
+      ]
+    },
+    {
+      "paper_id": "paper_bbc99d74792c2b11",
+      "title": "Hardness of \"Infinite Energy\" Puzzles",
+      "arxiv_id": "2611.24918",
+      "doi": "",
+      "original_source": "arXiv",
+      "source_record_url": "https://arxiv.org/abs/2611.24918",
+      "download_url": "https://arxiv.org/pdf/2611.24918v1",
+      "license": "",
+      "reuse_status": "",
+      "research_topics": [
+        "Computer Science",
+        "cs.CC"
+      ]
+    },
+    {
+      "paper_id": "paper_ac34eac0b7afae7f",
+      "title": "PrismRestore: A Compact Restoration Toolbox for Agentic Image Restoration",
+      "arxiv_id": "2611.24915",
+      "doi": "",
+      "original_source": "arXiv",
+      "source_record_url": "https://arxiv.org/abs/2611.24915",
+      "download_url": "https://arxiv.org/pdf/2611.24915v1",
+      "license": "",
+      "reuse_status": "",
+      "research_topics": [
+        "Computer Science",
+        "cs.CV"
+      ]
+    },
+    {
+      "paper_id": "paper_82fcbd9850418ef2",
+      "title": "A Sharp Quadratic Bound for the Advice Complexity of Selectors",
+      "arxiv_id": "2611.24913",
+      "doi": "",
+      "original_source": "arXiv",
+      "source_record_url": "https://arxiv.org/abs/2611.24913",
+      "download_url": "https://arxiv.org/pdf/2611.24913v1",
+      "license": "",
+      "reuse_status": "",
+      "research_topics": [
+        "Computer Science",
+        "cs.CC"
+      ]
+    },
+    {
+      "paper_id": "paper_f61d1c3ebc713a5d",
+      "title": "Decomposing SGD Dynamics in Neural Networks: Teacher-Induced Spikes and Variance Inflation",
+      "arxiv_id": "2611.24908",
+      "doi": "",
+      "original_source": "arXiv",
+      "source_record_url": "https://arxiv.org/abs/2611.24908",
+      "download_url": "https://arxiv.org/pdf/2611.24908v1",
+      "license": "",
+      "reuse_status": "",
+      "research_topics": [
+        "Computer Science",
+        "stat.ML",
+        "cs.LG"
+      ]
+    },
+    {
+      "paper_id": "paper_eaad3d6ba5433e0c",
+      "title": "Batch-Dynamic Coreness and Applications with Logarithmic Work via Balanced Pressures",
+      "arxiv_id": "2611.24905",
+      "doi": "",
+      "original_source": "arXiv",
+      "source_record_url": "https://arxiv.org/abs/2611.24905",
+      "download_url": "https://arxiv.org/pdf/2611.24905v1",
+      "license": "",
+      "reuse_status": "",
+      "research_topics": [
+        "Computer Science",
+        "cs.DS"
+      ]
+    },
+    {
+      "paper_id": "paper_59c04b8ffa75d164",
+      "title": "ShadowTransfer: A Geographic Transfer Benchmark for Overhead Shadow Detection",
+      "arxiv_id": "2611.24904",
+      "doi": "",
+      "original_source": "arXiv",
+      "source_record_url": "https://arxiv.org/abs/2611.24904",
+      "download_url": "https://arxiv.org/pdf/2611.24904v1",
+      "license": "",
+      "reuse_status": "",
+      "research_topics": [
+        "Computer Science",
+        "cs.CV"
+      ]
+    },
+    {
+      "paper_id": "paper_0d8da3c1e9b09ff8",
+      "title": "Mine Locally, Verify Globally: Exact Recovery, Compilation, and Distortion of Mined Temporal Rules",
+      "arxiv_id": "2611.24902",
+      "doi": "10.1145/3861277.3861283",
+      "original_source": "arXiv",
+      "source_record_url": "https://arxiv.org/abs/2611.24902",
+      "download_url": "https://arxiv.org/pdf/2611.24902v1",
+      "license": "",
+      "reuse_status": "",
+      "research_topics": [
+        "Computer Science",
+        "cs.DC",
+        "cs.LO",
+        "cs.NI"
+      ]
+    },
+    {
+      "paper_id": "paper_54134e666f8e6b02",
+      "title": "\"I Don't Think It's a Scam\": A First Look at Family Intervention Barriers in Elder Abuse Discussions on Reddit and Baidu Tieba",
+      "arxiv_id": "2611.24899",
+      "doi": "",
+      "original_source": "arXiv",
+      "source_record_url": "https://arxiv.org/abs/2611.24899",
+      "download_url": "https://arxiv.org/pdf/2611.24899v1",
+      "license": "",
+      "reuse_status": "",
+      "research_topics": [
+        "Computer Science",
+        "cs.SI",
+        "cs.CR",
+        "cs.CY"
+      ]
+    },
+    {
+      "paper_id": "paper_1b7aec71b280887a",
+      "title": "Equivariant Modeling with Polynomial Features via Minimal Homogeneous Generators",
+      "arxiv_id": "2611.24896",
+      "doi": "",
+      "original_source": "arXiv",
+      "source_record_url": "https://arxiv.org/abs/2611.24896",
+      "download_url": "https://arxiv.org/pdf/2611.24896v1",
+      "license": "",
+      "reuse_status": "",
+      "research_topics": [
+        "Computer Science",
+        "cs.LG",
+        "stat.ML"
+      ]
+    },
+    {
+      "paper_id": "paper_85cefe72553b6fcb",
+      "title": "ProvCards: Artifact-Oriented Provenance for Heterogeneous Scientific Workflows",
+      "arxiv_id": "2611.24894",
+      "doi": "",
+      "original_source": "arXiv",
+      "source_record_url": "https://arxiv.org/abs/2611.24894",
+      "download_url": "https://arxiv.org/pdf/2611.24894v1",
+      "license": "",
+      "reuse_status": "",
+      "research_topics": [
+        "Computer Science",
+        "cs.DB"
+      ]
+    },
+    {
+      "paper_id": "paper_86b3ec5aa5b0abd3",
+      "title": "On Evaluating User Simulators for Interactive Agents",
+      "arxiv_id": "2611.24892",
+      "doi": "",
+      "original_source": "arXiv",
+      "source_record_url": "https://arxiv.org/abs/2611.24892",
+      "download_url": "https://arxiv.org/pdf/2611.24892v1",
+      "license": "",
+      "reuse_status": "",
+      "research_topics": [
+        "Computer Science",
+        "cs.LG"
+      ]
+    },
+    {
+      "paper_id": "paper_6adb2c1125e0678f",
+      "title": "Cap-and-Track: Optimizing LLM Inference Request Dispatch Across Shifting Capacity",
+      "arxiv_id": "2611.24891",
+      "doi": "",
+      "original_source": "arXiv",
+      "source_record_url": "https://arxiv.org/abs/2611.24891",
+      "download_url": "https://arxiv.org/pdf/2611.24891v1",
+      "license": "",
+      "reuse_status": "",
+      "research_topics": [
+        "Computer Science",
+        "cs.LG"
+      ]
+    },
+    {
+      "paper_id": "paper_237fc67c7b04fdc3",
+      "title": "Improved Asymptotic Approximation Guarantees for Continuous-Review Lost-Sales and Dual-Sourcing Inventory Models",
+      "arxiv_id": "2611.24889",
+      "doi": "",
+      "original_source": "arXiv",
+      "source_record_url": "https://arxiv.org/abs/2611.24889",
+      "download_url": "https://arxiv.org/pdf/2611.24889v1",
+      "license": "",
+      "reuse_status": "",
+      "research_topics": [
+        "Computer Science",
+        "cs.DS"
+      ]
+    },
+    {
+      "paper_id": "paper_1455cf248f2a76d2",
+      "title": "Who are you? The Personal Imitation Game",
+      "arxiv_id": "2611.24888",
+      "doi": "",
+      "original_source": "arXiv",
+      "source_record_url": "https://arxiv.org/abs/2611.24888",
+      "download_url": "https://arxiv.org/pdf/2611.24888v1",
+      "license": "",
+      "reuse_status": "",
+      "research_topics": [
+        "Computer Science",
+        "cs.HC",
+        "cs.AI",
+        "cs.CL"
+      ]
+    },
+    {
+      "paper_id": "paper_5ea300bec9236f10",
+      "title": "Ground, Iterate, Trace: Decomposing AI Research Ideation",
+      "arxiv_id": "2611.24887",
+      "doi": "",
+      "original_source": "arXiv",
+      "source_record_url": "https://arxiv.org/abs/2611.24887",
+      "download_url": "https://arxiv.org/pdf/2611.24887v1",
+      "license": "",
+      "reuse_status": "",
+      "research_topics": [
+        "Computer Science",
+        "cs.CL"
+      ]
+    },
+    {
+      "paper_id": "paper_8362e377ba9d1548",
+      "title": "Teleoperated Haircutting with Delay Compensation and Passivity-Based Control for Unilateral Internet Teleoperation under Real Communication Uncertainties",
+      "arxiv_id": "2611.24883",
+      "doi": "",
+      "original_source": "arXiv",
+      "source_record_url": "https://arxiv.org/abs/2611.24883",
+      "download_url": "https://arxiv.org/pdf/2611.24883v1",
+      "license": "",
+      "reuse_status": "",
+      "research_topics": [
+        "Computer Science",
+        "cs.RO"
+      ]
+    },
+    {
+      "paper_id": "paper_882841ba091cf8a3",
+      "title": "Monoculture Robust Learning",
+      "arxiv_id": "2611.24881",
+      "doi": "",
+      "original_source": "arXiv",
+      "source_record_url": "https://arxiv.org/abs/2611.24881",
+      "download_url": "https://arxiv.org/pdf/2611.24881v1",
+      "license": "",
+      "reuse_status": "",
+      "research_topics": [
+        "Computer Science",
+        "cs.LG"
+      ]
+    },
+    {
+      "paper_id": "paper_46cf1e5d513b505c",
+      "title": "Local AI Agents in Power Electronics Simulation: Deployment, Measurements and Costs",
+      "arxiv_id": "2611.24880",
+      "doi": "",
+      "original_source": "arXiv",
+      "source_record_url": "https://arxiv.org/abs/2611.24880",
+      "download_url": "https://arxiv.org/pdf/2611.24880v1",
+      "license": "",
+      "reuse_status": "",
+      "research_topics": [
+        "Computer Science",
+        "cs.AI",
+        "eess.SY"
+      ]
+    },
+    {
+      "paper_id": "paper_3bbacc2c4a1c609f",
+      "title": "Auditing black-box clinical prediction models with a large language model through queries alone: a blinded test with planted flaws",
+      "arxiv_id": "2611.24877",
+      "doi": "",
+      "original_source": "arXiv",
+      "source_record_url": "https://arxiv.org/abs/2611.24877",
+      "download_url": "https://arxiv.org/pdf/2611.24877v1",
+      "license": "",
+      "reuse_status": "",
+      "research_topics": [
+        "Computer Science",
+        "cs.LG",
+        "cs.AI"
+      ]
+    },
+    {
+      "paper_id": "paper_20f9788a77ae48ba",
+      "title": "Learning to Interact in Multi-Agent Self-Play for Controllable Autonomous Driving Scenario Generation",
+      "arxiv_id": "2611.24876",
+      "doi": "",
+      "original_source": "arXiv",
+      "source_record_url": "https://arxiv.org/abs/2611.24876",
+      "download_url": "https://arxiv.org/pdf/2611.24876v1",
+      "license": "",
+      "reuse_status": "",
+      "research_topics": [
+        "Computer Science",
+        "cs.RO",
+        "cs.LG"
+      ]
+    },
+    {
+      "paper_id": "paper_f40f3387081d805f",
+      "title": "TangentPDE: Learning Local Operator Responses with Sparse Finite-Difference Supervision",
+      "arxiv_id": "2611.24873",
+      "doi": "",
+      "original_source": "arXiv",
+      "source_record_url": "https://arxiv.org/abs/2611.24873",
+      "download_url": "https://arxiv.org/pdf/2611.24873v1",
+      "license": "",
+      "reuse_status": "",
+      "research_topics": [
+        "Computer Science",
+        "cs.LG"
+      ]
+    },
+    {
+      "paper_id": "paper_0317c4dcf8d3b741",
+      "title": "MicroAssert: Microarchitecture-Aware Structured Assertion Generation for CPU Verification",
+      "arxiv_id": "2611.24872",
+      "doi": "",
+      "original_source": "arXiv",
+      "source_record_url": "https://arxiv.org/abs/2611.24872",
+      "download_url": "https://arxiv.org/pdf/2611.24872v1",
+      "license": "",
+      "reuse_status": "",
+      "research_topics": [
+        "Computer Science",
+        "cs.AR",
+        "cs.SE"
+      ]
+    },
+    {
+      "paper_id": "paper_9148ef57f30f9cb8",
+      "title": "WorldRuler: Interactive World Modeling under Configurable Rules",
+      "arxiv_id": "2611.24869",
+      "doi": "",
+      "original_source": "arXiv",
+      "source_record_url": "https://arxiv.org/abs/2611.24869",
+      "download_url": "https://arxiv.org/pdf/2611.24869v1",
+      "license": "",
+      "reuse_status": "",
+      "research_topics": [
+        "Computer Science",
+        "cs.AI"
+      ]
+    },
+    {
+      "paper_id": "paper_d266ac2368762d90",
+      "title": "Choosing What to Observe: Budget-Paired Counterfactual Audits for Credible Evaluation of Visual Agents",
+      "arxiv_id": "2611.24867",
+      "doi": "",
+      "original_source": "arXiv",
+      "source_record_url": "https://arxiv.org/abs/2611.24867",
+      "download_url": "https://arxiv.org/pdf/2611.24867v1",
+      "license": "",
+      "reuse_status": "",
+      "research_topics": [
+        "Computer Science",
+        "cs.AI"
+      ]
+    },
+    {
+      "paper_id": "paper_5397e00686589b7d",
+      "title": "NereidVLA: Learning to Understand and Navigate the Underwater World",
+      "arxiv_id": "2611.24864",
+      "doi": "",
+      "original_source": "arXiv",
+      "source_record_url": "https://arxiv.org/abs/2611.24864",
+      "download_url": "https://arxiv.org/pdf/2611.24864v1",
+      "license": "",
+      "reuse_status": "",
+      "research_topics": [
+        "Computer Science",
+        "cs.CV",
+        "cs.RO"
+      ]
+    },
+    {
+      "paper_id": "paper_c55aee8f81187119",
+      "title": "Gaspard: Expressive unified speech and gesture synthesis with continuous autoregressive flow-matching and decoupled classifier-free guidance",
+      "arxiv_id": "2611.24862",
+      "doi": "",
+      "original_source": "arXiv",
+      "source_record_url": "https://arxiv.org/abs/2611.24862",
+      "download_url": "https://arxiv.org/pdf/2611.24862v1",
+      "license": "",
+      "reuse_status": "",
+      "research_topics": [
+        "Computer Science",
+        "cs.CV"
+      ]
+    },
+    {
+      "paper_id": "paper_e8a28a8cc2c4accb",
+      "title": "Communications-free Collective Intelligence Via Allocentric Belief",
+      "arxiv_id": "2611.24858",
+      "doi": "",
+      "original_source": "arXiv",
+      "source_record_url": "https://arxiv.org/abs/2611.24858",
+      "download_url": "https://arxiv.org/pdf/2611.24858v1",
+      "license": "",
+      "reuse_status": "",
+      "research_topics": [
+        "Computer Science",
+        "cs.RO",
+        "eess.SY"
+      ]
+    },
+    {
+      "paper_id": "paper_805178a8d59fab37",
+      "title": "Beyond corridor averages: Lane-level validation of microscopic freeway simulation with empirically parameterized arrivals",
+      "arxiv_id": "2611.24853",
+      "doi": "",
+      "original_source": "arXiv",
+      "source_record_url": "https://arxiv.org/abs/2611.24853",
+      "download_url": "https://arxiv.org/pdf/2611.24853v1",
+      "license": "",
+      "reuse_status": "",
+      "research_topics": [
+        "Computer Science",
+        "cs.CE"
+      ]
+    },
+    {
+      "paper_id": "paper_713e3174f2a4750b",
+      "title": "Can Programs Replace LLM Judges? Executable Program Judges for Scalable and Efficient Relevance Labeling",
+      "arxiv_id": "2611.24849",
+      "doi": "",
+      "original_source": "arXiv",
+      "source_record_url": "https://arxiv.org/abs/2611.24849",
+      "download_url": "https://arxiv.org/pdf/2611.24849v1",
+      "license": "",
+      "reuse_status": "",
+      "research_topics": [
+        "Computer Science",
+        "cs.IR",
+        "cs.CL"
+      ]
+    },
+    {
+      "paper_id": "paper_8bb0d5dd6c710df7",
+      "title": "Old Matches, New Frames: Schedule-Gated Stereo Memory from Human Vision to Machine Matching",
+      "arxiv_id": "2611.24848",
+      "doi": "",
+      "original_source": "arXiv",
+      "source_record_url": "https://arxiv.org/abs/2611.24848",
+      "download_url": "https://arxiv.org/pdf/2611.24848v1",
+      "license": "",
+      "reuse_status": "",
+      "research_topics": [
+        "Computer Science",
+        "cs.NE",
+        "q-bio.NC"
+      ]
+    },
+    {
+      "paper_id": "paper_643a80ee753b8771",
+      "title": "Atomic MathReasoner: Instance-Level Composition of Atomic Reasoning Skills for Mathematical LLMs",
+      "arxiv_id": "2611.24846",
+      "doi": "",
+      "original_source": "arXiv",
+      "source_record_url": "https://arxiv.org/abs/2611.24846",
+      "download_url": "https://arxiv.org/pdf/2611.24846v1",
+      "license": "",
+      "reuse_status": "",
+      "research_topics": [
+        "Computer Science",
+        "cs.LG"
+      ]
+    },
+    {
+      "paper_id": "paper_8ab7f389abde1c9f",
+      "title": "Vibe-Trading: Towards Agent-Native Trading",
+      "arxiv_id": "2611.24845",
+      "doi": "",
+      "original_source": "arXiv",
+      "source_record_url": "https://arxiv.org/abs/2611.24845",
+      "download_url": "https://arxiv.org/pdf/2611.24845v1",
+      "license": "",
+      "reuse_status": "",
+      "research_topics": [
+        "Computer Science",
+        "cs.AI",
+        "cs.CL",
+        "cs.MA",
+        "q-fin.CP",
+        "q-fin.TR"
+      ]
+    },
+    {
+      "paper_id": "paper_05fd729e0aa2f0b0",
+      "title": "General progress substitutes for specific training data in language models",
+      "arxiv_id": "2611.24844",
+      "doi": "",
+      "original_source": "arXiv",
+      "source_record_url": "https://arxiv.org/abs/2611.24844",
+      "download_url": "https://arxiv.org/pdf/2611.24844v1",
+      "license": "",
+      "reuse_status": "",
+      "research_topics": [
+        "Computer Science",
+        "cs.CL",
+        "cs.AI"
+      ]
+    },
+    {
+      "paper_id": "paper_960a32d8afb4468e",
+      "title": "Measuring and Improving Transfer of Neural Surrogates for Vehicle Aerodynamics",
+      "arxiv_id": "2611.24843",
+      "doi": "",
+      "original_source": "arXiv",
+      "source_record_url": "https://arxiv.org/abs/2611.24843",
+      "download_url": "https://arxiv.org/pdf/2611.24843v1",
+      "license": "",
+      "reuse_status": "",
+      "research_topics": [
+        "Computer Science",
+        "cs.LG",
+        "physics.flu-dyn"
+      ]
+    },
+    {
+      "paper_id": "paper_f5c87a428ef1c53d",
+      "title": "Does the Action Matter? Probing Action-Conditioned Semantic Forecasting as a World Model for Autonomous Driving",
+      "arxiv_id": "2611.24840",
+      "doi": "",
+      "original_source": "arXiv",
+      "source_record_url": "https://arxiv.org/abs/2611.24840",
+      "download_url": "https://arxiv.org/pdf/2611.24840v1",
+      "license": "",
+      "reuse_status": "",
+      "research_topics": [
+        "Computer Science",
+        "cs.CV",
+        "cs.AI",
+        "cs.LG",
+        "cs.RO"
+      ]
+    },
+    {
+      "paper_id": "paper_b680726ec9f3adfb",
+      "title": "Kaer: Security-Aware Replanning for Multi-Agent Systems",
+      "arxiv_id": "2611.24839",
+      "doi": "",
+      "original_source": "arXiv",
+      "source_record_url": "https://arxiv.org/abs/2611.24839",
+      "download_url": "https://arxiv.org/pdf/2611.24839v1",
+      "license": "",
+      "reuse_status": "",
+      "research_topics": [
+        "Computer Science",
+        "cs.MA",
+        "cs.LG"
+      ]
+    },
+    {
+      "paper_id": "paper_96addcd364e91910",
+      "title": "DiWALI: Diffusion Policy Learning in World Models via Latent Action Inference from Human and Robot Play",
+      "arxiv_id": "2611.24836",
+      "doi": "",
+      "original_source": "arXiv",
+      "source_record_url": "https://arxiv.org/abs/2611.24836",
+      "download_url": "https://arxiv.org/pdf/2611.24836v1",
+      "license": "",
+      "reuse_status": "",
+      "research_topics": [
+        "Computer Science",
+        "cs.RO"
+      ]
+    }
+  ],
+  "discovery_failures": [],
+  "last_discovery": "2026-11-19T16:14:35Z",
+  "failures": [
+    {
+      "paper_id": "paper_befbc1f6a29f53bb",
+      "title": "Artificial intelligence in odontology education.",
+      "download_url": "https://europepmc.org/articles/PMC13748459?pdf=render",
+      "error": "HTTP request failed for https://europepmc.org/articles/PMC13748459?pdf=render: HTTP Error 403: Forbidden",
+      "status": "failed",
+      "timestamp": "2026-11-19T16:00:10Z"
+    },
+    {
+      "paper_id": "paper_32e16913390dd0d7",
+      "title": "An opinion on machine learning for predicting nanoparticles.",
+      "download_url": "https://europepmc.org/articles/PMC13751885?pdf=render",
+      "error": "HTTP request failed for https://europepmc.org/articles/PMC13751885?pdf=render: HTTP Error 403: Forbidden",
+      "status": "failed",
+      "timestamp": "2026-11-19T16:00:10Z"
+    },
+    {
+      "paper_id": "paper_fd60ce4043f84a49",
+      "title": "Advancing subseasonal forecasting with machine learning.",
+      "download_url": "https://europepmc.org/articles/PMC13686947?pdf=render",
+      "error": "HTTP request failed for https://europepmc.org/articles/PMC13686947?pdf=render: HTTP Error 403: Forbidden",
+      "status": "failed",
+      "timestamp": "2026-11-19T16:00:10Z"
+    },
+    {
+      "paper_id": "paper_d3c089a69993faf3",
+      "title": "Machine learning and deep learning",
+      "download_url": "https://link.springer.com/content/pdf/10.1007/s12525-021-00475-2.pdf",
+      "error": "Unexpected content type: text/html; charset=utf-8",
+      "status": "failed",
+      "timestamp": "2026-11-19T16:00:18Z"
+    },
+    {
+      "paper_id": "paper_3da2fb6ac5595326",
+      "title": "An Introduction to Stochastic Deep Learning.",
+      "download_url": "https://europepmc.org/articles/PMC13717249?pdf=render",
+      "error": "HTTP request failed for https://europepmc.org/articles/PMC13717249?pdf=render: HTTP Error 403: Forbidden",
+      "status": "failed",
+      "timestamp": "2026-11-19T16:00:20Z"
+    }
+  ],
+  "duplicate_records": 0,
+  "last_collection": {
+    "timestamp": "2026-11-19T16:16:05Z",
+    "target": 25,
+    "existing_before": 8,
+    "discovered": 46,
+    "downloaded": 17,
+    "new_paper_ids": [
+      "paper_5545bb59b49dc7d8",
+      "paper_b9fbcba1624b58fa",
+      "paper_c3be67c53e6bb6d9",
+      "paper_7330502d0c4ba1a8",
+      "paper_c3c7eb768740b196",
+      "paper_9dc493a015669e65",
+      "paper_c594a451bafe4b6f",
+      "paper_a44f33314872e6a8",
+      "paper_6a14e6521c3c24fe",
+      "paper_b55e06856d64b99e",
+      "paper_872041c9d40e7f83",
+      "paper_b7c145c46de2e098",
+      "paper_4f906baac64eca0a",
+      "paper_6437c4ac86cb0db3",
+      "paper_640c914bf6d015e5",
+      "paper_8e8747f33082daa6",
+      "paper_0111ad68e271de87"
+    ],
+    "extraction": {
+      "ok": true,
+      "exit_code": 0,
+      "stdout": "extracted A_Sharp_Quadratic_Bound_for_the_Advice_Complexity_of_Selectors_2611_24913.pdf -> paper_b7c145c46de2e098 (extracted_with_warnings)\nextracted Agentic_Harness_Engineering_Beta_Requirement_Centered_Evolution_of_Agent_2611_24.pdf -> paper_a44f33314872e6a8 (extracted_with_warnings)\nextracted Batch_Dynamic_Coreness_and_Applications_with_Logarithmic_Work_via_Balanc_2611_24.pdf -> paper_6437c4ac86cb0db3 (extracted_with_warnings)\ncached  BERT_1810.04805.pdf -> paper_5692a5514787a8c6\nextracted Decomposing_SGD_Dynamics_in_Neural_Networks_Teacher_Induced_Spikes_and_V_2611_24.pdf -> paper_4f906baac64eca0a (extracted_with_warnings)\ncached  Deep_learning_in_bioinformatics_10_1093_bib_bbw068.pdf -> paper_1a963aef7b6b8f97\nextracted Grana_Compositional_Reward_Modeling_for_Long_Horizon_Robot_Manipulation_2611_249.pdf -> paper_9dc493a015669e65 (extracted_with_warnings)\nextracted Hardness_of_Infinite_Energy_Puzzles_2611_24918.pdf -> paper_b55e06856d64b99e (extracted)\ncached  Harmonic_Circuit_Chord_Progression_Lies_in_a_Sparse_Principal_Informatio_2611_24.pdf -> paper_806b516deddd77a2\nextracted I_Don_t_Think_It_s_a_Scam_A_First_Look_at_Family_Intervention_Barriers_i_2611_24.pdf -> paper_0111ad68e271de87 (extracted_with_warnings)\nextracted Jailbreak_Detection_on_Large_Language_Models_via_Contrastive_Prototype_S_2611_24.pdf -> paper_7330502d0c4ba1a8 (extracted_with_warnings)\ncached  Knowing_What_You_Know_A_Trait_Theory_of_Reviewer_Value_in_Human_AI_Cogni_2611_24.pdf -> paper_58bcbe343a8635fd\ncached  Mapping_the_AI_Supply_Chain_Dependencies_Vulnerabilities_and_Market_Conc_2611_24.pdf -> paper_0db5e53225c0c7d1\nextracted Mine_Locally_Verify_Globally_Exact_Recovery_Compilation_and_Distortion_o_2611_24.pdf -> paper_8e8747f33082daa6 (extracted)\nextracted Phoenix_Learning_Scene_Structure_Representations_for_Generalizable_World_2611_24.pdf -> paper_c3be67c53e6bb6d9 (extracted_with_warnings)\nextracted PrismRestore_A_Compact_Restoration_Toolbox_for_Agentic_Image_Restoration_2611_24.pdf -> paper_872041c9d40e7f83 (extracted_with_warnings)\ncached  Prognosis_Without_Prediction_The_Intrinsic_Geometry_of_Survival_2611_24799.pdf -> paper_d4f99f47ffaded11\nextracted Render_the_Robot_Generate_the_World_One_Video_World_Model_Across_Embodim_2611_24.pdf -> paper_c594a451bafe4b6f (extracted_with_warnings)\nextracted ShadowTransfer_A_Geographic_Transfer_Benchmark_for_Overhead_Shadow_Detec_2611_24.pdf -> paper_640c914bf6d015e5 (extracted_with_warnings)\nextracted Sharp_Complexity_Thresholds_for_Network_Cournot_Competition_2611_24931.pdf -> paper_c3c7eb768740b196 (extracted_with_warnings)\nextracted The_Optimal_Competitive_Ratio_for_Subadditive_Online_Combinatorial_Aucti_2611_24.pdf -> paper_6a14e6521c3c24fe (extracted_with_warnings)\nextracted UltraTex_Aligning_Physical_Knowledge_for_High_Fidelity_PBR_Texture_Gener_2611_24.pdf -> paper_5545bb59b49dc7d8 (extracted_with_warnings)\ncached  Unified_Law_for_Visual_Tasks_The_Four_Laws_of_Computer_Vision_2611_24917.pdf -> paper_8033136caa77a795\ncached  What_Survival_Benchmarks_Don_t_Tell_You_Impact_of_Model_Selection_and_Da_2611_24.pdf -> paper_af9a09ac27a8737e\nextracted Z_sight_Unifying_Vision_Language_Action_and_Latent_World_Modeling_2611_24940.pdf -> paper_b9fbcba1624b58fa (extracted_with_warnings)\nProcessed 25 paper(s); 0 extraction error(s).\n",
+      "stderr": "Skipping broken line b'0cfc   0cff   1d400': Odd-length string\nSkipping broken line b'0d00   0d2f   1d404': Odd-length string\nSkipping broken line b'0d30   0d69   1d6a8': Odd-length string\nSkipping broken line b'0d6a   0d6b   1d7ca': Odd-length string\nSkipping broken line b'0d6c   0d75   1d7ce': Odd-length string\nSkipping broken line b'0d0e   0d2e   1d434': Odd-length string\nSkipping broken line b'0d2f   0d40   1d456': Odd-length string\nSkipping broken line b'0d41   0d42   1d538': Odd-length string\nSkipping broken line b'0d43   0d46   1d53b': Odd-length string\nSkipping broken line b'0d47   0d4b   1d540': Odd-length string\nSkipping broken line b'0d4d   0d53   1d54a': Odd-length string\nSkipping broken line b'0d54   0d6d   1d552': Odd-length string\nSkipping broken line b'0d6e   0d6f   1d6a4': Odd-length string\nSkipping broken line b'0d70   0d79   1d7d8': Odd-length string\nGot invalid hex string: Odd-length string (b'1d546')\nSkipping broken line b'05c9   05cb   1f10d': Odd-length string\nSkipping broken line b'05cd   05d2   1f16a': Odd-length string\nGot invalid hex string: Odd-length string (b'1f12f')\nGot invalid hex string: Odd-length string (b'1f4a9')\nGot invalid hex string: Odd-length string (b'1f916')\nGot invalid hex string: Odd-length string (b'1f512')\nGot invalid hex string: Odd-length string (b'1f748')\nSkipping broken line b'05c9   05cb   1f10d': Odd-length string\nSkipping broken line b'05cd   05d2   1f16a': Odd-length string\nGot invalid hex string: Odd-length string (b'1f12f')\nGot invalid hex string: Odd-length string (b'1f4a9')\nGot invalid hex string: Odd-length string (b'1f916')\nGot invalid hex string: Odd-length string (b'1f512')\nGot invalid hex string: Odd-length string (b'1f748')\n"
+    },
+    "candidates": {
+      "ok": true,
+      "stdout": "{\n  \"papers\": 17,\n  \"new_statements\": 238,\n  \"new_relevance_candidates\": 238,\n  \"new_evidence_candidates\": 408,\n  \"relevance_candidates\": 346,\n  \"evidence_candidates\": 600,\n  \"pending_new\": 646,\n  \"note\": \"All new rows are pending. Existing rows were preserved. No CONTRADICTION candidates were generated automatically.\"\n}\n",
+      "stderr": "",
+      "papers": 17,
+      "new_statements": 238,
+      "new_relevance_candidates": 238,
+      "new_evidence_candidates": 408,
+      "relevance_candidates": 346,
+      "evidence_candidates": 600,
+      "pending_new": 646,
+      "note": "All new rows are pending. Existing rows were preserved. No CONTRADICTION candidates were generated automatically."
+    }
+  }
+}

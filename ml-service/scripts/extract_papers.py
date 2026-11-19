@@ -47,6 +47,7 @@ MANIFEST_FIELDS = (
     "extracted_file",
     "provenance",
     "metadata_source",
+    "extracted_at",
 )
 
 
@@ -81,6 +82,7 @@ def manifest_entry(paper: dict[str, Any], extracted_file: str) -> dict[str, Any]
         "extracted_file": extracted_file,
         "provenance": paper.get("provenance", ""),
         "metadata_source": paper.get("metadata_source", ""),
+        "extracted_at": paper.get("extracted_at", ""),
     }
 
 

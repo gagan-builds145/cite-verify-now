@@ -16,6 +16,7 @@ import {
   Activity,
   AlertTriangle,
   ArrowLeft,
+  BookOpen,
   CheckCircle2,
   Clock,
   Cpu,
@@ -25,6 +26,7 @@ import {
   RefreshCw,
   Rocket,
   RotateCcw,
+  Search,
   ShieldCheck,
   Upload,
   XCircle,
@@ -71,7 +73,38 @@ type Evaluation = {
   evidence?: EvaluationSection;
 };
 
+type CollectionRecord = {
+  paper_id?: string;
+  filename?: string;
+  title?: string;
+  original_source?: string;
+  license?: string;
+  reuse_status?: string;
+  training_eligibility?: boolean;
+  extraction_status?: string;
+  page_count?: number;
+};
+
+type CollectionSummary = {
+  record_count?: number;
+  records?: CollectionRecord[];
+  report?: {
+    collection?: Record<string, number>;
+    dataset?: Record<string, number>;
+    sources?: Record<string, Record<string, number>>;
+    training_readiness?: string;
+    blockers?: string[];
+  };
+  state?: {
+    target?: number;
+    failures?: { title?: string; error?: string; status?: string }[];
+    last_collection?: Record<string, unknown>;
+  };
+  reports?: string[];
+};
+
 type AdminStatus = {
+  collection?: CollectionSummary;
   health?: {
     ok?: boolean;
     relevance_model_available?: boolean;
@@ -130,6 +163,7 @@ export default function AdminModels() {
   const claimAdmin = useMutation(api.adminData.claimAdmin);
   const loadStatus = useAction(api.admin.status);
   const healthAction = useAction(api.admin.health);
+  const startCollection = useAction(api.admin.startCollection);
   const uploadDataset = useAction(api.admin.uploadDataset);
   const validateDataset = useAction(api.admin.validateDataset);
   const trainModel = useAction(api.admin.trainModel);
@@ -143,6 +177,10 @@ export default function AdminModels() {
   const [error, setError] = useState<string | null>(null);
   const [kind, setKind] = useState<Kind>("relevance");
   const [datasetName, setDatasetName] = useState("");
+  const [collectionTarget, setCollectionTarget] = useState("25");
+  const [collectionTopics, setCollectionTopics] = useState(
+    "Artificial Intelligence, Machine Learning, Natural Language Processing, Deep Learning, Information Retrieval, Scientific Research Verification, Fact Checking, Textual Entailment, Citation Analysis, Research Paper Recommendation, Biomedical Research, Computer Science",
+  );
   const [job, setJob] = useState<Job | null>(null);
   const [evaluateVersion, setEvaluateVersion] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
@@ -315,6 +353,10 @@ export default function AdminModels() {
   const active = registry?.active ?? {};
   const evaluations = status?.evaluations ?? [];
   const jobs = status?.jobs ?? [];
+  const collection = status?.collection;
+  const collectionReport = collection?.report;
+  const collectionStats = collectionReport?.collection ?? {};
+  const collectionDataset = collectionReport?.dataset ?? {};
 
   return (
     <AppShell>
@@ -384,6 +426,143 @@ export default function AdminModels() {
             token.
           </div>
         )}
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <BookOpen className="size-4" /> Paper collection
+            </CardTitle>
+            <CardDescription>
+              Discover open-access metadata, download only allowlisted PDFs, validate, extract and
+              append pending candidates. This never trains or approves a model.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-[120px_1fr_auto]">
+              <div className="space-y-1.5">
+                <Label htmlFor="collection-target">Target papers</Label>
+                <Input
+                  id="collection-target"
+                  type="number"
+                  min={2}
+                  max={100}
+                  value={collectionTarget}
+                  onChange={(event) => setCollectionTarget(event.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="collection-topics">Topics (comma separated)</Label>
+                <Input
+                  id="collection-topics"
+                  value={collectionTopics}
+                  onChange={(event) => setCollectionTopics(event.target.value)}
+                />
+              </div>
+              <Button
+                variant="brand"
+                className="self-end"
+                disabled={busy === "collection" || Boolean(job && job.status === "running")}
+                onClick={() =>
+                  startJob("collection", () =>
+                    startCollection({
+                      target: Math.max(2, Math.min(100, Number(collectionTarget) || 25)),
+                      topics: collectionTopics.split(",").map((item) => item.trim()).filter(Boolean),
+                      limitPerTopic: 3,
+                      refresh: false,
+                    }),
+                  )
+                }
+              >
+                {busy === "collection" ? (
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                ) : (
+                  <Search className="mr-2 size-4" />
+                )}
+                Run collection
+              </Button>
+            </div>
+
+            <div className="grid gap-3 text-xs sm:grid-cols-3 lg:grid-cols-6">
+              {[
+                ["Downloaded", collectionStats.downloaded ?? collection?.record_count ?? 0],
+                ["Validated", collectionStats.validated ?? 0],
+                ["License review", collectionStats.license_review_required ?? 0],
+                ["Failed", collectionStats.failed_downloads ?? 0],
+                ["Pending rows", collectionDataset.pending ?? 0],
+                ["Approved", collectionDataset.approved ?? 0],
+              ].map(([label, value]) => (
+                <div key={String(label)} className="rounded-lg border border-border p-3">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
+                  <p className="mt-1 text-lg font-semibold">{value}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <Badge variant={collectionReport?.training_readiness === "READY" ? "default" : "secondary"}>
+                Training readiness: {collectionReport?.training_readiness ?? "BLOCKED"}
+              </Badge>
+              <span className="text-muted-foreground">
+                {collectionReport?.dataset?.unique_papers ?? 0} unique papers ·{" "}
+                {collectionReport?.dataset?.training_eligible_papers ?? 0} training-eligible by license
+              </span>
+            </div>
+
+            {collection?.records?.length ? (
+              <div className="overflow-x-auto rounded-lg border border-border">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-muted/50 text-[10px] uppercase tracking-wide text-muted-foreground">
+                    <tr>
+                      <th className="px-3 py-2">Paper</th>
+                      <th className="px-3 py-2">Source</th>
+                      <th className="px-3 py-2">Pages</th>
+                      <th className="px-3 py-2">Reuse</th>
+                      <th className="px-3 py-2">Extraction</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {collection.records.slice(0, 8).map((record) => (
+                      <tr key={record.paper_id ?? record.filename} className="border-t border-border">
+                        <td className="max-w-[360px] px-3 py-2">
+                          <p className="truncate font-medium">{record.title || record.filename}</p>
+                          <p className="truncate font-mono text-[10px] text-muted-foreground">
+                            {record.filename}
+                          </p>
+                        </td>
+                        <td className="px-3 py-2">{record.original_source || "—"}</td>
+                        <td className="px-3 py-2">{record.page_count || "—"}</td>
+                        <td className="px-3 py-2">{record.reuse_status || "REVIEW_REQUIRED"}</td>
+                        <td className="px-3 py-2">{record.extraction_status || "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="rounded-lg border border-dashed border-border p-3 text-xs text-muted-foreground">
+                No collection records yet. Run discovery and collection from the CLI or the button above.
+              </p>
+            )}
+
+            {collection?.state?.failures?.length ? (
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs">
+                <p className="mb-1 flex items-center gap-1.5 font-medium">
+                  <AlertTriangle className="size-3.5" /> Recent download failures
+                </p>
+                {collection.state.failures.slice(-3).map((failure, index) => (
+                  <p key={`${failure.title}-${index}`} className="truncate text-muted-foreground">
+                    {failure.title || "Unknown paper"}: {failure.error}
+                  </p>
+                ))}
+              </div>
+            ) : null}
+
+            <p className="text-[11px] leading-5 text-muted-foreground">
+              Collection only creates pending examples. License review, human annotation and paper-level
+              evaluation remain mandatory before training.
+            </p>
+          </CardContent>
+        </Card>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {KINDS.map((modelKind) => (

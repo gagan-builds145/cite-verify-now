@@ -41,6 +41,34 @@ export const status = action({
   },
 });
 
+export const collectionStatus = action({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    return await service<Record<string, unknown>>("/admin/collection");
+  },
+});
+
+export const startCollection = action({
+  args: {
+    target: v.number(),
+    topics: v.array(v.string()),
+    limitPerTopic: v.optional(v.number()),
+    providers: v.optional(v.array(v.string())),
+    refresh: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    return await service<Record<string, unknown>>("/admin/collection/collect", {
+      target: args.target,
+      topics: args.topics,
+      limit_per_topic: args.limitPerTopic ?? 3,
+      providers: args.providers ?? [],
+      refresh: args.refresh ?? false,
+    });
+  },
+});
+
 export const uploadDataset = action({
   args: {
     name: v.string(),

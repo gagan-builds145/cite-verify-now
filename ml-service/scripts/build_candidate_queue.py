@@ -89,10 +89,12 @@ def backup(path: Path) -> None:
         shutil.copy2(path, path.with_name(f"{path.name}.bak-{time.strftime('%Y%m%d-%H%M%S')}"))
 
 
-def write_relevance(path: Path, rows: list[dict[str, Any]], force: bool) -> None:
-    if path.exists() and not force:
+def write_relevance(path: Path, rows: list[dict[str, Any]], force: bool, append: bool = False) -> None:
+    if path.exists() and not force and not append:
         raise SystemExit(f"Refusing to overwrite {path}; rerun with --force after reviewing the existing file.")
     backup(path)
+    if append and path.exists():
+        rows = [*read_records(path), *rows]
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8-sig", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=RELEVANCE_COLUMNS)
@@ -100,10 +102,12 @@ def write_relevance(path: Path, rows: list[dict[str, Any]], force: bool) -> None
         writer.writerows({key: row.get(key, "") for key in RELEVANCE_COLUMNS} for row in rows)
 
 
-def write_evidence(path: Path, rows: list[dict[str, Any]], force: bool) -> None:
-    if path.exists() and not force:
+def write_evidence(path: Path, rows: list[dict[str, Any]], force: bool, append: bool = False) -> None:
+    if path.exists() and not force and not append:
         raise SystemExit(f"Refusing to overwrite {path}; rerun with --force after reviewing the existing file.")
     backup(path)
+    if append and path.exists():
+        rows = [*read_records(path), *rows]
     write_jsonl(path, ({key: row.get(key, "") for key in EVIDENCE_FIELDS} for row in rows))
 
 
@@ -163,14 +167,17 @@ def main() -> int:
     parser.add_argument("--evidence-output", type=Path, default=ROOT / "datasets" / "raw" / "pilot_evidence.jsonl")
     parser.add_argument("--max-statements-per-paper", type=int, default=12)
     parser.add_argument("--evidence-pairs-per-statement", type=int, default=2)
+    parser.add_argument("--paper-id", action="append", default=[], help="Only build these extracted paper ids; repeatable")
+    parser.add_argument("--append", action="store_true", help="Preserve existing rows and append new pending candidates")
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
 
     files = sorted(args.extracted_dir.glob("*.json"))
     papers = []
+    selected_ids = set(args.paper_id)
     for path in files:
         paper = read_json(path, {})
-        if paper.get("paper_id"):
+        if paper.get("paper_id") and (not selected_ids or paper["paper_id"] in selected_ids):
             papers.append(paper)
     if not papers:
         print(
@@ -197,11 +204,26 @@ def main() -> int:
                     "source_provenance": candidate["source_provenance"],
                 })
 
+    existing_relevance: list[dict[str, Any]] = []
+    existing_evidence: list[dict[str, Any]] = []
+    if args.append and args.relevance_output.exists():
+        existing_relevance = read_records(args.relevance_output)
+    if args.append and args.evidence_output.exists():
+        existing_evidence = read_records(args.evidence_output)
     relevance_rows: list[dict[str, Any]] = []
     evidence_rows: list[dict[str, Any]] = []
-    seen_statements: set[str] = set()
-    relevance_index = 0
-    evidence_index = 0
+    def statement_key_for(row: dict[str, Any]) -> str:
+        paper_id = str(row.get("paper_id", ""))
+        statement = re.sub(r"\s+", " ", str(row.get("user_statement", "")).lower()).strip()
+        return f"{paper_id}|{statement}"
+
+    seen_statements = {statement_key_for(row) for row in existing_relevance}
+    relevance_index = max(
+        [int(str(row.get("example_id", "0")).rsplit("-", 1)[-1]) for row in existing_relevance if str(row.get("example_id", "")).rsplit("-", 1)[-1].isdigit()] or [0]
+    )
+    evidence_index = max(
+        [int(str(row.get("example_id", "0")).rsplit("-", 1)[-1]) for row in existing_evidence if str(row.get("example_id", "")).rsplit("-", 1)[-1].isdigit()] or [0]
+    )
 
     for row in statement_rows:
         paper = paper_by_id[row["paper_id"]]
@@ -276,15 +298,17 @@ def main() -> int:
                 "candidate_source": "cross_paper_source_text",
             })
 
-    write_relevance(args.relevance_output, relevance_rows, args.force)
-    write_evidence(args.evidence_output, evidence_rows, args.force)
+    write_relevance(args.relevance_output, relevance_rows, args.force, args.append)
+    write_evidence(args.evidence_output, evidence_rows, args.force, args.append)
     summary = {
         "papers": len(papers),
-        "statements": len(seen_statements),
-        "relevance_candidates": len(relevance_rows),
-        "evidence_candidates": len(evidence_rows),
-        "pending": len(relevance_rows) + len(evidence_rows),
-        "note": "All rows are pending. No CONTRADICTION candidates were generated automatically.",
+        "new_statements": len(relevance_rows),
+        "new_relevance_candidates": len(relevance_rows),
+        "new_evidence_candidates": len(evidence_rows),
+        "relevance_candidates": len(existing_relevance) + len(relevance_rows),
+        "evidence_candidates": len(existing_evidence) + len(evidence_rows),
+        "pending_new": len(relevance_rows) + len(evidence_rows),
+        "note": "All new rows are pending. Existing rows were preserved. No CONTRADICTION candidates were generated automatically.",
     }
     print(json.dumps(summary, indent=2))
     return 0

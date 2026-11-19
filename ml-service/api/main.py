@@ -27,6 +27,7 @@ from inference.predictor import ModelUnavailable, get_predictor  # noqa: E402
 
 from .schemas import (  # noqa: E402
     AdminStatusResponse,
+    CollectionRequest,
     DatasetUploadRequest,
     DeployRequest,
     EvaluateRequest,
@@ -72,6 +73,75 @@ def _dataset_summary() -> dict:
         manifest = read_json(directory / "manifest.json", {})
         prepared[kind] = manifest or {"ready": False, "directory": str(directory)}
     return {"prepared": prepared, "last_prepare": report, "raw_dir": str(REGISTRY_ROOT / "datasets" / "raw")}
+
+
+def _collection_summary() -> dict:
+    from paper_collector.config import RECORDS_PATH, REPORTS_DIR, STATE_PATH
+    from paper_collector.manager import load_records
+
+    report = read_json(REPORTS_DIR / "paper_collection_report.json", {})
+    state = read_json(STATE_PATH, {})
+    records = load_records()
+    return {
+        "report": report,
+        "state": {
+            "target": state.get("target"),
+            "last_collection": state.get("last_collection"),
+            "last_discovery": state.get("last_discovery"),
+            "failures": (state.get("failures") or [])[-20:],
+        },
+        "records": [
+            {
+                "paper_id": item.get("paper_id"),
+                "filename": item.get("filename"),
+                "title": item.get("title"),
+                "original_source": item.get("original_source"),
+                "license": item.get("license"),
+                "reuse_status": item.get("reuse_status"),
+                "training_eligibility": item.get("training_eligibility"),
+                "extraction_status": item.get("extraction_status"),
+                "pdf_validation_status": item.get("pdf_validation_status"),
+                "page_count": item.get("page_count"),
+            }
+            for item in records[:100]
+        ],
+        "reports": [
+            "paper_collection_report.md",
+            "paper_collection_report.json",
+            "paper_source_report.csv",
+            "paper_download_failures.csv",
+            "paper_license_report.csv",
+            "paper_extraction_report.md",
+            "paper_dataset_readiness_report.md",
+        ],
+        "record_count": len(records),
+        "record_path_configured": bool(RECORDS_PATH),
+    }
+
+
+def _run_collection_job(job_id: str, request: CollectionRequest) -> None:
+    from paper_collector.config import DEFAULT_TOPICS
+    from paper_collector.manager import collect
+    from paper_collector.providers import PROVIDERS
+    from paper_collector.reports import build_reports
+
+    log_path = REGISTRY_ROOT / "models" / f"job-{job_id}.log"
+    try:
+        result = collect(
+            target=request.target,
+            topics=request.topics or list(DEFAULT_TOPICS),
+            providers=request.providers or list(PROVIDERS),
+            limit_per_topic=request.limit_per_topic,
+            refresh=request.refresh,
+        )
+        result["reports"] = build_reports()
+        log_text = str(result)[-12000:]
+        log_path.write_text(log_text, encoding="utf-8")
+        update_job(job_id, status="complete", finished_at=int(time.time()), log=log_text)
+    except Exception as error:  # noqa: BLE001
+        message = str(error)[-12000:]
+        log_path.write_text(message, encoding="utf-8")
+        update_job(job_id, status="failed", finished_at=int(time.time()), log=message)
 
 
 def _evaluation_reports() -> list[dict]:
@@ -213,8 +283,21 @@ def admin_status() -> dict:
             for job in sorted(jobs, key=lambda item: item.get("created_at", 0), reverse=True)[:30]
         ],
         "datasets": _dataset_summary(),
+        "collection": _collection_summary(),
         "evaluations": _evaluation_reports()[:20],
     }
+
+
+@app.get("/admin/collection", dependencies=[Depends(require_service_token)])
+def admin_collection() -> dict:
+    return _collection_summary()
+
+
+@app.post("/admin/collection/collect", dependencies=[Depends(require_service_token)])
+def start_collection(request: CollectionRequest) -> dict:
+    job_id = create_job("collection", f"target {request.target}; {len(request.topics) or 'default'} topic(s)")
+    threading.Thread(target=_run_collection_job, args=(job_id, request), daemon=True).start()
+    return {"ok": True, "job_id": job_id}
 
 
 @app.post("/admin/datasets/upload", dependencies=[Depends(require_service_token)])

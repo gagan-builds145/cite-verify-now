@@ -88,6 +88,7 @@ class AdminStatusResponse(BaseModel):
     registry: dict
     jobs: list[dict]
     datasets: dict
+    collection: dict = Field(default_factory=dict)
     evaluations: list[dict] = Field(default_factory=list)
 
 
@@ -119,3 +120,11 @@ class DeployRequest(BaseModel):
 
 class RollbackRequest(BaseModel):
     kind: Literal["relevance", "evidence"]
+
+
+class CollectionRequest(BaseModel):
+    target: int = Field(default=25, ge=2, le=100)
+    topics: list[str] = Field(default_factory=list, max_length=20)
+    limit_per_topic: int = Field(default=3, ge=1, le=20)
+    providers: list[str] = Field(default_factory=list, max_length=5)
+    refresh: bool = False

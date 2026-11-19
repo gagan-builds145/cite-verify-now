@@ -6,8 +6,10 @@ provenance and a human review status of `reviewed` or `approved`.
 
 ## Source-first workflow
 
-No source PDFs are included in this repository. Put genuine, legally obtained
-papers in `source_papers/` and follow `templates/ANNOTATION.md`.
+Genuine source PDFs are supplied locally in `source_papers/` (they are ignored
+by git; see `source_papers/README.md`). The collection workflow can discover
+additional open-access papers with `python -m paper_collector collect`. Follow
+`templates/ANNOTATION.md` for review and validation.
 
 1. `scripts/extract_papers.py` creates `source_manifest.json/.csv` and one
    inspectable JSON record per PDF under `extracted/`.
@@ -19,9 +21,10 @@ papers in `source_papers/` and follow `templates/ANNOTATION.md`.
 5. `scripts/generate_dataset_report.py` writes the preparation and training
    readiness reports under `reports/`.
 
-The current reports are `blocked_no_source_papers` because the folder is empty.
-Do not create fabricated PDFs or fill classes with invented examples to satisfy a
-size target.
+Collection/download reports are under `reports/paper_*`. Downloaded papers are
+not automatically training-eligible: check `paper_license_report.csv` and the
+readiness report. Never fill classes with invented examples to satisfy a size
+target.
 
 ## Relevance examples
 

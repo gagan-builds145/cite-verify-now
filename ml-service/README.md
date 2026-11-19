@@ -109,6 +109,42 @@ license URL, copy `datasets/source_papers/metadata_template.csv` to
 include page count, total extracted characters, successful pages, empty pages
 and page-level extraction errors.
 
+### Automated, license-aware collection
+
+The `paper_collector` package can discover papers through arXiv, OpenAlex,
+Semantic Scholar, Europe PMC and Crossref, then download only allowlisted
+official/open-access PDFs. It streams one PDF at a time, validates magic bytes,
+size, content type, redirects, pypdf readability, encryption, extractable text
+and title consistency, and records every failure. It never bypasses access
+controls and never treats “publicly downloadable” as a training license.
+
+```powershell
+cd ml-service
+python -m paper_collector discover --topics "machine learning,nlp" --limit 3
+python -m paper_collector collect --target 25
+python -m paper_collector validate
+python -m paper_collector report
+```
+
+`collect` is resumable through `datasets/paper_records.jsonl` and
+`datasets/collection_state.json`. Existing PDFs are not overwritten. New
+candidates are appended to `datasets/raw/pilot_relevance.csv` and
+`datasets/raw/pilot_evidence.jsonl`; existing rows, including BERT’s 36 pending
+rows, are preserved. Reports are written under `datasets/reports/`:
+`paper_collection_report.*`, `paper_source_report.csv`,
+`paper_download_failures.csv`, `paper_license_report.csv`,
+`paper_extraction_report.md` and `paper_dataset_readiness_report.md`.
+
+A recognized permissive license (for example CC BY 4.0) is required for
+`training_eligibility=true`. Missing, arXiv-nonexclusive, non-commercial,
+no-derivatives and publisher-specific terms are `REVIEW_REQUIRED`. Downloaded
+papers remain available for local inspection but cannot enter training until a
+human resolves their reuse rights. No training, evaluation, registration or
+deployment is triggered by collection.
+
+The optional Semantic Scholar key and OpenAlex contact are server-side
+environment variables; see `env.example`.
+
 Build pending candidates from the extracted text:
 
 ```powershell
@@ -287,6 +323,8 @@ Endpoints:
 - `GET /admin/status`
 - `POST /admin/datasets/upload`
 - `POST /admin/validate`
+- `GET /admin/collection`
+- `POST /admin/collection/collect`
 - `POST /admin/train`
 - `POST /admin/evaluate`
 - `GET /admin/jobs/{job_id}`
@@ -327,7 +365,9 @@ calls it from a Convex action.
 The page is `/admin/models` and is linked in the desktop sidebar only for
 administrators. It shows active versions, dataset sizes, class distributions,
 jobs, evaluation reports, deployment state and job logs, and provides upload,
-validate, train, evaluate, deploy and rollback actions.
+validate, train, evaluate, deploy and rollback actions. The collection panel
+shows source/license/extraction status and starts a target/topic-configurable
+collection job through the same admin-only service-token boundary.
 
 The first administrator is bootstrapped without a hard-coded password:
 
