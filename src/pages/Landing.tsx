@@ -153,7 +153,7 @@ export default function Landing() {
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.06 }}
-              className="mt-6 font-display text-[clamp(2.9rem,6.1vw,4.7rem)] leading-[0.97] tracking-[-0.025em] text-foreground"
+              className="mt-6 font-display text-[clamp(2.5rem,4.9vw,3.8rem)] leading-[1.03] tracking-[-0.03em] text-foreground"
             >
               Don&apos;t just trust
               <br />
