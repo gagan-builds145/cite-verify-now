@@ -3,10 +3,11 @@ import {
   BookOpenCheck,
   FileSearch,
   MessageSquareQuote,
+  Plus,
   type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 
 type SearchMode = "research" | "paper" | "statement";
 
@@ -88,6 +89,14 @@ export function IntelligentSearch({ className = "" }: { className?: string }) {
         className="mt-2.5 flex min-h-[78px] items-center gap-1.5 rounded-2xl border border-[#DCD9D0] bg-white p-2 shadow-[0_18px_45px_-24px_rgba(20,35,61,0.42)] transition-all duration-300 focus-within:border-[#2463B5]/45 focus-within:shadow-[0_22px_55px_-24px_rgba(20,35,61,0.5)] sm:min-h-[82px] sm:gap-2 sm:p-2.5"
         role="search"
       >
+        <Link
+          to="/analyze"
+          aria-label="Upload paper"
+          title="Upload paper"
+          className="ml-1 flex size-11 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground sm:ml-1.5"
+        >
+          <Plus className="size-5" strokeWidth={2.25} />
+        </Link>
         <div className="min-w-0 flex-1">
           <label htmlFor="hero-research-search" className="sr-only">
             {activeMode.label}

@@ -1,3 +1,5 @@
+// Public marketing page. The walkthrough video and upload step are intentionally
+// absent here; authenticated upload lives in the Analyze workspace.
 import { IntelligentSearch } from "@/components/IntelligentSearch";
 import { SiteFooter, SiteHeader } from "@/components/SiteChrome";
 import {
