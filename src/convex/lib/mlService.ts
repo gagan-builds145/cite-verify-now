@@ -59,7 +59,7 @@ export function mlServiceConfigured(): boolean {
 async function request<T>(
   path: string,
   body?: unknown,
-  options: { method?: "GET" | "POST"; timeoutMs?: number } = {},
+  options: { method?: "GET" | "POST"; timeoutMs?: number; headers?: Record<string, string> } = {},
 ): Promise<T | null> {
   const config = configuration();
   if (!config) return null;
@@ -69,6 +69,7 @@ async function request<T>(
     const response = await fetch(`${config.base}${path}`, {
       method: options.method ?? (body === undefined ? "GET" : "POST"),
       headers: {
+        ...(options.headers ?? {}),
         "Content-Type": "application/json",
         "X-Service-Token": config.token,
       },
@@ -149,6 +150,7 @@ export async function mlAdminRequest<T>(
   path: string,
   body?: unknown,
   method: "GET" | "POST" = body === undefined ? "GET" : "POST",
+  headers?: Record<string, string>,
 ): Promise<T | null> {
-  return await request(path, body, { method, timeoutMs: 15000 });
+  return await request(path, body, { method, timeoutMs: 15000, headers });
 }

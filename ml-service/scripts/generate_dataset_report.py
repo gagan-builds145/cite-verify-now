@@ -14,6 +14,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from annotation_studio import store as annotation_store  # noqa: E402
 from common.io import read_json, read_records, write_json  # noqa: E402
 
 
@@ -76,6 +77,12 @@ def main() -> int:
         1 for row in relevance_rows + evidence_rows
         if str(row.get("review_status", "")).lower() == "pending"
     )
+    annotation_summary = annotation_store.stats()
+    license_summary = annotation_store.license_stats()
+    pending = annotation_summary["pending"]
+    reviewed = annotation_summary["total"] - pending
+    approved = annotation_summary["approved"]
+    rejected = annotation_summary["rejected"]
     warnings = []
     if not papers_manifest:
         warnings.append("No source PDFs are present. The pilot datasets cannot be generated yet.")
@@ -109,8 +116,10 @@ def main() -> int:
         status = "blocked_extraction_errors"
     elif validation.get("status") == "blocked_validation_errors":
         status = "blocked_validation_errors"
-    elif pending or not reviewed and not approved:
+    elif pending or (not reviewed and not approved):
         status = "needs_human_review"
+    elif license_summary["training_eligible_papers"] == 0:
+        status = "blocked_license_review"
     else:
         status = "ready_for_prepare"
     report = {
@@ -170,6 +179,8 @@ def main() -> int:
             for paper in extracted_papers
         ],
         "validation": validation.get("summary", {}),
+        "annotation": annotation_summary,
+        "license_review": license_summary,
         "next_actions": [],
     }
     if not papers_manifest:
@@ -301,6 +312,10 @@ def main() -> int:
         readiness.append("- Extraction errors must be resolved and the manifest reviewed.")
     if pending:
         readiness.append(f"- {pending} candidate row(s) still need human annotation.")
+    if approved == 0:
+        readiness.append("- No candidate row has been approved by a human reviewer.")
+    if license_summary.get("training_eligible_papers", 0) == 0:
+        readiness.append("- No paper has an explicit approved ML-training license assessment.")
     if validation.get("status") == "blocked_validation_errors":
         readiness.append("- The validation report has blocking errors; read `dataset_validation_report.md`.")
     if not readiness[-1].startswith("- "):

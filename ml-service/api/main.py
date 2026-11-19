@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from fastapi import Depends, FastAPI, Header, HTTPException  # noqa: E402
+from fastapi.responses import FileResponse  # noqa: E402
 
 from common.io import read_json  # noqa: E402
 from common.registry import (  # noqa: E402
@@ -29,6 +30,8 @@ from .schemas import (  # noqa: E402
     AdminStatusResponse,
     CollectionRequest,
     DatasetUploadRequest,
+    LicenseReviewRequest,
+    ReviewSaveRequest,
     DeployRequest,
     EvaluateRequest,
     EvidenceRequest,
@@ -59,6 +62,16 @@ def require_service_token(x_service_token: str | None = Header(default=None)) ->
         raise HTTPException(status_code=401, detail="A valid service token is required.")
 
 
+def reviewer_identity(
+    x_annotator_id: str | None = Header(default=None),
+    x_annotator_name: str | None = Header(default=None),
+) -> dict[str, str]:
+    annotator_id = (x_annotator_id or "").strip()
+    if not annotator_id or "@" not in annotator_id:
+        raise HTTPException(status_code=401, detail="A verified reviewer identity is required.")
+    return {"reviewer_id": annotator_id, "reviewer_name": (x_annotator_name or annotator_id).strip()}
+
+
 def _safe_dataset_path(name: str) -> Path:
     if not SAFE_DATASET_NAME.match(name) or not name.lower().endswith((".csv", ".jsonl")):
         raise HTTPException(status_code=400, detail="Dataset name must be a safe .csv or .jsonl filename.")
@@ -73,6 +86,11 @@ def _dataset_summary() -> dict:
         manifest = read_json(directory / "manifest.json", {})
         prepared[kind] = manifest or {"ready": False, "directory": str(directory)}
     return {"prepared": prepared, "last_prepare": report, "raw_dir": str(REGISTRY_ROOT / "datasets" / "raw")}
+
+
+def _review_store():
+    from annotation_studio import store
+    return store
 
 
 def _collection_summary() -> dict:
@@ -298,6 +316,124 @@ def start_collection(request: CollectionRequest) -> dict:
     job_id = create_job("collection", f"target {request.target}; {len(request.topics) or 'default'} topic(s)")
     threading.Thread(target=_run_collection_job, args=(job_id, request), daemon=True).start()
     return {"ok": True, "job_id": job_id}
+
+
+@app.get("/admin/annotations/stats", dependencies=[Depends(require_service_token)])
+def annotation_stats() -> dict:
+    return _review_store().stats()
+
+
+@app.get("/admin/annotations/queue", dependencies=[Depends(require_service_token)])
+def annotation_queue(
+    kind: str = "",
+    status: str = "",
+    paper_id: str = "",
+    topic: str = "",
+    suggested_label: str = "",
+    reviewer: str = "",
+    date_from: str = "",
+    date_to: str = "",
+    search: str = "",
+    page: int = 1,
+    page_size: int = 20,
+) -> dict:
+    try:
+        return _review_store().queue(kind, status, paper_id, topic, suggested_label, reviewer, date_from, date_to, search, page, page_size)
+    except _review_store().ReviewError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+
+@app.get("/admin/annotations/candidate/{kind}/{example_id}", dependencies=[Depends(require_service_token)])
+def annotation_candidate(kind: str, example_id: str) -> dict:
+    try:
+        return _review_store().candidate(kind, example_id)
+    except _review_store().NotFound as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+
+
+@app.get("/admin/annotations/history", dependencies=[Depends(require_service_token)])
+def annotation_history(kind: str, example_id: str) -> list[dict]:
+    return _review_store().candidate(kind, example_id).get("history", [])
+
+
+@app.post("/admin/annotations/review")
+def save_annotation_review(
+    request: ReviewSaveRequest,
+    identity: dict = Depends(reviewer_identity),
+    _: None = Depends(require_service_token),
+) -> dict:
+    try:
+        return _review_store().save_review(
+            request.kind, request.example_id, identity["reviewer_id"], identity["reviewer_name"],
+            request.final_label, request.review_status, request.human_explanation,
+            request.correction_reason, request.expected_revision,
+        )
+    except _review_store().Conflict as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    except _review_store().ReviewError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+
+@app.post("/admin/annotations/export", dependencies=[Depends(require_service_token)])
+def export_approved_annotations() -> dict:
+    return _review_store().export_approved()
+
+
+@app.post("/admin/annotations/reports", dependencies=[Depends(require_service_token)])
+def annotation_reports() -> dict:
+    from annotation_studio.reports import build_reports
+    return build_reports()
+
+
+@app.get("/admin/annotations/readiness", dependencies=[Depends(require_service_token)])
+def annotation_readiness() -> dict:
+    from annotation_studio.reports import build_reports
+    return build_reports()
+
+
+@app.get("/admin/licenses/stats", dependencies=[Depends(require_service_token)])
+def licenses_stats() -> dict:
+    return _review_store().license_stats()
+
+
+@app.get("/admin/licenses/queue", dependencies=[Depends(require_service_token)])
+def license_queue(status: str = "", search: str = "", page: int = 1, page_size: int = 20) -> dict:
+    return _review_store().license_queue(page, page_size, status, search)
+
+
+@app.get("/admin/licenses/history/{paper_id}", dependencies=[Depends(require_service_token)])
+def license_history(paper_id: str) -> list[dict]:
+    return _review_store().license_history(paper_id)
+
+
+@app.post("/admin/licenses/review")
+def save_license_review(
+    request: LicenseReviewRequest,
+    identity: dict = Depends(reviewer_identity),
+    _: None = Depends(require_service_token),
+) -> dict:
+    try:
+        return _review_store().save_license(
+            request.paper_id, identity["reviewer_id"], identity["reviewer_name"],
+            request.permissions, request.outcome, request.rationale, request.evidence_url,
+            request.license_version, request.expected_revision,
+        )
+    except _review_store().Conflict as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    except _review_store().ReviewError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+
+@app.get("/admin/annotations/pdf/{paper_id}", dependencies=[Depends(require_service_token)])
+def annotation_pdf(paper_id: str) -> FileResponse:
+    paper = _review_store().paper_index().get(paper_id)
+    if not paper or not paper.get("filename"):
+        raise HTTPException(status_code=404, detail="Paper PDF not found.")
+    filename = Path(str(paper["filename"])).name
+    path = REGISTRY_ROOT / "datasets" / "source_papers" / filename
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Paper PDF not found.")
+    return FileResponse(path, media_type="application/pdf", filename=filename)
 
 
 @app.post("/admin/datasets/upload", dependencies=[Depends(require_service_token)])

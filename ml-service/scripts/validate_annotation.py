@@ -32,7 +32,7 @@ from common.schema import (  # noqa: E402
     validate_relevance_row,
 )
 
-VALID_REVIEW_STATUS = {"pending", "reviewed", "approved", "rejected"}
+VALID_REVIEW_STATUS = {"pending", "in_review", "reviewed", "approved", "rejected", "needs_adjudication"}
 
 
 def normalized(value: str) -> str:
@@ -131,10 +131,14 @@ def validate_file(
         labels[normalize_label(row.get(label_field, ""))] += 1
         if status not in VALID_REVIEW_STATUS:
             result["errors"].append(f"row {index}: invalid review_status {status!r}")
-        if status in {"reviewed", "approved", "rejected"} and not row.get("annotator_id"):
+        if status in {"in_review", "reviewed", "approved", "rejected", "needs_adjudication"} and not row.get("annotator_id"):
             result["errors"].append(f"row {index}: {status} row has no human annotator_id")
             result["missing_annotator_ids"] += 1
         if status == "pending":
+            result["pending"] += 1
+        elif status == "in_review":
+            result["pending"] += 1
+        elif status == "needs_adjudication":
             result["pending"] += 1
         elif status == "reviewed":
             result["reviewed"] += 1

@@ -1,6 +1,6 @@
 # CiteVerify training readiness
 
-Generated: 2026-11-19T16:23:54Z
+Generated: 2026-11-19T16:42:11Z
 Status: `needs_human_review`
 pypdf: `6.21.4`
 PDF extraction validated: `true`
@@ -9,6 +9,8 @@ Training ready: `false`
 ## Blockers
 
 - 946 candidate row(s) still need human annotation.
+- No candidate row has been approved by a human reviewer.
+- No paper has an explicit approved ML-training license assessment.
 
 ## Required sequence
 

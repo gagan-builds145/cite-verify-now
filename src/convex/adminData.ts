@@ -24,6 +24,7 @@ export const me = query({
       name: user.name ?? null,
       role: user.role ?? ROLES.USER,
       isAdmin: user.role === ROLES.ADMIN,
+      isReviewer: user.role === ROLES.ADMIN || user.role === ROLES.REVIEWER,
     };
   },
 });

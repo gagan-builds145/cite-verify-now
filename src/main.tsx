@@ -26,6 +26,7 @@ const ResearchGraph = lazy(() => import("./pages/ResearchGraph.tsx"));
 const Assistant = lazy(() => import("./pages/Assistant.tsx"));
 const Reports = lazy(() => import("./pages/Reports.tsx"));
 const AdminModels = lazy(() => import("./pages/AdminModels.tsx"));
+const AdminAnnotations = lazy(() => import("./pages/AdminAnnotations.tsx"));
 const Notifications = lazy(() => import("./pages/Notifications.tsx"));
 const Settings = lazy(() => import("./pages/Settings.tsx"));
 const Info = lazy(() => import("./pages/Info.tsx"));
@@ -220,6 +221,17 @@ createRoot(document.getElementById("root")!).render(
                     description="Training data, evaluations and deployment controls are administrator-only."
                   >
                     <AdminModels />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/admin/annotations"
+                element={
+                  <RequireAuth
+                    title="Sign in to review research data"
+                    description="Annotation and license review are restricted to authenticated reviewers."
+                  >
+                    <AdminAnnotations />
                   </RequireAuth>
                 }
               />

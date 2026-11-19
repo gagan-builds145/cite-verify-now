@@ -128,3 +128,23 @@ class CollectionRequest(BaseModel):
     limit_per_topic: int = Field(default=3, ge=1, le=20)
     providers: list[str] = Field(default_factory=list, max_length=5)
     refresh: bool = False
+
+
+class ReviewSaveRequest(BaseModel):
+    kind: Literal["relevance", "evidence"]
+    example_id: str = Field(min_length=1, max_length=120)
+    final_label: str = Field(default="", max_length=50)
+    review_status: Literal["pending", "in_review", "reviewed", "approved", "rejected", "needs_adjudication"]
+    human_explanation: str = Field(default="", max_length=8000)
+    correction_reason: str = Field(default="", max_length=4000)
+    expected_revision: int | None = Field(default=None, ge=0)
+
+
+class LicenseReviewRequest(BaseModel):
+    paper_id: str = Field(min_length=1, max_length=120)
+    permissions: dict[str, Literal["ALLOWED", "NOT_ALLOWED", "UNKNOWN"]]
+    outcome: Literal["APPROVED", "REJECTED", "REVIEW_REQUIRED"]
+    rationale: str = Field(min_length=20, max_length=12000)
+    evidence_url: str = Field(default="", max_length=2000)
+    license_version: str = Field(default="", max_length=200)
+    expected_revision: int | None = Field(default=None, ge=0)
