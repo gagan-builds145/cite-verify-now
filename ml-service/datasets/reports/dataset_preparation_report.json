@@ -1,57 +1,110 @@
 {
-  "generated_at": "2026-11-19T15:09:02Z",
-  "status": "blocked_no_source_papers",
+  "generated_at": "2026-11-19T15:23:49Z",
+  "status": "needs_human_review",
   "source_manifest": "/home/daytona/codebase/ml-service/datasets/source_manifest.json",
-  "source_papers": 0,
-  "extracted_papers": 0,
-  "pdfs_processed": 0,
+  "source_papers": 1,
+  "extracted_papers": 1,
+  "pdfs_processed": 1,
   "pypdf_installed": true,
   "pypdf_version": "6.21.4",
-  "manifest_status": "no_source_pdfs",
-  "extraction_validated": false,
-  "extracted_statements": 0,
-  "evidence_passages": 0,
-  "extracted_passages_available": 0,
-  "ai_suggested_labels": 0,
+  "manifest_status": "ready",
+  "extraction_validated": true,
+  "extracted_statements": 12,
+  "evidence_passages": 24,
+  "extracted_passages_available": 97,
+  "ai_suggested_labels": 36,
   "human_reviewed": 0,
   "approved": 0,
   "rejected": 0,
-  "pending": 0,
+  "pending": 36,
   "relevance": {
-    "rows": 0,
-    "labels": {},
-    "review_status": {}
+    "rows": 12,
+    "labels": {
+      "RELEVANT": 12
+    },
+    "review_status": {
+      "pending": 12
+    }
   },
   "evidence": {
-    "rows": 0,
-    "labels": {},
-    "review_status": {}
+    "rows": 24,
+    "labels": {
+      "ENTAILMENT": 12,
+      "NEUTRAL": 12
+    },
+    "review_status": {
+      "pending": 24
+    }
   },
   "extraction_errors": [],
   "quality_warnings": [
-    "No source PDFs are present. The pilot datasets cannot be generated yet.",
-    "No relevance candidate rows exist.",
-    "No evidence candidate rows exist.",
-    "Relevance classes with no examples: CANNOT_DETERMINE, IRRELEVANT, PARTIALLY_RELEVANT, RELEVANT.",
-    "Evidence classes with no examples: CONTRADICTION, ENTAILMENT, NEUTRAL.",
-    "Validation status: blocked_no_source_papers."
+    "BERT_1810.04805.pdf: extracted_with_warnings.",
+    "Relevance classes with no examples: CANNOT_DETERMINE, IRRELEVANT, PARTIALLY_RELEVANT.",
+    "Evidence classes with no examples: CONTRADICTION.",
+    "36 candidate row(s) remain pending human review.",
+    "Validation status: needs_human_review."
   ],
-  "source_provenance": [],
+  "source_provenance": [
+    {
+      "paper_id": "paper_5692a5514787a8c6",
+      "original_filename": "BERT_1810.04805.pdf",
+      "title": "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding",
+      "authors": [
+        "Jacob Devlin",
+        "Ming-Wei Chang",
+        "Kenton Lee",
+        "Kristina Toutanova"
+      ],
+      "year": 2019,
+      "doi": "10.48550/arXiv.1810.04805",
+      "doi_verified": true,
+      "source_url": "https://arxiv.org/abs/1810.04805",
+      "publication": "NAACL-HLT 2019",
+      "license": "arXiv nonexclusive-distrib 1.0",
+      "license_url": "http://arxiv.org/licenses/nonexclusive-distrib/1.0/",
+      "extraction_status": "extracted_with_warnings",
+      "page_count": 16,
+      "total_text_chars": 64112,
+      "successful_pages": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16
+      ],
+      "empty_pages": [],
+      "page_errors": [],
+      "limitations": [
+        "Keywords were not identified."
+      ],
+      "provenance": "Downloaded from the official arXiv PDF on 2026-11-19; DOI resolver redirects to the arXiv record.",
+      "metadata_source": "sidecar_metadata_csv"
+    }
+  ],
   "validation": {
-    "extracted_examples": 0,
-    "pending_annotations": 0,
+    "extracted_examples": 36,
+    "pending_annotations": 36,
     "human_reviewed": 0,
     "approved": 0,
     "rejected": 0,
-    "validation_errors": 2,
+    "validation_errors": 0,
     "validation_warnings": 0
   },
   "next_actions": [
-    "Place 5–10 genuine, legally obtained research-paper PDFs in ml-service/datasets/source_papers/.",
-    "Run: python scripts\\extract_papers.py.",
-    "Review datasets/source_manifest.json and the extraction limitations.",
-    "Run: python scripts\\build_candidate_queue.py, then annotate with scripts\\annotate_candidates.py.",
-    "Validate with scripts\\validate_annotation.py before prepare_dataset.py.",
-    "Do not run training until human-reviewed rows exist."
+    "Complete human annotation for every pending row.",
+    "Re-run validate_annotation.py and generate this report again.",
+    "Run prepare_dataset.py only after the validation report has no blocking errors.",
+    "Train and evaluate; deployment must wait for an independent evaluation report."
   ]
 }

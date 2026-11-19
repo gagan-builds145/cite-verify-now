@@ -1,22 +1,22 @@
 # CiteVerify dataset validation
 
-Generated: 2026-11-19T15:09:01Z
+Generated: 2026-11-19T15:23:43Z
 
-**Status:** `blocked_no_source_papers`
+**Status:** `needs_human_review`
 
 ## Sources
 
-- Manifest papers: 0
-- Extracted papers available: 0
+- Manifest papers: 1
+- Extracted papers available: 1
 
 ## Relevance
 
 - File: `/home/daytona/codebase/ml-service/datasets/raw/pilot_relevance.csv`
-- Rows: 0
-- Pending: 0
+- Rows: 12
+- Pending: 12
 - Reviewed: 0 / approved: 0 / rejected: 0
-- Labels: `{}`
-- Review statuses: `{}`
+- Labels: `{"RELEVANT": 12}`
+- Review statuses: `{"pending": 12}`
 - Duplicate rows: 0
 - Missing annotator IDs: 0
 - Missing provenance: 0
@@ -24,7 +24,7 @@ Generated: 2026-11-19T15:09:01Z
 
 ### Errors
 
-- Annotation file does not exist.
+- None
 
 ### Warnings
 
@@ -33,11 +33,11 @@ Generated: 2026-11-19T15:09:01Z
 ## Evidence
 
 - File: `/home/daytona/codebase/ml-service/datasets/raw/pilot_evidence.jsonl`
-- Rows: 0
-- Pending: 0
+- Rows: 24
+- Pending: 24
 - Reviewed: 0 / approved: 0 / rejected: 0
-- Labels: `{}`
-- Review statuses: `{}`
+- Labels: `{"ENTAILMENT": 12, "NEUTRAL": 12}`
+- Review statuses: `{"pending": 24}`
 - Duplicate rows: 0
 - Missing annotator IDs: 0
 - Missing provenance: 0
@@ -45,7 +45,7 @@ Generated: 2026-11-19T15:09:01Z
 
 ### Errors
 
-- Annotation file does not exist.
+- None
 
 ### Warnings
 

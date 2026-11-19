@@ -1,10 +1,59 @@
 {
   "schema_version": 1,
-  "generated_at": 1795100883,
+  "generated_at": 1795101823,
   "source_dir": "/home/daytona/codebase/ml-service/datasets/source_papers",
-  "paper_count": 0,
-  "status": "no_source_pdfs",
-  "papers": [],
+  "paper_count": 1,
+  "status": "ready",
+  "papers": [
+    {
+      "original_filename": "BERT_1810.04805.pdf",
+      "paper_id": "paper_5692a5514787a8c6",
+      "title": "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding",
+      "authors": [
+        "Jacob Devlin",
+        "Ming-Wei Chang",
+        "Kenton Lee",
+        "Kristina Toutanova"
+      ],
+      "year": 2019,
+      "doi": "10.48550/arXiv.1810.04805",
+      "doi_verified": true,
+      "source_url": "https://arxiv.org/abs/1810.04805",
+      "publication": "NAACL-HLT 2019",
+      "license": "arXiv nonexclusive-distrib 1.0",
+      "license_url": "http://arxiv.org/licenses/nonexclusive-distrib/1.0/",
+      "extraction_status": "extracted_with_warnings",
+      "page_count": 16,
+      "total_text_chars": 64112,
+      "successful_pages": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16
+      ],
+      "empty_pages": [],
+      "page_errors": [],
+      "extraction_limitations": [
+        "Keywords were not identified."
+      ],
+      "source_sha256": "5692a5514787a8c6727b4ff3b726a3385798bc68e12138d1d4af83947e2acf6e",
+      "extracted_file": "/home/daytona/codebase/ml-service/datasets/extracted/paper_5692a5514787a8c6.json",
+      "provenance": "Downloaded from the official arXiv PDF on 2026-11-19; DOI resolver redirects to the arXiv record.",
+      "metadata_source": "sidecar_metadata_csv"
+    }
+  ],
   "errors": [],
-  "notice": "No PDFs were found in datasets/source_papers. Add genuine papers and run this script again. No dataset rows or quotations were generated."
+  "notice": "Only metadata and text actually present in the supplied PDFs is recorded. Missing fields remain empty."
 }

@@ -197,6 +197,33 @@ def _extract_abstract(pages: list[dict[str, Any]]) -> str:
     return normalize_whitespace(match.group(1))[:4000]
 
 
+def _chunk_text(text: str, max_chars: int = 900) -> list[str]:
+    """Return contiguous substrings; never drop short citation fragments."""
+    if len(text) <= max_chars:
+        return [text] if text else []
+    chunks = []
+    start = 0
+    while len(text) - start > max_chars:
+        window_end = start + max_chars
+        boundary = None
+        for match in re.finditer(r"(?<=[.!?])\s+", text[start:window_end]):
+            boundary = start + match.end()
+        if boundary is None or boundary <= start:
+            boundary = text.rfind(" ", start + 1, window_end)
+        if boundary <= start:
+            boundary = window_end
+        chunk = text[start:boundary].strip()
+        if chunk:
+            chunks.append(chunk)
+        start = boundary
+        while start < len(text) and text[start].isspace():
+            start += 1
+    tail = text[start:].strip()
+    if tail:
+        chunks.append(tail)
+    return chunks
+
+
 def _sections_from_pages(pages: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     sections: list[dict[str, Any]] = []
     passages: list[dict[str, Any]] = []
@@ -210,44 +237,13 @@ def _sections_from_pages(pages: list[dict[str, Any]]) -> tuple[list[dict[str, An
         text = normalize_whitespace(" ".join(current_lines))
         if len(text) >= 40:
             sections.append({"name": current_name, "page": current_page, "text": text})
-            sentences = re.split(r"(?<=[.!?])\s+", text)
-            buffer: list[str] = []
-            length = 0
-            for sentence in sentences:
-                sentence = normalize_whitespace(sentence)
-                if len(sentence) < 20:
-                    continue
-                if buffer and length + len(sentence) > 900:
-                    order += 1
-                    passages.append({
-                        "id": f"P{order:05d}",
-                        "page": current_page,
-                        "section": current_name,
-                        "text": " ".join(buffer),
-                        "order": order,
-                    })
-                    buffer = []
-                    length = 0
-                buffer.append(sentence)
-                length += len(sentence) + 1
-                if length >= 700:
-                    order += 1
-                    passages.append({
-                        "id": f"P{order:05d}",
-                        "page": current_page,
-                        "section": current_name,
-                        "text": " ".join(buffer),
-                        "order": order,
-                    })
-                    buffer = []
-                    length = 0
-            if buffer:
+            for chunk in _chunk_text(text):
                 order += 1
                 passages.append({
                     "id": f"P{order:05d}",
                     "page": current_page,
                     "section": current_name,
-                    "text": " ".join(buffer),
+                    "text": chunk,
                     "order": order,
                 })
         current_lines = []

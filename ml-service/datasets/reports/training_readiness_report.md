@@ -1,14 +1,14 @@
 # CiteVerify training readiness
 
-Generated: 2026-11-19T15:09:02Z
-Status: `blocked_no_source_papers`
+Generated: 2026-11-19T15:23:49Z
+Status: `needs_human_review`
 pypdf: `6.21.4`
-PDF extraction validated: `false`
+PDF extraction validated: `true`
 Training ready: `false`
 
 ## Blockers
 
-- No genuine source PDFs are available in `datasets/source_papers/`.
+- 36 candidate row(s) still need human annotation.
 
 ## Required sequence
 
