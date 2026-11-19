@@ -114,11 +114,11 @@ export function IntelligentSearch({ className = "" }: { className?: string }) {
         <button
           type="submit"
           disabled={!query.trim()}
-          className="flex size-[58px] shrink-0 items-center justify-center rounded-xl bg-[#14233D] text-[#FBFAF7] shadow-[0_4px_0_#0B1729] transition-all hover:bg-[#1C304D] active:translate-y-0.5 active:shadow-[0_2px_0_#0B1729] disabled:cursor-not-allowed disabled:opacity-55 dark:bg-[var(--ink)] dark:text-[#0E1929] dark:shadow-[0_4px_0_var(--action-shadow)] dark:hover:bg-[#A9D0F8]"
+          className="flex h-[58px] shrink-0 items-center justify-center rounded-xl bg-[#14233D] px-5 text-[13px] font-semibold text-[#FBFAF7] shadow-[0_4px_0_#0B1729] transition-all hover:bg-[#1C304D] active:translate-y-0.5 active:shadow-[0_2px_0_#0B1729] disabled:cursor-not-allowed disabled:opacity-55 dark:bg-[var(--ink)] dark:text-[#0E1929] dark:shadow-[0_4px_0_var(--action-shadow)] dark:hover:bg-[#A9D0F8] sm:px-6"
           aria-label={`Search with ${activeMode.label}`}
           title={`Search with ${activeMode.label}`}
         >
-          <Plus className="size-6" strokeWidth={2.25} />
+          Search
         </button>
       </form>
 
