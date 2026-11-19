@@ -3,12 +3,14 @@ import { FooterDoodle } from "@/components/illustrations/Editorial";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
-import { ArrowUpRight, Menu, X } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
+import { ArrowUpRight, Menu, X } from "lucide-react";
 import { useState } from "react";
-import { Link } from "react-router";
+import { Link, useLocation } from "react-router";
 
-const NAV_LINKS = [
+type NavItem = { label: string; to: string; hash: string };
+
+const NAV_LINKS: NavItem[] = [
   { label: "Home", to: "/", hash: "" },
   { label: "Features", to: "/", hash: "#features" },
   { label: "How It Works", to: "/", hash: "#how-it-works" },
@@ -17,47 +19,114 @@ const NAV_LINKS = [
   { label: "About", to: "/about", hash: "" },
 ];
 
+function isActive(link: NavItem, pathname: string, hash: string): boolean {
+  if (link.hash) return pathname === "/" && hash === link.hash;
+  if (link.to === "/") return pathname === "/" && !hash;
+  return pathname === link.to || pathname.startsWith(`${link.to}/`);
+}
+
+function navLinkClass(active: boolean): string {
+  return [
+    "group relative inline-flex items-center rounded-full px-2.5 py-2 text-[14px] font-semibold tracking-[-0.01em] transition-colors duration-200 xl:px-3",
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+    active
+      ? "bg-accent text-accent-foreground after:absolute after:bottom-0.5 after:left-1/2 after:h-[2px] after:w-4 after:-translate-x-1/2 after:rounded-full after:bg-[var(--ink)]"
+      : "text-foreground/75 hover:bg-accent hover:text-accent-foreground",
+  ].join(" ");
+}
+
 export function SiteHeader({ transparent = false }: { transparent?: boolean }) {
   const { isAuthenticated } = useAuth();
   const [open, setOpen] = useState(false);
+  const location = useLocation();
+  const returnTo =
+    location.pathname === "/" ? "/dashboard" : `${location.pathname}${location.search}`;
+  const authQuery = `returnTo=${encodeURIComponent(returnTo)}`;
+  const loginHref = `/login?${authQuery}`;
+  const signupHref = `/signup?${authQuery}`;
 
   return (
     <header
       className={`sticky top-0 z-50 border-b ${
-        transparent ? "border-border/80 bg-background/90 backdrop-blur-xl" : "border-border bg-background"
+        transparent
+          ? "border-border/80 bg-background/90 backdrop-blur-xl"
+          : "border-border bg-background"
       }`}
     >
-      <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-5 sm:px-8">
-        <Brand />
+      <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
+        <Brand className="shrink-0" />
 
-        <nav className="hidden items-center gap-1 md:flex">
-          {NAV_LINKS.map((link) => (
-            <Link
-              key={link.label}
-              to={`${link.to}${link.hash}`}
-              className="group relative rounded-full px-3.5 py-2 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-            >
-              {link.label}
-            </Link>
-          ))}
+        <nav aria-label="Primary navigation" className="hidden items-center gap-0.5 lg:flex">
+          {NAV_LINKS.map((link) => {
+            const active = isActive(link, location.pathname, location.hash);
+            return (
+              <Link
+                key={link.label}
+                to={`${link.to}${link.hash}`}
+                aria-current={active ? "page" : undefined}
+                className={navLinkClass(active)}
+              >
+                {link.label}
+              </Link>
+            );
+          })}
         </nav>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
           <ThemeToggle />
-          <Button asChild size="sm" className="hidden h-9 rounded-full bg-[#14233D] px-4 text-[13px] font-semibold shadow-[0_4px_0_#0c1728] transition-transform hover:-translate-y-0.5 hover:bg-[#1d304f] md:inline-flex">
-            <Link to={isAuthenticated ? "/dashboard" : "/analyze"}>
-              {isAuthenticated ? "Dashboard" : "Get Started"}
-              <ArrowUpRight className="ml-1 size-3.5" />
-            </Link>
-          </Button>
+          {isAuthenticated ? (
+            <Button
+              asChild
+              variant="brand"
+              size="sm"
+              className="hidden h-9 rounded-full px-4 text-[13px] md:inline-flex"
+            >
+              <Link to="/dashboard">
+                Dashboard
+                <ArrowUpRight className="ml-1 size-3.5" />
+              </Link>
+            </Button>
+          ) : (
+            <>
+              <Button
+                asChild
+                variant="ghost"
+                size="sm"
+                className="hidden h-9 rounded-full px-3 text-[13px] font-semibold text-foreground/85 hover:text-foreground md:inline-flex"
+              >
+                <Link to={loginHref}>Log In</Link>
+              </Button>
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+                className="hidden h-9 rounded-full border-border bg-card px-3.5 text-[13px] font-semibold text-foreground shadow-none hover:border-[var(--ink)]/45 hover:bg-accent md:inline-flex"
+              >
+                <Link to={signupHref}>Sign Up</Link>
+              </Button>
+              <Button
+                asChild
+                variant="brand"
+                size="sm"
+                className="hidden h-9 rounded-full px-4 text-[13px] md:inline-flex"
+              >
+                <Link to="/analyze">
+                  Get Started
+                  <ArrowUpRight className="ml-1 size-3.5" />
+                </Link>
+              </Button>
+            </>
+          )}
           <Button
             variant="ghost"
             size="icon"
-            className="size-9 md:hidden"
+            className="size-9 rounded-full lg:hidden"
+            aria-expanded={open}
+            aria-controls="mobile-navigation"
             aria-label={open ? "Close menu" : "Open menu"}
             onClick={() => setOpen((value) => !value)}
           >
-            {open ? <X className="size-4" /> : <Menu className="size-4" />}
+            {open ? <X className="size-5" /> : <Menu className="size-5" />}
           </Button>
         </div>
       </div>
@@ -65,28 +134,70 @@ export function SiteHeader({ transparent = false }: { transparent?: boolean }) {
       <AnimatePresence>
         {open && (
           <motion.div
+            id="mobile-navigation"
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="overflow-hidden border-t border-border bg-background md:hidden"
+            className="overflow-hidden border-t border-border bg-background lg:hidden"
           >
-            <div className="mx-auto flex w-full max-w-6xl flex-col gap-1 px-5 py-4">
-              {NAV_LINKS.map((link) => (
-                <Link
-                  key={link.label}
-                  to={`${link.to}${link.hash}`}
-                  onClick={() => setOpen(false)}
-                  className="rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
-                >
-                  {link.label}
-                </Link>
-              ))}
-              <Button asChild className="mt-2 h-10 rounded-full">
-                <Link to={isAuthenticated ? "/dashboard" : "/analyze"} onClick={() => setOpen(false)}>
-                  {isAuthenticated ? "Dashboard" : "Get Started"}
-                </Link>
-              </Button>
+            <div className="mx-auto flex w-full max-w-6xl flex-col gap-1 px-4 py-4 sm:px-6">
+              <nav aria-label="Mobile navigation" className="flex flex-col gap-1">
+                {NAV_LINKS.map((link) => {
+                  const active = isActive(link, location.pathname, location.hash);
+                  return (
+                    <Link
+                      key={link.label}
+                      to={`${link.to}${link.hash}`}
+                      onClick={() => setOpen(false)}
+                      aria-current={active ? "page" : undefined}
+                      className={`rounded-xl px-3 py-2.5 text-[14px] font-semibold transition-colors ${
+                        active
+                          ? "bg-accent text-accent-foreground shadow-[inset_2px_0_0_var(--ink)]"
+                          : "text-foreground/80 hover:bg-muted hover:text-foreground"
+                      }`}
+                    >
+                      {link.label}
+                    </Link>
+                  );
+                })}
+              </nav>
+              <div className="mt-3 grid gap-2 border-t border-border pt-3 sm:grid-cols-2">
+                {isAuthenticated ? (
+                  <Button asChild variant="brand" className="h-10 rounded-full sm:col-span-2">
+                    <Link to="/dashboard" onClick={() => setOpen(false)}>
+                      Dashboard
+                    </Link>
+                  </Button>
+                ) : (
+                  <>
+                    <Button
+                      asChild
+                      variant="brand"
+                      className="h-10 rounded-full sm:col-span-2"
+                      onClick={() => setOpen(false)}
+                    >
+                      <Link to="/analyze">Get Started</Link>
+                    </Button>
+                    <Button
+                      asChild
+                      variant="outline"
+                      className="h-10 rounded-full"
+                      onClick={() => setOpen(false)}
+                    >
+                      <Link to={loginHref}>Log In</Link>
+                    </Button>
+                    <Button
+                      asChild
+                      variant="outline"
+                      className="h-10 rounded-full"
+                      onClick={() => setOpen(false)}
+                    >
+                      <Link to={signupHref}>Sign Up</Link>
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
           </motion.div>
         )}
@@ -126,15 +237,19 @@ export function SiteFooter() {
             ]}
           />
           <FooterColumn
-            title="Company"
+            title="Account"
             links={[
-              { label: "About", to: "/about" },
-              { label: "Contact", to: "/contact" },
+              { label: "Log in", to: "/login" },
+              { label: "Create account", to: "/signup" },
+              { label: "Dashboard", to: "/dashboard" },
+              { label: "Settings", to: "/settings" },
             ]}
           />
           <FooterColumn
             title="Legal & privacy"
             links={[
+              { label: "About", to: "/about" },
+              { label: "Contact", to: "/contact" },
               { label: "Privacy policy", to: "/privacy" },
               { label: "Terms of use", to: "/terms" },
             ]}

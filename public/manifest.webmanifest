@@ -4,8 +4,8 @@
   "description": "Trace claims in a research paper to their cited publications and check whether the original evidence supports them.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f8f5ef",
-  "theme_color": "#1F3A40",
+  "background_color": "#fbfaf7",
+  "theme_color": "#14233d",
   "icons": [
     {
       "src": "/logo.svg",

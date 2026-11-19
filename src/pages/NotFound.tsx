@@ -30,7 +30,7 @@ export default function NotFound() {
             still available from the research desk.
           </p>
           <div className="mt-6 flex flex-col justify-center gap-2 sm:flex-row">
-            <Button asChild className="rounded-full bg-[#14233D] px-5">
+            <Button asChild variant="brand" className="rounded-full px-5">
               <Link to="/">
                 Back to home
                 <ArrowRight className="ml-1.5 size-3.5" />

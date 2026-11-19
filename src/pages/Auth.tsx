@@ -1,4 +1,4 @@
-import { LogoMark } from "@/components/Brand";
+import { BrandWordmark, LogoMark } from "@/components/Brand";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,20 +10,18 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import {
-  InputOTP,
-  InputOTPGroup,
-  InputOTPSlot,
-} from "@/components/ui/input-otp";
-
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { useAuth } from "@/hooks/use-auth";
-import { ArrowRight, Loader2, Lock, Mail, UserX } from "lucide-react";
+import { AlertCircle, ArrowRight, Loader2, Lock, Mail, ShieldCheck, UserX } from "lucide-react";
 import { Suspense, useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 
 interface AuthProps {
   redirectAfterAuth?: string;
+  initialMode?: AuthMode;
 }
+
+type AuthMode = "signin" | "signup";
 
 function resolveRedirectAfterAuth(returnTo: string | null, fallback = "/dashboard") {
   if (returnTo?.startsWith("/") && !returnTo.startsWith("//")) {
@@ -32,44 +30,84 @@ function resolveRedirectAfterAuth(returnTo: string | null, fallback = "/dashboar
   return fallback;
 }
 
-function Auth({ redirectAfterAuth }: AuthProps = {}) {
+function isValidEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value);
+}
+
+function Auth({ redirectAfterAuth, initialMode = "signin" }: AuthProps = {}) {
   const { isLoading: authLoading, isAuthenticated, signIn } = useAuth();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const queryMode = searchParams.get("mode");
+  const mode: AuthMode =
+    queryMode === "signup" || queryMode === "signin" ? queryMode : initialMode;
   const redirect = resolveRedirectAfterAuth(searchParams.get("returnTo"), redirectAfterAuth);
   const [step, setStep] = useState<"signIn" | { email: string }>("signIn");
+  const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resendIn, setResendIn] = useState(0);
 
   useEffect(() => {
-    if (!authLoading && isAuthenticated) {
-      navigate(redirect);
-    }
+    if (!authLoading && isAuthenticated) navigate(redirect);
   }, [authLoading, isAuthenticated, navigate, redirect]);
+
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const timer = window.setInterval(() => setResendIn((value) => Math.max(0, value - 1)), 1000);
+    return () => window.clearInterval(timer);
+  }, [resendIn]);
+
+  const switchMode = (next: AuthMode) => {
+    const params = new URLSearchParams(searchParams);
+    params.set("mode", next);
+    setSearchParams(params, { replace: true });
+    setStep("signIn");
+    setOtp("");
+    setError(null);
+    setResendIn(0);
+  };
 
   const handleEmailSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    const normalized = email.trim().toLowerCase();
+    if (!normalized) {
+      setError("Enter your email address to continue.");
+      return;
+    }
+    if (!isValidEmail(normalized)) {
+      setError("Enter a valid email address, for example name@university.edu.");
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
     try {
       const formData = new FormData(event.currentTarget);
+      formData.set("email", normalized);
       await signIn("email-otp", formData);
-      setStep({ email: formData.get("email") as string });
-      setIsLoading(false);
+      setEmail(normalized);
+      setStep({ email: normalized });
+      setResendIn(30);
     } catch (signInError) {
       console.error("Email sign-in error:", signInError);
+      const detail =
+        signInError instanceof Error ? signInError.message : "Please try again in a moment.";
       setError(
-        signInError instanceof Error
-          ? signInError.message
-          : "Failed to send verification code. Please try again.",
+        `We could not send the sign-in code. ${detail} You can still continue as a guest.`,
       );
+    } finally {
       setIsLoading(false);
     }
   };
 
   const handleOtpSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (otp.length !== 6) {
+      setError("Enter the six-digit code from your email.");
+      return;
+    }
     setIsLoading(true);
     setError(null);
     try {
@@ -78,9 +116,29 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       navigate(redirect);
     } catch (verifyError) {
       console.error("OTP verification error:", verifyError);
-      setError("The verification code you entered is incorrect.");
-      setIsLoading(false);
+      setError("That code is incorrect or has expired. Request a new code and try again.");
       setOtp("");
+      setIsLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    if (step === "signIn" || resendIn > 0 || isLoading) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      const formData = new FormData();
+      formData.set("email", step.email);
+      await signIn("email-otp", formData);
+      setResendIn(30);
+    } catch (resendError) {
+      setError(
+        resendError instanceof Error
+          ? `We could not resend the code. ${resendError.message}`
+          : "We could not resend the code. Please try again.",
+      );
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -100,24 +158,25 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     }
   };
 
+  const isSignup = mode === "signup";
+
   return (
     <div className="min-h-dvh bg-background lg:grid lg:grid-cols-[1.05fr_1fr]">
-      <aside className="relative hidden flex-col justify-between overflow-hidden bg-foreground p-12 text-background lg:flex">
+      <aside className="relative hidden flex-col justify-between overflow-hidden bg-[#0f1f36] p-12 text-[#f8f3e7] lg:flex">
         <div className="pointer-events-none absolute inset-0 paper-grid opacity-20" />
+        <div className="pointer-events-none absolute -bottom-24 -right-20 size-80 rounded-full border border-white/10" />
         <div className="relative flex items-center gap-2.5">
-          <LogoMark className="size-8 text-background" />
-          <span className="font-brand text-[21px] leading-none">
-            Cite<span className="text-[#8CBDF2]">Verify</span>
-          </span>
+          <LogoMark className="size-9" />
+          <BrandWordmark className="text-[22px] text-[#f8f3e7]" />
         </div>
 
         <div className="relative max-w-md">
-          <p className="font-mono text-[10.5px] uppercase tracking-[0.2em] text-background/50">
+          <p className="font-mono text-[10.5px] uppercase tracking-[0.2em] text-[#f8f3e7]/55">
             Research integrity workspace
           </p>
           <h1 className="mt-4 font-display text-[3.1rem] leading-[1.02] tracking-tight">
             A citation is a promise.
-            <span className="italic text-[#8CBDF2]"> Verify it.</span>
+            <span className="italic text-[#8cbdf2]"> Verify it.</span>
           </h1>
           <div className="mt-8 space-y-3">
             {[
@@ -126,69 +185,135 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
               "Evidence compared against what the source actually says",
             ].map((line, index) => (
               <div key={line} className="flex items-start gap-3">
-                <span className="mt-0.5 font-mono text-[10px] text-background/40">
+                <span className="mt-0.5 font-mono text-[10px] text-[#f8f3e7]/40">
                   0{index + 1}
                 </span>
-                <p className="text-[13px] leading-6 text-background/70">{line}</p>
+                <p className="text-[13px] leading-6 text-[#f8f3e7]/70">{line}</p>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="relative flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-background/45">
+        <div className="relative flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-[#f8f3e7]/50">
           <Lock className="size-3.5" />
           PDFs stay in the browser · sessions are deletable
         </div>
       </aside>
 
       <main className="flex min-h-dvh flex-col">
-        <div className="flex h-16 items-center justify-between px-5 lg:justify-end">
-          <Link to="/" className="flex items-center gap-2 lg:hidden">
-            <LogoMark className="size-7 text-primary" />
-            <span className="font-brand text-xl">
-              Cite<span className="text-[var(--ink)]">Verify</span>
-            </span>
+        <div className="flex h-16 items-center justify-between px-5 sm:px-8 lg:justify-end">
+          <Link to="/" className="flex items-center gap-2.5 lg:hidden" aria-label="CiteVerify home">
+            <LogoMark className="size-8" />
+            <BrandWordmark className="text-[21px]" />
           </Link>
-          <ThemeToggle />
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <Button asChild variant="ghost" size="sm" className="rounded-full text-[12px]">
+              <Link to="/">Back to site</Link>
+            </Button>
+          </div>
         </div>
 
-        <div className="flex flex-1 items-center justify-center px-5 pb-14">
-          <Card className="w-full max-w-[380px] border-border shadow-none">
+        <div className="flex flex-1 items-start justify-center px-5 pb-14 pt-6 sm:items-center sm:pt-2">
+          <Card className="w-full max-w-[408px] overflow-hidden rounded-2xl border-border bg-card shadow-[0_18px_50px_rgba(20,35,61,0.07)]">
             {step === "signIn" ? (
               <>
-                <CardHeader>
-                  <CardTitle className="font-display text-2xl tracking-tight">
-                    Sign in or create an account
-                  </CardTitle>
-                  <CardDescription className="text-[12.5px] leading-5">
-                    An email sign-in keeps your analysis library recoverable. A guest session works
-                    immediately and is not required to analyse a paper.
-                  </CardDescription>
+                <CardHeader className="pb-4">
+                  <div
+                    className="grid grid-cols-2 gap-1 rounded-xl border border-border bg-muted/60 p-1"
+                    role="tablist"
+                    aria-label="Account access"
+                  >
+                    {(
+                      [
+                        { key: "signin", label: "Log In" },
+                        { key: "signup", label: "Sign Up" },
+                      ] as const
+                    ).map((tab) => (
+                      <button
+                        key={tab.key}
+                        type="button"
+                        role="tab"
+                        aria-selected={mode === tab.key}
+                        onClick={() => switchMode(tab.key)}
+                        className={`rounded-lg px-3 py-2 text-[12px] font-semibold transition-colors ${
+                          mode === tab.key
+                            ? "bg-card text-foreground shadow-sm"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="pt-3">
+                    <CardTitle className="font-display text-[25px] tracking-tight">
+                      {isSignup ? "Create your account" : "Welcome back"}
+                    </CardTitle>
+                    <CardDescription className="mt-1.5 text-[12.5px] leading-5">
+                      {isSignup
+                        ? "Create a passwordless account to keep your statement checks and analysis history recoverable."
+                        : "Sign in with a one-time email code to reopen your saved research desk."}
+                    </CardDescription>
+                  </div>
                 </CardHeader>
-                <form onSubmit={handleEmailSubmit}>
+
+                <form onSubmit={handleEmailSubmit} noValidate>
                   <CardContent>
-                    <div className="relative flex items-center gap-2">
-                      <div className="relative flex-1">
-                        <Mail className="absolute left-3 top-3 size-4 text-muted-foreground" />
-                        <Input
-                          name="email"
-                          placeholder="name@university.edu"
-                          type="email"
-                          className="pl-9"
-                          disabled={isLoading}
-                          required
-                          autoComplete="email"
-                        />
-                      </div>
-                      <Button type="submit" variant="outline" size="icon" disabled={isLoading} aria-label="Send code">
-                        {isLoading ? (
-                          <Loader2 className="size-4 animate-spin" />
-                        ) : (
-                          <ArrowRight className="size-4" />
-                        )}
-                      </Button>
+                    <label htmlFor="auth-email" className="text-[11.5px] font-semibold text-foreground">
+                      Email address
+                    </label>
+                    <div className="relative mt-1.5">
+                      <Mail className="absolute left-3 top-3 size-4 text-muted-foreground" aria-hidden="true" />
+                      <Input
+                        id="auth-email"
+                        name="email"
+                        value={email}
+                        onChange={(event) => {
+                          setEmail(event.target.value);
+                          if (error) setError(null);
+                        }}
+                        placeholder="name@university.edu"
+                        type="email"
+                        className="h-10 pl-9"
+                        disabled={isLoading}
+                        required
+                        autoComplete="email"
+                        inputMode="email"
+                        aria-invalid={Boolean(error && !isValidEmail(email))}
+                        aria-describedby={error ? "auth-error" : undefined}
+                      />
                     </div>
-                    {error && <p className="mt-2 text-[12px] text-destructive">{error}</p>}
+                    <Button
+                      type="submit"
+                      variant="brand"
+                      className="mt-3 h-10 w-full rounded-full text-[12.5px]"
+                      disabled={isLoading}
+                    >
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="mr-2 size-4 animate-spin" />
+                          Sending code…
+                        </>
+                      ) : (
+                        <>
+                          Continue with email
+                          <ArrowRight className="ml-2 size-4" />
+                        </>
+                      )}
+                    </Button>
+
+                    {error && (
+                      <p
+                        id="auth-error"
+                        role="alert"
+                        className="mt-2.5 flex items-start gap-1.5 rounded-lg bg-destructive/10 px-2.5 py-2 text-[11px] leading-5 text-destructive"
+                      >
+                        <AlertCircle className="mt-0.5 size-3.5 shrink-0" />
+                        {error}
+                      </p>
+                    )}
 
                     <div className="mt-5">
                       <div className="relative">
@@ -196,14 +321,14 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                           <span className="w-full border-t border-border" />
                         </div>
                         <div className="relative flex justify-center text-[10px] uppercase tracking-[0.1em]">
-                          <span className="bg-card px-2 text-muted-foreground">or</span>
+                          <span className="bg-card px-2 text-muted-foreground">or continue without an account</span>
                         </div>
                       </div>
 
                       <Button
                         type="button"
                         variant="outline"
-                        className="mt-4 w-full"
+                        className="mt-4 h-10 w-full rounded-full text-[12px]"
                         onClick={handleGuestLogin}
                         disabled={isLoading}
                       >
@@ -211,7 +336,8 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                         Continue as guest
                       </Button>
                       <p className="mt-3 text-center text-[10.5px] leading-5 text-muted-foreground">
-                        Guest sessions live in this browser. No file is stored on the server.
+                        Guest sessions live in this browser. Public exploration and your first analysis
+                        do not require an account.
                       </p>
                     </div>
                   </CardContent>
@@ -219,18 +345,32 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
               </>
             ) : (
               <>
-                <CardHeader>
-                  <CardTitle className="font-display text-2xl tracking-tight">Check your email</CardTitle>
-                  <CardDescription>
-                    We sent a six-digit code to <span className="text-foreground">{step.email}</span>.
+                <CardHeader className="pb-4">
+                  <div className="mb-1 flex size-10 items-center justify-center rounded-xl bg-accent">
+                    <ShieldCheck className="size-5 text-[var(--ink)]" />
+                  </div>
+                  <CardTitle className="font-display text-[25px] tracking-tight">
+                    Check your email
+                  </CardTitle>
+                  <CardDescription className="mt-1 text-[12.5px] leading-5">
+                    We sent a six-digit code to{" "}
+                    <span className="font-medium text-foreground">{step.email}</span>. It expires in
+                    15 minutes.
                   </CardDescription>
                 </CardHeader>
-                <form onSubmit={handleOtpSubmit}>
+                <form onSubmit={handleOtpSubmit} noValidate>
                   <CardContent>
                     <input type="hidden" name="email" value={step.email} />
                     <input type="hidden" name="code" value={otp} />
-                    <div className="flex justify-center">
-                      <InputOTP value={otp} onChange={setOtp} maxLength={6} disabled={isLoading}>
+                    <p className="text-[11.5px] font-semibold">Verification code</p>
+                    <div className="mt-2 flex justify-center">
+                      <InputOTP
+                        value={otp}
+                        onChange={setOtp}
+                        maxLength={6}
+                        disabled={isLoading}
+                        aria-label="Six-digit verification code"
+                      >
                         <InputOTPGroup>
                           {Array.from({ length: 6 }).map((_, index) => (
                             <InputOTPSlot key={index} index={index} />
@@ -239,21 +379,33 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       </InputOTP>
                     </div>
                     {error && (
-                      <p className="mt-2 text-center text-[12px] text-destructive">{error}</p>
+                      <p
+                        role="alert"
+                        className="mt-3 flex items-start gap-1.5 rounded-lg bg-destructive/10 px-2.5 py-2 text-[11px] leading-5 text-destructive"
+                      >
+                        <AlertCircle className="mt-0.5 size-3.5 shrink-0" />
+                        {error}
+                      </p>
                     )}
-                    <p className="mt-4 text-center text-[12px] text-muted-foreground">
-                      Didn&apos;t receive a code?{" "}
+                    <div className="mt-4 flex items-center justify-center gap-2 text-[11px] text-muted-foreground">
+                      <span>Didn&apos;t receive a code?</span>
                       <button
                         type="button"
-                        className="font-medium text-primary hover:underline"
-                        onClick={() => setStep("signIn")}
+                        className="font-semibold text-[var(--ink)] hover:underline disabled:cursor-default disabled:no-underline disabled:opacity-60"
+                        onClick={handleResend}
+                        disabled={isLoading || resendIn > 0}
                       >
-                        Try again
+                        {resendIn > 0 ? `Resend in ${resendIn}s` : "Resend code"}
                       </button>
-                    </p>
+                    </div>
                   </CardContent>
                   <CardFooter className="flex-col gap-2">
-                    <Button type="submit" className="w-full" disabled={isLoading || otp.length !== 6}>
+                    <Button
+                      type="submit"
+                      variant="brand"
+                      className="h-10 w-full rounded-full"
+                      disabled={isLoading || otp.length !== 6}
+                    >
                       {isLoading ? (
                         <>
                           <Loader2 className="mr-2 size-4 animate-spin" />
@@ -261,7 +413,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                         </>
                       ) : (
                         <>
-                          Verify code
+                          Verify and continue
                           <ArrowRight className="ml-2 size-4" />
                         </>
                       )}
@@ -269,8 +421,12 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                     <Button
                       type="button"
                       variant="ghost"
-                      className="w-full"
-                      onClick={() => setStep("signIn")}
+                      className="w-full rounded-full text-[11.5px]"
+                      onClick={() => {
+                        setStep("signIn");
+                        setError(null);
+                        setOtp("");
+                      }}
                       disabled={isLoading}
                     >
                       Use a different email
@@ -280,16 +436,16 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
               </>
             )}
 
-            <div className="rounded-b-xl border-t border-border bg-muted/50 px-6 py-3 text-center text-[10.5px] text-muted-foreground">
-              <Link to="/privacy" className="underline-offset-2 hover:underline">
+            <div className="border-t border-border bg-muted/50 px-6 py-3 text-center text-[10.5px] text-muted-foreground">
+              <Link to="/privacy" className="underline-offset-2 hover:underline hover:text-foreground">
                 Privacy
               </Link>
               <span className="mx-1.5">·</span>
-              <Link to="/terms" className="underline-offset-2 hover:underline">
+              <Link to="/terms" className="underline-offset-2 hover:underline hover:text-foreground">
                 Terms
               </Link>
               <span className="mx-1.5">·</span>
-              <Link to="/" className="underline-offset-2 hover:underline">
+              <Link to="/" className="underline-offset-2 hover:underline hover:text-foreground">
                 Back home
               </Link>
             </div>

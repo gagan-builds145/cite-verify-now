@@ -411,7 +411,8 @@ export default function StatementCheck() {
                     <Button
                       onClick={() => void handleSubmit()}
                       disabled={!file || statements.length === 0 || authLoading}
-                      className="h-11 rounded-full bg-[#14233D] px-5 text-[12.5px] font-semibold shadow-[0_3px_0_#0B1729] hover:bg-[#1C304D]"
+                      variant="brand"
+                      className="h-11 rounded-full px-5 text-[12.5px] font-semibold"
                     >
                       <ClipboardCheck className="mr-2 size-4" />
                       Analyze statements

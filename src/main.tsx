@@ -1,4 +1,6 @@
 import '@vly-ai/integrations';
+import { AppBoot } from "@/components/AppBoot";
+import { LoadingScreen } from "@/components/LoadingScreen";
 import { Toaster } from "@/components/ui/sonner";
 import { RequireAuth } from "@/components/RequireAuth";
 import { VlyToolbar } from "../vly-toolbar-readonly.tsx";
@@ -28,13 +30,9 @@ const Settings = lazy(() => import("./pages/Settings.tsx"));
 const Info = lazy(() => import("./pages/Info.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 
-// Simple loading fallback for route transitions
+// Branded fallback for route transitions.
 function RouteLoading() {
-  return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="animate-pulse text-muted-foreground">Loading...</div>
-    </div>
-  );
+  return <LoadingScreen compact />;
 }
 
 /** Silent error boundary — if VlyToolbar crashes it renders nothing instead of
@@ -121,6 +119,7 @@ function RouteSyncer() {
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <RootErrorBoundary>
+      <AppBoot>
       <ToolbarErrorBoundary>
         <VlyToolbar />
       </ToolbarErrorBoundary>
@@ -132,6 +131,14 @@ createRoot(document.getElementById("root")!).render(
             <Routes>
               <Route path="/" element={<Landing />} />
               <Route path="/auth" element={<AuthPage redirectAfterAuth="/dashboard" />} />
+              <Route
+                path="/login"
+                element={<AuthPage redirectAfterAuth="/dashboard" initialMode="signin" />}
+              />
+              <Route
+                path="/signup"
+                element={<AuthPage redirectAfterAuth="/dashboard" initialMode="signup" />}
+              />
               <Route path="/analyze" element={<Analyze />} />
               <Route path="/statements" element={<StatementCheck />} />
               <Route path="/statements/:id" element={<StatementResults />} />
@@ -225,6 +232,7 @@ createRoot(document.getElementById("root")!).render(
         <Toaster />
         </MotionConfig>
       </ConvexAuthProvider>
+      </AppBoot>
     </RootErrorBoundary>
   </StrictMode>,
 );

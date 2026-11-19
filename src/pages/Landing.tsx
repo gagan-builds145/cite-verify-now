@@ -206,7 +206,8 @@ export default function Landing() {
                 <Button
                   asChild
                   size="lg"
-                  className="h-12 rounded-full bg-[#14233D] px-6 text-[13.5px] font-semibold shadow-[0_4px_0_#0B1729] transition-transform hover:-translate-y-0.5 hover:bg-[#1C304D]"
+                  variant="brand"
+                  className="h-12 rounded-full px-6 text-[13.5px] font-semibold"
                 >
                   <Link to="/analyze">
                     <ArrowUpRight className="mr-2 size-4" />
@@ -578,7 +579,8 @@ export default function Landing() {
                 <Button
                   asChild
                   size="lg"
-                  className="h-12 rounded-full bg-[#14233D] px-6 text-[13px] font-semibold shadow-[0_4px_0_#0B1729] hover:bg-[#1C304D]"
+                  variant="brand"
+                  className="h-12 rounded-full px-6 text-[13px] font-semibold"
                 >
                   <Link to="/analyze">
                     <ArrowUpRight className="mr-2 size-4" />

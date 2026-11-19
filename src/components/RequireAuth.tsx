@@ -50,7 +50,8 @@ export function RequireAuth({
 
   if (!isAuthenticated) {
     const returnTo = `${location.pathname}${location.search}`;
-    const signInHref = `/auth?returnTo=${encodeURIComponent(returnTo)}`;
+    const signInHref = `/login?returnTo=${encodeURIComponent(returnTo)}`;
+    const signUpHref = `/signup?returnTo=${encodeURIComponent(returnTo)}`;
 
     if (redirectImmediately) {
       return <Navigate to={signInHref} replace />;
@@ -76,14 +77,13 @@ export function RequireAuth({
             You'll come straight back to this page once you're signed in.
           </CardContent>
           <CardFooter className="flex flex-col gap-2">
-            <Button className="w-full" onClick={() => navigate(signInHref)}>
-              Sign in
+            <Button variant="brand" className="w-full" onClick={() => navigate(signInHref)}>
+              Log in
             </Button>
-            <Button
-              variant="ghost"
-              className="w-full"
-              onClick={() => navigate("/")}
-            >
+            <Button variant="outline" className="w-full" onClick={() => navigate(signUpHref)}>
+              Create an account
+            </Button>
+            <Button variant="ghost" className="w-full" onClick={() => navigate("/")}>
               Back to home
             </Button>
           </CardFooter>

@@ -101,6 +101,14 @@
   --verdict-contradicted-soft: #fce2e2;
   --verdict-insufficient-soft: #f1f2f4;
   --verdict-unverified-soft: #eef4fc;
+
+  /* Primary action tokens. The dark-mode pair is a light ink block with dark
+     text so the CTA never disappears into the midnight canvas. */
+  --action-bg: #14233d;
+  --action-bg-hover: #1c304d;
+  --action-fg: #fbfaf7;
+  --action-border: #14233d;
+  --action-shadow: #0b1729;
 }
 
 .dark {
@@ -147,6 +155,12 @@
   --verdict-contradicted-soft: #3d2424;
   --verdict-insufficient-soft: #26303d;
   --verdict-unverified-soft: #1c3557;
+
+  --action-bg: #8cbdf2;
+  --action-bg-hover: #a9d0f8;
+  --action-fg: #0b1729;
+  --action-border: #b9dcff;
+  --action-shadow: #476b91;
 }
 
 @layer base {
@@ -155,6 +169,9 @@
   }
   html {
     scroll-behavior: smooth;
+  }
+  section[id] {
+    scroll-margin-top: 5rem;
   }
   body {
     @apply bg-background text-foreground font-sans antialiased;
@@ -246,6 +263,125 @@
   }
   .tabular {
     font-variant-numeric: tabular-nums;
+  }
+}
+
+/* First-paint and route loading surface. */
+.cv-loading-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 36%, color-mix(in oklab, var(--ink) 10%, transparent), transparent 48%),
+    var(--background);
+  transition: opacity 360ms ease, visibility 360ms ease;
+}
+.cv-loading-screen--compact {
+  background: var(--background);
+}
+.cv-loading-screen--leaving {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.cv-loading-glow {
+  position: absolute;
+  width: 420px;
+  height: 420px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklab, var(--ink) 12%, transparent);
+  box-shadow: 0 0 90px color-mix(in oklab, var(--ink) 9%, transparent);
+}
+.cv-loading-mark {
+  position: relative;
+  z-index: 1;
+  filter: drop-shadow(0 14px 22px color-mix(in oklab, var(--action-bg) 22%, transparent));
+  animation: cv-mark-breathe 2.2s ease-in-out infinite;
+}
+.cv-loading-orbit {
+  position: absolute;
+  inset: -15px;
+  border: 1px solid color-mix(in oklab, var(--ink) 28%, transparent);
+  border-radius: 24px;
+  animation: cv-orbit 5s linear infinite;
+}
+.cv-loading-orbit::after {
+  content: "";
+  position: absolute;
+  top: -3px;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--ink);
+  transform: translateX(-50%);
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--ink) 13%, transparent);
+}
+.cv-loading-orbit--inner {
+  inset: -7px;
+  border-radius: 18px;
+  border-color: color-mix(in oklab, var(--ink) 12%, transparent);
+  animation-direction: reverse;
+  animation-duration: 3.4s;
+}
+.cv-loading-orbit--inner::after {
+  width: 4px;
+  height: 4px;
+  top: auto;
+  bottom: -2px;
+}
+.cv-loading-track {
+  width: 138px;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--foreground) 10%, transparent);
+}
+.cv-loading-track span {
+  display: block;
+  width: 46%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, transparent, var(--ink), transparent);
+  animation: cv-track 1.35s ease-in-out infinite;
+}
+
+@keyframes cv-mark-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.035);
+  }
+}
+@keyframes cv-orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes cv-track {
+  0% {
+    transform: translateX(-110%);
+  }
+  100% {
+    transform: translateX(330%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cv-loading-mark,
+  .cv-loading-orbit,
+  .cv-loading-track span {
+    animation: none;
+  }
+  .cv-loading-track span {
+    width: 100%;
+    opacity: 0.55;
   }
 }
 

@@ -397,7 +397,7 @@ export default function Analyze() {
                 <p className="mt-1.5 max-w-xs text-[12.5px] leading-6 text-muted-foreground">
                   or browse to choose a PDF. Text-based PDFs up to 25 MB and {MAX_PAGES} pages.
                 </p>
-                <span className="mt-4 rounded-full bg-[#14233D] px-4 py-2 text-[11.5px] font-semibold text-white shadow-[0_3px_0_#0B1729]">
+                <span className="mt-4 rounded-full border border-[var(--action-border)] bg-[var(--action-bg)] px-4 py-2 text-[11.5px] font-semibold text-[var(--action-fg)] shadow-[0_3px_0_var(--action-shadow)]">
                   Browse files
                 </span>
                 <p className="mt-4 text-[9.5px] font-medium uppercase tracking-[0.1em] text-muted-foreground">

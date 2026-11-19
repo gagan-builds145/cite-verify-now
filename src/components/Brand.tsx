@@ -1,21 +1,64 @@
+import { useId } from "react";
 import { Link } from "react-router";
 
+/**
+ * CiteVerify's "proof mark": a document-blue tile, an open C for citation and
+ * a verified check crossing the opening. It reads at 16px and in the favicon.
+ */
 export function LogoMark({ className = "size-7" }: { className?: string }) {
+  const gradientId = `cv-logo-${useId().replace(/:/g, "")}`;
+
   return (
-    <svg viewBox="0 0 32 32" className={className} aria-hidden="true">
-      <rect x="0.9" y="0.9" width="30.2" height="30.2" rx="8" fill="currentColor" opacity="0.1" />
-      <rect x="0.9" y="0.9" width="30.2" height="30.2" rx="8" fill="none" stroke="currentColor" strokeWidth="1.3" opacity="0.45" />
-      <path d="M10 9.5h5.2v2.1h-3.1v11h3.1v2.1H10z" fill="currentColor" opacity="0.65" />
-      <path d="M22 9.5h-5.2v2.1h3.1v11h-3.1v2.1H22z" fill="currentColor" opacity="0.65" />
-      <path
-        d="M12.1 17.1l2.6 2.7 5.1-5.6"
+    <svg
+      viewBox="0 0 40 40"
+      className={className}
+      role="img"
+      aria-label="CiteVerify"
+    >
+      <defs>
+        <linearGradient id={gradientId} x1="5" y1="3" x2="35" y2="38" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#1B3558" />
+          <stop offset="0.55" stopColor="#2463B5" />
+          <stop offset="1" stopColor="#3B82D6" />
+        </linearGradient>
+      </defs>
+      <rect width="40" height="40" rx="11.5" fill={`url(#${gradientId})`} />
+      <rect
+        x="0.8"
+        y="0.8"
+        width="38.4"
+        height="38.4"
+        rx="10.9"
         fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
+        stroke="#FFFFFF"
+        strokeOpacity="0.22"
+        strokeWidth="1.1"
+      />
+      <path
+        d="M26.7 13.2h-5.8c-4.7 0-8.2 3.2-8.2 7.4s3.5 7.4 8.2 7.4h5.8"
+        fill="none"
+        stroke="#F8F3E7"
+        strokeWidth="3.25"
+        strokeLinecap="round"
+      />
+      <path
+        d="m15.9 20.2 3.2 3.2 6.3-6.6"
+        fill="none"
+        stroke="#A8E6C7"
+        strokeWidth="2.8"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+      <circle cx="30.1" cy="13.4" r="2.15" fill="#F1C66A" />
     </svg>
+  );
+}
+
+export function BrandWordmark({ className = "" }: { className?: string }) {
+  return (
+    <span className={`font-brand leading-none tracking-[-0.045em] ${className}`}>
+      Cite<span className="text-[var(--ink)]">Verify</span>
+    </span>
   );
 }
 
@@ -26,10 +69,8 @@ export function Brand({ className = "" }: { className?: string }) {
       className={`group inline-flex items-center gap-2.5 text-foreground ${className}`}
       aria-label="CiteVerify home"
     >
-      <LogoMark className="size-8 text-primary transition-transform duration-300 group-hover:-rotate-3" />
-      <span className="font-brand text-[21px] leading-none text-foreground">
-        Cite<span className="text-[var(--ink)]">Verify</span>
-      </span>
+      <LogoMark className="size-8 transition-transform duration-300 group-hover:-rotate-3" />
+      <BrandWordmark className="text-[21px]" />
     </Link>
   );
 }
