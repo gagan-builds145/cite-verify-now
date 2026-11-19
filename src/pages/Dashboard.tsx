@@ -1,5 +1,6 @@
 import { AppShell } from "@/components/app/AppShell";
 import { VerdictBadge } from "@/components/app/Badges";
+import { EmptyStateIllustration } from "@/components/illustrations/Editorial";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,7 +37,6 @@ import {
   Bookmark,
   Compass,
   FilePlus2,
-  FileText,
   Loader2,
   ShieldCheck,
   Sparkles,
@@ -212,29 +212,41 @@ export default function Dashboard() {
           </div>
         )}
 
-        <div className="mt-6 grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
+        <div className="mt-6 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
           {[
-            { label: "Papers analysed", value: items.length, hint: `${savedCount} saved` },
-            { label: "Claims audited", value: totals.claims, hint: `${totals.reviewNeeded} flagged` },
-            { label: "Supported", value: `${totals.supportRate}%`, hint: `${totals.supported} claims` },
-            {
-              label: "References",
-              value: `${totals.verified}/${totals.references}`,
-              hint: "verified",
-            },
-            { label: "Evidence coverage", value: `${totals.evidenceCoverage}%`, hint: `${totals.fullText} full text` },
-            { label: "Human reviewed", value: totals.reviewed, hint: `${totals.retracted} retracted refs` },
+            { label: "Documents analysed", value: items.length, hint: `${savedCount} saved`, tone: "#2463B5" },
+            { label: "Claims extracted", value: totals.claims, hint: `${totals.reviewNeeded} need review`, tone: "var(--foreground)" },
+            { label: "Citations verified", value: `${totals.verified}/${totals.references}`, hint: "matched records", tone: "#2F7A57" },
+            { label: "Supported claims", value: totals.supportRate, suffix: "%", hint: `${totals.supported} claims`, tone: "#2F7A57" },
+            { label: "Partially supported", value: totals.partial, hint: "narrower or partial", tone: "#9A6A17" },
+            { label: "Contradicted claims", value: totals.contradicted, hint: "evidence conflicts", tone: "#AE4A44" },
+            { label: "Insufficient evidence", value: totals.insufficient, hint: "thin or absent", tone: "#667085" },
+            { label: "Unverified claims", value: totals.unverified, hint: "source unavailable", tone: "#2463B5" },
           ].map((tile) => (
-            <div key={tile.label} className="rounded-xl border border-border bg-card px-4 py-3">
-              <p className="font-mono text-[9px] uppercase tracking-[0.08em] text-muted-foreground">
+            <div key={tile.label} className="relative overflow-hidden rounded-xl border border-border bg-card px-4 py-3">
+              <span className="absolute inset-x-0 top-0 h-0.5" style={{ backgroundColor: tile.tone }} />
+              <p className="text-[9px] font-semibold uppercase tracking-[0.07em] text-muted-foreground">
                 {tile.label}
               </p>
-              <p className="tabular mt-1.5 text-2xl font-semibold leading-none">{tile.value}</p>
-              <p className="mt-1 font-mono text-[8.5px] uppercase tracking-[0.06em] text-muted-foreground/70">
+              <p className="tabular mt-1.5 text-2xl font-semibold leading-none">
+                {tile.value}
+                {tile.suffix ? <span className="text-base font-medium text-muted-foreground">{tile.suffix}</span> : null}
+              </p>
+              <p className="mt-1 text-[8.5px] uppercase tracking-[0.05em] text-muted-foreground/70">
                 {tile.hint}
               </p>
             </div>
           ))}
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1 rounded-xl border border-border bg-accent/60 px-4 py-2.5 text-[10.5px] text-muted-foreground">
+          <span className="font-semibold">Evidence coverage {totals.evidenceCoverage}%</span>
+          <span>{totals.fullText} full-text sources</span>
+          <span>{totals.abstract} abstract-only</span>
+          <span>{totals.reviewed} human reviewed</span>
+          <span className={totals.retracted > 0 ? "font-medium text-[var(--verdict-contradicted)]" : ""}>
+            {totals.retracted} retracted reference{totals.retracted === 1 ? "" : "s"}
+          </span>
         </div>
 
         <div className="mt-4 grid gap-3 lg:grid-cols-[1.1fr_0.9fr_1fr]">
@@ -271,6 +283,7 @@ export default function Dashboard() {
                       <Tooltip
                         contentStyle={{
                           background: "var(--card)",
+                          color: "var(--foreground)",
                           border: "1px solid var(--border)",
                           borderRadius: 8,
                           fontSize: 11,
@@ -315,6 +328,7 @@ export default function Dashboard() {
                     cursor={{ fill: "var(--secondary)" }}
                     contentStyle={{
                       background: "var(--card)",
+                          color: "var(--foreground)",
                       border: "1px solid var(--border)",
                       borderRadius: 8,
                       fontSize: 11,
@@ -400,11 +414,11 @@ export default function Dashboard() {
                 <Loader2 className="size-4 animate-spin" /> Loading sessions
               </div>
             ) : items.length === 0 ? (
-              <div className="mt-3 rounded-xl border border-dashed border-border bg-card px-6 py-12 text-center">
-                <div className="mx-auto flex size-11 items-center justify-center rounded-full border border-border bg-secondary">
-                  <FileText className="size-5 text-primary" />
+              <div className="mt-3 overflow-hidden rounded-2xl border border-dashed border-border bg-card px-6 py-8 text-center">
+                <div className="mx-auto max-w-[190px]">
+                  <EmptyStateIllustration kind="dashboard" />
                 </div>
-                <h3 className="mt-3 font-display text-xl tracking-tight">No analyses yet</h3>
+                <h3 className="mt-1 font-display text-xl tracking-tight">No analyses yet</h3>
                 <p className="mx-auto mt-1.5 max-w-sm text-[11.5px] leading-6 text-muted-foreground">
                   Upload a research paper for a claim-by-claim evidence report, or run the annotated
                   demo manuscript first.

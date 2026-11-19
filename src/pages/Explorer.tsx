@@ -1,4 +1,5 @@
 import { AppShell } from "@/components/app/AppShell";
+import { EmptyStateIllustration } from "@/components/illustrations/Editorial";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -331,30 +332,35 @@ export default function Explorer() {
         </form>
 
         {!searched && (
-          <div className="mt-6 rounded-xl border border-dashed border-border bg-secondary/20 p-6">
-            <p className="flex items-center gap-2 text-[12.5px] font-medium">
-              <Compass className="size-4 text-primary" />
-              Start with a topic
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {EXAMPLES.map((example) => (
-                <button
-                  key={example}
-                  type="button"
-                  onClick={() => {
-                    setQuery(example);
-                    void runSearch(example);
-                  }}
-                  className="rounded-full border border-border bg-card px-3 py-1.5 text-[11.5px] text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
-                >
-                  {example}
-                </button>
-              ))}
+          <div className="mt-6 flex flex-col items-center gap-4 rounded-2xl border border-dashed border-border bg-accent/40 p-5 sm:flex-row sm:gap-7 sm:p-6">
+            <div className="w-[170px] shrink-0">
+              <EmptyStateIllustration kind="search" />
             </div>
-            <p className="mt-4 text-[11px] leading-5 text-muted-foreground">
-              CiteVerify does not host PDFs. Discovery returns real metadata and abstracts where the
-              source supplies them; missing abstracts are labelled as unavailable.
-            </p>
+            <div className="min-w-0 flex-1 text-center sm:text-left">
+              <p className="flex items-center justify-center gap-2 text-[13px] font-semibold tracking-tight sm:justify-start">
+                <Compass className="size-4 text-[var(--ink)]" />
+                Start with a topic
+              </p>
+              <div className="mt-3 flex flex-wrap justify-center gap-2 sm:justify-start">
+                {EXAMPLES.map((example) => (
+                  <button
+                    key={example}
+                    type="button"
+                    onClick={() => {
+                      setQuery(example);
+                      void runSearch(example);
+                    }}
+                    className="rounded-full border border-border bg-card px-3 py-1.5 text-[11.5px] text-muted-foreground transition-colors hover:border-[var(--ink)]/40 hover:text-foreground"
+                  >
+                    {example}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-3 text-[11px] leading-5 text-muted-foreground">
+                CiteVerify does not host PDFs. Discovery returns real metadata and abstracts where the
+                source supplies them; missing abstracts are labelled as unavailable.
+              </p>
+            </div>
           </div>
         )}
 
@@ -371,9 +377,14 @@ export default function Explorer() {
           </div>
         )}
 
-        {error && !loading && (
-          <div className="mt-4 rounded-lg border border-border bg-card px-4 py-3 text-[12px] leading-6 text-muted-foreground">
-            {error}
+        {error && !loading && papers.length === 0 && (
+          <div className="mt-5 rounded-2xl border border-dashed border-border bg-card px-6 py-6 text-center">
+            <div className="mx-auto w-[170px]">
+              <EmptyStateIllustration kind="search" />
+            </div>
+            <p className="mx-auto mt-1 max-w-md text-[12px] leading-6 text-muted-foreground">
+              {error}
+            </p>
           </div>
         )}
 

@@ -1,4 +1,5 @@
 import { AppShell } from "@/components/app/AppShell";
+import { EmptyStateIllustration } from "@/components/illustrations/Editorial";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -223,6 +224,19 @@ export default function ResearchGraph() {
         {loading ? (
           <div className="mt-8 flex items-center gap-2 py-20 text-sm text-muted-foreground">
             <Loader2 className="size-4 animate-spin" /> Asking OpenAlex for citation links
+          </div>
+        ) : !graph && !error ? (
+          <div className="mt-5 flex flex-col items-center gap-5 rounded-2xl border border-dashed border-border bg-accent/30 p-6 text-center sm:flex-row sm:text-left">
+            <div className="w-[190px] shrink-0">
+              <EmptyStateIllustration kind="search" />
+            </div>
+            <div>
+              <h2 className="font-display text-xl tracking-tight">Follow a paper through the literature</h2>
+              <p className="mt-2 max-w-md text-[12px] leading-6 text-muted-foreground">
+                Enter a DOI to see its references, the works that cite it and semantically related
+                papers. Graph edges are labelled by relation; similarity is never presented as support.
+              </p>
+            </div>
           </div>
         ) : graph ? (
           <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_290px]">

@@ -1,4 +1,5 @@
 import { AppShell } from "@/components/app/AppShell";
+import { EmptyStateIllustration } from "@/components/illustrations/Editorial";
 import { Button } from "@/components/ui/button";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -24,7 +25,6 @@ import {
   Download,
   FileJson,
   FileSpreadsheet,
-  FileText,
   Loader2,
   ShieldCheck,
 } from "lucide-react";
@@ -288,6 +288,7 @@ export default function Reports() {
                     <Tooltip
                       contentStyle={{
                         background: "var(--card)",
+                      color: "var(--foreground)",
                         border: "1px solid var(--border)",
                         borderRadius: 8,
                         fontSize: 11,
@@ -328,6 +329,7 @@ export default function Reports() {
                     cursor={{ fill: "var(--secondary)" }}
                     contentStyle={{
                       background: "var(--card)",
+                      color: "var(--foreground)",
                       border: "1px solid var(--border)",
                       borderRadius: 8,
                       fontSize: 11,
@@ -362,6 +364,7 @@ export default function Reports() {
                       cursor={{ fill: "var(--secondary)" }}
                       contentStyle={{
                         background: "var(--card)",
+                      color: "var(--foreground)",
                         border: "1px solid var(--border)",
                         borderRadius: 8,
                         fontSize: 11,
@@ -391,9 +394,11 @@ export default function Reports() {
               <Loader2 className="size-4 animate-spin" /> Loading reports
             </div>
           ) : items.length === 0 ? (
-            <div className="mt-3 rounded-xl border border-dashed border-border bg-card px-6 py-12 text-center">
-              <FileText className="mx-auto size-6 text-muted-foreground/60" />
-              <p className="mt-3 font-display text-xl tracking-tight">No reports yet</p>
+            <div className="mt-3 overflow-hidden rounded-2xl border border-dashed border-border bg-card px-6 py-8 text-center">
+              <div className="mx-auto max-w-[180px]">
+                <EmptyStateIllustration kind="reports" />
+              </div>
+              <p className="mt-1 font-display text-xl tracking-tight">No reports yet</p>
               <p className="mt-1.5 text-[11.5px] text-muted-foreground">
                 Complete an analysis to generate a claim-by-claim report.
               </p>

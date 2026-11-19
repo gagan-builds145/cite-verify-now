@@ -1,4 +1,5 @@
 import { SiteFooter, SiteHeader } from "@/components/SiteChrome";
+import { FeatureIllustration, PrivacyIllustration } from "@/components/illustrations/Editorial";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -56,15 +57,30 @@ export default function Info({ mode }: { mode: InfoMode }) {
     <div className="min-h-screen bg-background">
       <SiteHeader transparent />
       <main>
-        <div className="border-b border-border">
-          <div className="mx-auto w-full max-w-4xl px-5 py-16 sm:px-8">
+        <div className="relative overflow-hidden border-b border-border bg-background">
+          <div className="pointer-events-none absolute inset-0 paper-dots opacity-35" />
+          <div className="pointer-events-none absolute -right-16 -top-20 size-64 rounded-[46%_54%_60%_40%/52%_44%_56%_48%] bg-accent" />
+          <div className="relative mx-auto grid w-full max-w-6xl gap-8 px-5 py-16 sm:px-8 lg:grid-cols-[1fr_300px] lg:items-center">
             <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
               <p className="eyebrow">{copy.eyebrow}</p>
-              <h1 className="mt-4 max-w-3xl font-display text-4xl leading-[1.05] tracking-tight sm:text-5xl">
+              <h1 className="mt-4 max-w-3xl font-display text-4xl leading-[1.05] tracking-[-0.04em] sm:text-5xl">
                 {copy.title}
               </h1>
               <p className="mt-5 max-w-2xl text-[15px] leading-7 text-muted-foreground">{copy.intro}</p>
             </motion.div>
+            {mode === "privacy" && (
+              <div className="mx-auto w-full max-w-[300px]">
+                <PrivacyIllustration />
+              </div>
+            )}
+            {mode === "about" && (
+              <div className="rounded-2xl border border-border bg-card p-3">
+                <FeatureIllustration kind="discovery" />
+                <p className="px-2 pb-1 pt-3 text-[10.5px] leading-5 text-muted-foreground">
+                  Real records, connected research, and an evidence trail you can inspect.
+                </p>
+              </div>
+            )}
           </div>
         </div>
 

@@ -1,3 +1,4 @@
+import { EmptyStateIllustration } from "@/components/illustrations/Editorial";
 import { Input } from "@/components/ui/input";
 import {
   VERDICT_META,
@@ -103,7 +104,10 @@ export function ClaimList({
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         {filtered.length === 0 ? (
-          <div className="p-6 text-center text-[12px] leading-6 text-muted-foreground">
+          <div className="p-5 text-center text-[12px] leading-6 text-muted-foreground">
+            <div className="mx-auto max-w-[130px]">
+              <EmptyStateIllustration kind="citations" />
+            </div>
             No claims match this filter. Clear the search or pick another verdict.
           </div>
         ) : (

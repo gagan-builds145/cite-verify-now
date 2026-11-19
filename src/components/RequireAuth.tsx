@@ -1,3 +1,4 @@
+import { EmptyStateIllustration } from "@/components/illustrations/Editorial";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -56,12 +57,16 @@ export function RequireAuth({
     }
 
     return (
-      <main className="flex min-h-screen items-center justify-center bg-background p-6">
-        <Card className="w-full max-w-md">
+      <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background p-6">
+        <div className="pointer-events-none absolute inset-0 paper-dots opacity-35" />
+        <Card className="relative w-full max-w-md overflow-hidden rounded-2xl border-border bg-card shadow-[0_18px_45px_rgba(20,35,61,0.08)]">
           <CardHeader className="text-center">
-            <div className="flex justify-center">
-              <div className="mb-4 flex size-12 items-center justify-center rounded-full bg-muted">
-                <Lock className="size-5 text-muted-foreground" />
+            <div className="mx-auto -mt-2 w-full max-w-[190px]">
+              <EmptyStateIllustration kind="library" />
+            </div>
+            <div className="mb-2 flex justify-center">
+              <div className="flex size-9 items-center justify-center rounded-full bg-accent">
+                <Lock className="size-4 text-[#2463B5]" />
               </div>
             </div>
             <CardTitle className="text-xl">{title}</CardTitle>

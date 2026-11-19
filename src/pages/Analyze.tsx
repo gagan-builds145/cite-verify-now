@@ -1,5 +1,6 @@
 import { PrivacyBadge } from "@/components/app/Badges";
 import { ProcessingStages } from "@/components/app/ProcessingStages";
+import { AlertIllustration, UploadIllustration } from "@/components/illustrations/Editorial";
 import { SiteFooter, SiteHeader } from "@/components/SiteChrome";
 import { Button } from "@/components/ui/button";
 import { api } from "@/convex/_generated/api";
@@ -276,26 +277,26 @@ export default function Analyze() {
     <div className="min-h-screen bg-background">
       <SiteHeader transparent />
 
-      <section className="border-b border-border">
-        <div className="mx-auto w-full max-w-6xl px-5 py-10 sm:px-8">
-          <div className="flex flex-wrap items-end justify-between gap-5">
-            <div>
-              <p className="eyebrow">New verification</p>
-              <h1 className="mt-3 font-display text-4xl leading-[1.03] tracking-tight sm:text-5xl">
-                Start a private analysis.
-              </h1>
-              <p className="mt-3 max-w-xl text-[14px] leading-7 text-muted-foreground">
-                Add a research paper and CiteVerify will trace its claims through citations to the
-                original publications and the evidence those sources provide.
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <PrivacyBadge />
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-[11px] text-muted-foreground">
-                <Check className="size-3 text-[var(--verdict-supported)]" />
-                No account required
-              </span>
-            </div>
+      <section className="relative overflow-hidden border-b border-border bg-background">
+        <div className="pointer-events-none absolute inset-0 paper-dots opacity-35" />
+        <div className="pointer-events-none absolute -right-20 -top-24 size-72 rounded-[45%_55%_60%_40%/50%_45%_55%_50%] bg-accent" />
+        <div className="relative mx-auto flex w-full max-w-6xl flex-wrap items-end justify-between gap-5 px-5 py-10 sm:px-8">
+          <div>
+            <p className="eyebrow">New verification</p>
+            <h1 className="mt-3 font-display text-4xl leading-[1.03] tracking-[-0.035em] sm:text-5xl">
+              Start a private analysis.
+            </h1>
+            <p className="mt-3 max-w-xl text-[14px] leading-7 text-muted-foreground">
+              Add a research paper and CiteVerify will trace its claims through citations to the
+              original publications and the evidence those sources provide.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <PrivacyBadge />
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-[#2F7A57]/20 bg-[#DDF3E7] px-2.5 py-1 text-[11px] font-medium text-[#2F7A57]">
+              <Check className="size-3" />
+              No account required
+            </span>
           </div>
         </div>
       </section>
@@ -312,11 +313,14 @@ export default function Analyze() {
             </motion.div>
 
             {phase === "failed" && (
-              <div className="mt-4 rounded-xl border border-[var(--verdict-contradicted)]/30 bg-[var(--verdict-contradicted-soft)] p-5">
-                <div className="flex items-start gap-3">
-                  <AlertTriangle className="mt-0.5 size-4 shrink-0 text-[var(--verdict-contradicted)]" />
-                  <div>
-                    <p className="text-sm font-semibold text-[var(--verdict-contradicted)]">
+              <div className="mt-4 overflow-hidden rounded-2xl border border-[var(--verdict-contradicted)]/25 bg-[var(--verdict-contradicted-soft)] p-5">
+                <div className="flex flex-col items-start gap-3 sm:flex-row">
+                  <div className="w-[120px] shrink-0">
+                    <AlertIllustration />
+                  </div>
+                  <div className="flex-1">
+                    <p className="flex items-center gap-1.5 text-sm font-semibold text-[var(--verdict-contradicted)]">
+                      <AlertTriangle className="size-4" />
                       The analysis did not finish
                     </p>
                     <p className="mt-1 text-[12.5px] leading-6 text-foreground/80">
@@ -367,10 +371,10 @@ export default function Analyze() {
                 onKeyDown={(event) => {
                   if (event.key === "Enter" || event.key === " ") inputRef.current?.click();
                 }}
-                className={`relative flex min-h-[260px] flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-10 text-center transition-colors ${
+                className={`relative flex min-h-[300px] flex-col items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed px-6 py-8 text-center transition-colors ${
                   dragActive
-                    ? "border-primary bg-primary/5"
-                    : "border-border bg-card hover:border-primary/40 hover:bg-secondary/30"
+                    ? "border-[var(--ink)] bg-accent"
+                    : "border-border bg-card hover:border-[var(--ink)]/55 hover:bg-accent/50"
                 } ${busy ? "pointer-events-none opacity-60" : ""}`}
               >
                 <input
@@ -384,20 +388,20 @@ export default function Analyze() {
                     if (file) void handleFile(file);
                   }}
                 />
-                <div className="flex size-12 items-center justify-center rounded-full border border-border bg-secondary">
-                  <UploadCloud className="size-5 text-primary" />
+                <div className="w-full max-w-[235px]">
+                  <UploadIllustration />
                 </div>
-                <p className="mt-4 text-sm font-semibold tracking-tight">
+                <p className="mt-1 text-[15px] font-semibold tracking-tight">
                   Drop your research paper here
                 </p>
                 <p className="mt-1.5 max-w-xs text-[12.5px] leading-6 text-muted-foreground">
                   or browse to choose a PDF. Text-based PDFs up to 25 MB and {MAX_PAGES} pages.
                 </p>
-                <span className="mt-4 rounded-full border border-border bg-background px-3 py-1.5 text-[11.5px] font-medium">
-                  Choose PDF
+                <span className="mt-4 rounded-full bg-[#14233D] px-4 py-2 text-[11.5px] font-semibold text-white shadow-[0_3px_0_#0B1729]">
+                  Browse files
                 </span>
-                <p className="mt-5 font-mono text-[9.5px] uppercase tracking-[0.1em] text-muted-foreground/80">
-                  parsed locally · never uploaded as a file
+                <p className="mt-4 text-[9.5px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
+                  Parsed locally · never uploaded as a file
                 </p>
               </div>
 
@@ -504,9 +508,9 @@ export default function Analyze() {
             </div>
 
             <aside className="space-y-4">
-              <div className="rounded-xl border border-border bg-card">
-                <div className="flex items-center gap-2 border-b border-border px-4 py-3">
-                  <ShieldCheck className="size-4 text-[var(--verdict-supported)]" />
+              <div className="overflow-hidden rounded-2xl border border-border bg-card">
+                <div className="flex items-center gap-2 border-b border-border bg-[#DDF3E7]/55 px-4 py-3">
+                  <ShieldCheck className="size-4 text-[#2F7A57]" />
                   <p className="text-[12.5px] font-semibold tracking-tight">Private analysis session</p>
                 </div>
                 <ul className="divide-y divide-border">

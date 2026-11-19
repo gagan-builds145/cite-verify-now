@@ -106,8 +106,8 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
         <div className="pointer-events-none absolute inset-0 paper-grid opacity-20" />
         <div className="relative flex items-center gap-2.5">
           <LogoMark className="size-8 text-background" />
-          <span className="font-display text-[22px] leading-none tracking-tight">
-            Cite<span className="italic">Verify</span>
+          <span className="font-brand text-[21px] leading-none">
+            Cite<span className="text-[#8CBDF2]">Verify</span>
           </span>
         </div>
 
@@ -117,7 +117,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
           </p>
           <h1 className="mt-4 font-display text-[3.1rem] leading-[1.02] tracking-tight">
             A citation is a promise.
-            <span className="italic text-background/60"> Verify it.</span>
+            <span className="italic text-[#8CBDF2]"> Verify it.</span>
           </h1>
           <div className="mt-8 space-y-3">
             {[
@@ -145,8 +145,8 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
         <div className="flex h-16 items-center justify-between px-5 lg:justify-end">
           <Link to="/" className="flex items-center gap-2 lg:hidden">
             <LogoMark className="size-7 text-primary" />
-            <span className="font-display text-xl tracking-tight">
-              Cite<span className="italic">Verify</span>
+            <span className="font-brand text-xl">
+              Cite<span className="text-[var(--ink)]">Verify</span>
             </span>
           </Link>
           <ThemeToggle />

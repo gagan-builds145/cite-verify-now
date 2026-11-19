@@ -1,4 +1,5 @@
 import { AppShell } from "@/components/app/AppShell";
+import { EmptyStateIllustration } from "@/components/illustrations/Editorial";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,7 +20,6 @@ import { downloadText } from "@/lib/export";
 import { useMutation, useQuery } from "convex/react";
 import {
   BookMarked,
-  Bookmark,
   Compass,
   Copy,
   Download,
@@ -357,9 +357,11 @@ export default function LibraryPage() {
                 <Loader2 className="size-4 animate-spin" /> Loading library
               </div>
             ) : filtered.length === 0 ? (
-              <div className="mt-5 rounded-xl border border-dashed border-border bg-card px-6 py-14 text-center">
-                <Bookmark className="mx-auto size-6 text-muted-foreground/60" />
-                <h2 className="mt-3 font-display text-2xl tracking-tight">
+              <div className="mt-5 overflow-hidden rounded-2xl border border-dashed border-border bg-card px-6 py-8 text-center">
+                <div className="mx-auto max-w-[190px]">
+                  <EmptyStateIllustration kind="library" />
+                </div>
+                <h2 className="mt-1 font-display text-2xl tracking-tight">
                   {papers.length === 0 ? "Your library is empty" : "No papers match this view"}
                 </h2>
                 <p className="mx-auto mt-2 max-w-sm text-[12px] leading-6 text-muted-foreground">

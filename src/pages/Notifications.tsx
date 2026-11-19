@@ -1,4 +1,5 @@
 import { AppShell } from "@/components/app/AppShell";
+import { EmptyStateIllustration } from "@/components/illustrations/Editorial";
 import { Button } from "@/components/ui/button";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -80,9 +81,11 @@ export default function Notifications() {
               <Loader2 className="size-4 animate-spin" /> Loading notifications
             </div>
           ) : rows.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border bg-card px-6 py-16 text-center">
-              <Bell className="mx-auto size-6 text-muted-foreground/50" />
-              <h2 className="mt-3 font-display text-2xl tracking-tight">Nothing yet</h2>
+            <div className="overflow-hidden rounded-2xl border border-dashed border-border bg-card px-6 py-8 text-center">
+              <div className="mx-auto max-w-[190px]">
+                <EmptyStateIllustration kind="assistant" />
+              </div>
+              <h2 className="mt-1 font-display text-2xl tracking-tight">Nothing yet</h2>
               <p className="mx-auto mt-2 max-w-sm text-[12px] leading-6 text-muted-foreground">
                 When an analysis finishes, its report notification appears here automatically.
               </p>

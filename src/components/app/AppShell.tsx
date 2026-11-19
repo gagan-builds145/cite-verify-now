@@ -63,14 +63,17 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-dvh bg-background lg:grid lg:grid-cols-[244px_1fr]">
       <aside className="sticky top-0 hidden h-dvh flex-col overflow-y-auto border-r border-border bg-sidebar lg:flex">
-        <div className="px-5 py-5">
+        <div className="border-b border-border px-5 py-5">
           <Brand />
+          <p className="mt-2 pl-[42px] text-[9px] font-semibold uppercase tracking-[0.13em] text-muted-foreground/70">
+            Evidence desk
+          </p>
         </div>
 
         <nav className="flex-1 space-y-5 px-3 pb-4">
           {NAV_GROUPS.map((group) => (
             <div key={group.label}>
-              <p className="px-2 pb-1.5 font-mono text-[9px] uppercase tracking-[0.16em] text-muted-foreground/80">
+              <p className="px-2 pb-1.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/75">
                 {group.label}
               </p>
               <div className="space-y-0.5">
@@ -79,10 +82,10 @@ export function AppShell({ children }: { children: ReactNode }) {
                     key={item.to}
                     to={item.to}
                     className={({ isActive }) =>
-                      `group flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[12.5px] font-medium transition-colors ${
+                      `group flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-[12.5px] font-medium transition-all ${
                         isActive
-                          ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                          : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground"
+                          ? "bg-accent text-accent-foreground shadow-[inset_0_0_0_1px_var(--border)]"
+                          : "text-muted-foreground hover:bg-card/70 hover:text-foreground"
                       }`
                     }
                   >
@@ -101,8 +104,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         </nav>
 
         <div className="border-t border-border px-3 py-3">
-          <div className="rounded-lg border border-border bg-card px-3 py-2.5">
-            <p className="font-mono text-[9px] uppercase tracking-[0.12em] text-muted-foreground">
+          <div className="rounded-xl border border-border bg-card px-3 py-2.5">
+            <p className="text-[9px] font-semibold uppercase tracking-[0.11em] text-muted-foreground">
               {user?.isAnonymous ? "Anonymous session" : "Signed in"}
             </p>
             <p className="mt-1 truncate text-[11.5px] font-medium">

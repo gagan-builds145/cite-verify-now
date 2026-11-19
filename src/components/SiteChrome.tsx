@@ -1,4 +1,5 @@
 import { Brand } from "@/components/Brand";
+import { FooterDoodle } from "@/components/illustrations/Editorial";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
@@ -8,10 +9,10 @@ import { useState } from "react";
 import { Link } from "react-router";
 
 const NAV_LINKS = [
-  { label: "Product", to: "/", hash: "#capabilities" },
+  { label: "Home", to: "/", hash: "" },
+  { label: "Features", to: "/", hash: "#features" },
   { label: "How It Works", to: "/", hash: "#how-it-works" },
   { label: "Explore", to: "/explorer", hash: "" },
-  { label: "Privacy", to: "/privacy", hash: "" },
   { label: "About", to: "/about", hash: "" },
 ];
 
@@ -22,7 +23,7 @@ export function SiteHeader({ transparent = false }: { transparent?: boolean }) {
   return (
     <header
       className={`sticky top-0 z-50 border-b ${
-        transparent ? "border-border/60 bg-background/85 backdrop-blur-md" : "border-border bg-background"
+        transparent ? "border-border/80 bg-background/90 backdrop-blur-xl" : "border-border bg-background"
       }`}
     >
       <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-5 sm:px-8">
@@ -33,7 +34,7 @@ export function SiteHeader({ transparent = false }: { transparent?: boolean }) {
             <Link
               key={link.label}
               to={`${link.to}${link.hash}`}
-              className="rounded-full px-3.5 py-2 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="group relative rounded-full px-3.5 py-2 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
             >
               {link.label}
             </Link>
@@ -42,7 +43,7 @@ export function SiteHeader({ transparent = false }: { transparent?: boolean }) {
 
         <div className="flex items-center gap-1.5">
           <ThemeToggle />
-          <Button asChild size="sm" className="hidden h-9 rounded-full px-4 text-[13px] md:inline-flex">
+          <Button asChild size="sm" className="hidden h-9 rounded-full bg-[#14233D] px-4 text-[13px] font-semibold shadow-[0_4px_0_#0c1728] transition-transform hover:-translate-y-0.5 hover:bg-[#1d304f] md:inline-flex">
             <Link to={isAuthenticated ? "/dashboard" : "/analyze"}>
               {isAuthenticated ? "Dashboard" : "Get Started"}
               <ArrowUpRight className="ml-1 size-3.5" />
@@ -95,7 +96,7 @@ export function SiteHeader({ transparent = false }: { transparent?: boolean }) {
 
 export function SiteFooter() {
   return (
-    <footer className="border-t border-border bg-secondary/40">
+    <footer className="relative overflow-hidden border-t border-border bg-secondary/40">
       <div className="mx-auto w-full max-w-6xl px-5 py-14 sm:px-8">
         <div className="grid gap-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
           <div>
@@ -104,9 +105,12 @@ export function SiteFooter() {
               An evidence traceability tool for research. Every verdict links back to the retrieved
               record it came from.
             </p>
-            <p className="mt-4 font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground/80">
+            <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.13em] text-muted-foreground/80">
               Crossref · OpenAlex · Europe PMC · DataCite · arXiv
             </p>
+            <div className="mt-3 w-[150px] opacity-70">
+              <FooterDoodle />
+            </div>
           </div>
 
           <FooterColumn

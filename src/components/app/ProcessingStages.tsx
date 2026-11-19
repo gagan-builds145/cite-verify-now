@@ -1,3 +1,4 @@
+import { ProcessingIllustration } from "@/components/illustrations/Editorial";
 import { Check, Circle, Loader2, X } from "lucide-react";
 import { motion } from "framer-motion";
 import type { AnalysisRecord } from "@/lib/analysis-ui";
@@ -21,9 +22,9 @@ export function ProcessingStages({
   const failed = analysis?.status === "failed";
 
   return (
-    <div className={compact ? "" : "rounded-xl border border-border bg-card p-6 sm:p-8"}>
+    <div className={compact ? "" : "overflow-hidden rounded-2xl border border-border bg-card p-6 sm:p-8"}>
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+        <div className="min-w-0 flex-1">
           <p className="eyebrow">{failed ? "Analysis stopped" : "Verification in progress"}</p>
           <h2 className="mt-2 font-display text-2xl tracking-tight sm:text-3xl">
             {failed ? "Something went wrong." : active?.label ?? "Assembling your report"}
@@ -34,17 +35,22 @@ export function ProcessingStages({
               : "Stages update from the live analysis record. Nothing is marked complete before it actually is."}
           </p>
         </div>
-        <div className="text-right">
-          <p className="tabular font-mono text-2xl">{progress}%</p>
-          <p className="font-mono text-[9.5px] uppercase tracking-[0.08em] text-muted-foreground">
-            {complete} of {total} stages
-          </p>
+        <div className="flex items-center gap-4">
+          <div className="hidden w-[120px] sm:block">
+            <ProcessingIllustration />
+          </div>
+          <div className="text-right">
+            <p className="tabular font-mono text-2xl font-semibold">{progress}%</p>
+            <p className="font-mono text-[9px] uppercase tracking-[0.08em] text-muted-foreground">
+              {complete} of {total} stages
+            </p>
+          </div>
         </div>
       </div>
 
       <div className="mt-5 h-1 overflow-hidden rounded-full bg-border">
         <motion.div
-          className="h-full rounded-full bg-primary"
+          className="h-full rounded-full bg-[#2463B5]"
           initial={{ width: 0 }}
           animate={{ width: `${progress}%` }}
           transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}

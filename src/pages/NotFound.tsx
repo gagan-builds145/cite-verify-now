@@ -1,26 +1,48 @@
+import { SiteFooter, SiteHeader } from "@/components/SiteChrome";
+import { EmptyStateIllustration } from "@/components/illustrations/Editorial";
+import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
+import { ArrowRight } from "lucide-react";
+import { Link } from "react-router";
 
 export default function NotFound() {
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.5 }}
-      className="min-h-screen flex flex-col"
-    >
-
-      
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col items-center justify-center">
-        <div className="max-w-5xl mx-auto relative px-4">
-          <div className="flex items-center justify-center min-h-[200px]">
-            <div className="text-center">
-              <h1 className="text-4xl font-bold text-gray-900 mb-4">404</h1>
-              <p className="text-lg text-gray-600">Page Not Found</p>
-            </div>
+    <div className="flex min-h-screen flex-col bg-background">
+      <SiteHeader transparent />
+      <main className="relative flex flex-1 items-center justify-center overflow-hidden px-5 py-20">
+        <div className="pointer-events-none absolute inset-0 paper-dots opacity-35" />
+        <div className="pointer-events-none absolute -left-20 top-10 size-64 rounded-[52%_48%_41%_59%/53%_42%_58%_47%] bg-accent" />
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45 }}
+          className="relative w-full max-w-md text-center"
+        >
+          <div className="mx-auto max-w-[210px]">
+            <EmptyStateIllustration kind="search" />
           </div>
-        </div>
-      </div>
-    </motion.div>
+          <p className="mt-2 text-[10.5px] font-semibold uppercase tracking-[0.16em] text-[#2463B5]">
+            404 · page not found
+          </p>
+          <h1 className="mt-3 font-display text-4xl tracking-[-0.04em]">This page left no record.</h1>
+          <p className="mx-auto mt-3 max-w-sm text-[13px] leading-6 text-muted-foreground">
+            The address may be wrong, or the page may have moved. Your analyses and saved papers are
+            still available from the research desk.
+          </p>
+          <div className="mt-6 flex flex-col justify-center gap-2 sm:flex-row">
+            <Button asChild className="rounded-full bg-[#14233D] px-5">
+              <Link to="/">
+                Back to home
+                <ArrowRight className="ml-1.5 size-3.5" />
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="rounded-full border-border bg-card px-5">
+              <Link to="/dashboard">Open research desk</Link>
+            </Button>
+          </div>
+        </motion.div>
+      </main>
+      <SiteFooter />
+    </div>
   );
 }

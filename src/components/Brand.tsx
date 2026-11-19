@@ -27,8 +27,8 @@ export function Brand({ className = "" }: { className?: string }) {
       aria-label="CiteVerify home"
     >
       <LogoMark className="size-8 text-primary transition-transform duration-300 group-hover:-rotate-3" />
-      <span className="font-display text-[22px] leading-none tracking-tight">
-        Cite<span className="italic">Verify</span>
+      <span className="font-brand text-[21px] leading-none text-foreground">
+        Cite<span className="text-[var(--ink)]">Verify</span>
       </span>
     </Link>
   );

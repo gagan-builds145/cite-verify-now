@@ -1,3 +1,4 @@
+import { EmptyStateIllustration } from "@/components/illustrations/Editorial";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -80,7 +81,10 @@ export function ReferenceList({
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         {filtered.length === 0 ? (
-          <div className="p-6 text-center text-[12px] leading-6 text-muted-foreground">
+          <div className="p-5 text-center text-[12px] leading-6 text-muted-foreground">
+            <div className="mx-auto max-w-[130px]">
+              <EmptyStateIllustration kind="citations" />
+            </div>
             No references match this filter.
           </div>
         ) : (
