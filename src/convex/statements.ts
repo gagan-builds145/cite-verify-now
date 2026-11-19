@@ -12,6 +12,7 @@ import type { Id } from "./_generated/dataModel";
 import {
   evidenceRelationshipValidator,
   referenceStatusValidator,
+  retrievalLevelValidator,
   reviewDecisionValidator,
   stageStatusValidator,
   statementRelevanceValidator,
@@ -328,6 +329,7 @@ export const addResult = internalMutation({
         doi: v.optional(v.string()),
         url: v.optional(v.string()),
         status: referenceStatusValidator,
+        retrievalLevel: retrievalLevelValidator,
         sourceName: v.optional(v.string()),
         citationApa: v.string(),
         citationIeee: v.string(),

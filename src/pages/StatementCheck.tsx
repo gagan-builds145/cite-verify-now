@@ -31,7 +31,6 @@ import {
 } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { toast } from "sonner";
 
 type Phase = "idle" | "reading" | "ready" | "analyzing" | "failed";
 
@@ -80,6 +79,7 @@ export default function StatementCheck() {
 
   const inputRef = useRef<HTMLInputElement>(null);
   const tokenRef = useRef(0);
+  const cancelRequested = useRef(false);
   const check = useQuery(
     api.statements.get,
     checkId ? { checkId } : "skip",
@@ -162,6 +162,7 @@ export default function StatementCheck() {
     }
     setError(null);
     setPhase("analyzing");
+    cancelRequested.current = false;
 
     try {
       if (!isAuthenticated) await signIn("anonymous");
@@ -174,6 +175,7 @@ export default function StatementCheck() {
       setCheckId(id);
       await savePdfLocally(id, file.name, bytes).catch(() => undefined);
       const result = await runCheck({ checkId: id });
+      if (cancelRequested.current) return;
       if (result.ok === false) {
         setPhase("failed");
         setError(result.error ?? "The statement check could not be completed.");
@@ -191,6 +193,7 @@ export default function StatementCheck() {
   };
 
   const handleCancel = async () => {
+    cancelRequested.current = true;
     if (checkId) {
       await deletePdfLocally(checkId).catch(() => undefined);
     }
@@ -323,7 +326,7 @@ export default function StatementCheck() {
                       </div>
                     )}
 
-                    {error && phase !== "analyzing" && (
+                    {error && (
                       <div className="mt-3 flex items-start gap-2 rounded-lg border border-[var(--verdict-contradicted)]/25 bg-[var(--verdict-contradicted-soft)] px-3 py-2.5">
                         <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-[var(--verdict-contradicted)]" />
                         <p className="text-[11.5px] leading-5 text-foreground/85">{error}</p>
@@ -416,11 +419,6 @@ export default function StatementCheck() {
                     </Button>
                   </div>
 
-                  {phase === "failed" && error && (
-                    <div className="rounded-xl border border-[var(--verdict-contradicted)]/25 bg-[var(--verdict-contradicted-soft)] p-4 text-[12px] leading-6 text-foreground/85">
-                      {error}
-                    </div>
-                  )}
                 </>
               )}
             </div>

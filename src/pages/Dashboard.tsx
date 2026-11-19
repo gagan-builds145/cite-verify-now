@@ -38,6 +38,7 @@ import {
   Compass,
   FilePlus2,
   Loader2,
+  MessageSquareQuote,
   ShieldCheck,
   Sparkles,
   Trash2,
@@ -185,6 +186,12 @@ export default function Dashboard() {
               <Link to="/analyze">
                 <FilePlus2 className="mr-1.5 size-4" />
                 New analysis
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="rounded-full">
+              <Link to="/statements">
+                <MessageSquareQuote className="mr-1.5 size-4" />
+                Check a statement
               </Link>
             </Button>
             <Button asChild variant="outline" className="rounded-full">
@@ -429,6 +436,9 @@ export default function Dashboard() {
                   </Button>
                   <Button asChild variant="outline" className="rounded-full" size="sm">
                     <Link to="/analyze?demo=1">Try the demo</Link>
+                  </Button>
+                  <Button asChild variant="ghost" className="rounded-full" size="sm">
+                    <Link to="/statements">Check a statement</Link>
                   </Button>
                 </div>
               </div>

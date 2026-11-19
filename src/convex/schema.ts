@@ -330,6 +330,7 @@ const schema = defineSchema(
           doi: v.optional(v.string()),
           url: v.optional(v.string()),
           status: referenceStatusValidator,
+          retrievalLevel: retrievalLevelValidator,
           sourceName: v.optional(v.string()),
           citationApa: v.string(),
           citationIeee: v.string(),

@@ -5,6 +5,7 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import {
   REFERENCE_STATUS_META,
+  RETRIEVAL_LABEL,
   VERDICT_META,
   formatDate,
   formatFileSize,
@@ -32,14 +33,11 @@ import {
   ChevronRight,
   CircleDashed,
   Copy,
-  Download,
   ExternalLink,
   FileJson,
   FileText,
   Flag,
   Gavel,
-  Info,
-  Link2,
   Loader2,
   MessageSquareQuote,
   Quote,
@@ -49,7 +47,7 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
 
@@ -81,11 +79,8 @@ export default function StatementResults() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  useEffect(() => {
-    if (selectedIndex > Math.max(0, results.length - 1)) setSelectedIndex(Math.max(0, results.length - 1));
-  }, [results.length, selectedIndex]);
-
-  const selected = results[selectedIndex] ?? null;
+  const safeIndex = Math.min(selectedIndex, Math.max(0, results.length - 1));
+  const selected = results[safeIndex] ?? null;
 
   const evidenceClaims = useMemo<ClaimRecord[]>(() => {
     if (!check) return [];
@@ -258,6 +253,7 @@ export default function StatementResults() {
               doi: ref.doi ?? null,
               url: ref.url ?? null,
               verification_status: ref.status,
+              retrieval_level: ref.retrievalLevel,
               source: ref.sourceName ?? null,
             })),
             limitations: result.limitations,
@@ -435,7 +431,7 @@ export default function StatementResults() {
             <CircleDashed className="mx-auto size-7 text-muted-foreground" />
             <h2 className="mt-3 text-[15px] font-semibold">No statement results were stored</h2>
             <p className="mx-auto mt-1.5 max-w-md text-[12px] leading-6 text-muted-foreground">
-              {check.limitations.at(-1) ?? "The check completed without producing a result."}
+              {check.limitations[check.limitations.length - 1] ?? "The check completed without producing a result."}
             </p>
             <Button asChild className="mt-4 rounded-full" size="sm">
               <Link to="/statements">Start another check</Link>
@@ -449,7 +445,7 @@ export default function StatementResults() {
               </p>
               <div className="space-y-1.5">
                 {results.map((result, index) => {
-                  const active = index === selectedIndex;
+                  const active = index === safeIndex;
                   const verdict = VERDICT_META[result.verdict];
                   return (
                     <button
@@ -994,6 +990,9 @@ function ReferenceCard({
             via {reference.sourceName}
           </span>
         )}
+        <span className="text-[8.5px] text-muted-foreground">
+          · {RETRIEVAL_LABEL[reference.retrievalLevel]}
+        </span>
       </div>
       <p className="mt-1.5 text-[11.5px] font-semibold leading-5">{reference.title}</p>
       <p className="mt-0.5 text-[10px] leading-5 text-muted-foreground">
@@ -1058,7 +1057,7 @@ function ProcessingReport({ check }: { check: StatementCheckRecord }) {
           </h2>
           <p className="mt-1 max-w-xl text-[11.5px] leading-6 text-muted-foreground">
             {check.status === "failed"
-              ? check.limitations.at(-1) ?? "The analysis failed."
+              ? check.limitations[check.limitations.length - 1] ?? "The analysis failed."
               : `${current?.label ?? "Retrieving evidence"} — results will appear here automatically when the check completes.`}
           </p>
         </div>

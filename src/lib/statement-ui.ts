@@ -26,6 +26,7 @@ export type StatementReference = {
   doi?: string;
   url?: string;
   status: "VERIFIED" | "POSSIBLE_MATCH";
+  retrievalLevel: "full_text" | "abstract" | "metadata_only" | "unavailable";
   sourceName?: string;
   citationApa: string;
   citationIeee: string;

@@ -341,17 +341,8 @@ export function validateEvidenceQuote(quote: string | undefined, chunkText: stri
   const normalizedChunk = searchable(chunkText);
   if (normalizedChunk.includes(normalizedQuote)) return normalizeWhitespace(quote);
 
-  const sentences = chunkText
-    .split(/(?<=[.!?])\s+/)
-    .map((sentence) => normalizeWhitespace(sentence))
-    .filter((sentence) => sentence.length > 35);
-  let best: { sentence: string; score: number } | undefined;
-  for (const sentence of sentences) {
-    const score = overlapRatio(quote, sentence);
-    if (!best || score > best.score) best = { sentence, score };
-  }
-  if (best && best.score >= 0.35) return best.sentence.slice(0, 600);
-
+  // A paraphrase is not a quote. Only accept a real contiguous span of the
+  // model's proposed wording when it occurs verbatim in the retrieved chunk.
   const words = quote.split(/\s+/).filter(Boolean);
   for (let size = Math.min(28, words.length); size >= 8; size -= 1) {
     for (let start = 0; start + size <= words.length; start += 1) {

@@ -20,7 +20,7 @@ import {
   Fingerprint,
   Link2,
   Lock,
-  Search,
+  MessageSquareQuote,
   ShieldCheck,
   Sparkle,
   Trash2,
@@ -219,9 +219,9 @@ export default function Landing() {
                   variant="outline"
                   className="h-12 rounded-full border-border bg-card px-6 text-[13.5px] font-semibold text-foreground shadow-none transition-colors hover:border-[var(--ink)]/50 hover:bg-accent"
                 >
-                  <Link to="/explorer">
-                    <Search className="mr-2 size-4" />
-                    Search Research
+                  <Link to="/statements">
+                    <MessageSquareQuote className="mr-2 size-4" />
+                    Check a Statement
                   </Link>
                 </Button>
               </motion.div>
@@ -594,6 +594,12 @@ export default function Landing() {
                   <Link to="/analyze?demo=1">
                     Try the demo
                     <Sparkle className="ml-2 size-3.5" />
+                  </Link>
+                </Button>
+                <Button asChild size="lg" variant="ghost" className="h-12 rounded-full px-5 text-[13px]">
+                  <Link to="/statements">
+                    <MessageSquareQuote className="mr-2 size-4" />
+                    Check a statement
                   </Link>
                 </Button>
               </div>

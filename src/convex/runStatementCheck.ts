@@ -22,9 +22,9 @@ import {
 } from "./lib/statement";
 import {
   findCitationMarkers,
+  findDuplicateReferences,
   findReferencesSection,
   markersToReferenceKeys,
-  normalizeWhitespace,
   parseReferences,
   type ParsedReference,
 } from "./lib/text";
@@ -47,6 +47,7 @@ type ReferenceResult = {
   doi?: string;
   url?: string;
   status: "VERIFIED" | "POSSIBLE_MATCH";
+  retrievalLevel: "full_text" | "abstract" | "metadata_only" | "unavailable";
   sourceName?: string;
   citationApa: string;
   citationIeee: string;
@@ -110,6 +111,7 @@ export const run = action({
       const parsedReferences: ParsedReference[] = referenceSection
         ? parseReferences(referenceSection.text, 60)
         : [];
+      const duplicateReferences = findDuplicateReferences(parsedReferences);
       const limitations = [...baseLimitations];
       if (!referenceSection) {
         limitations.push(
@@ -117,6 +119,11 @@ export const run = action({
         );
       } else if (parsedReferences.length === 0) {
         limitations.push("A bibliography was found but its entries could not be separated reliably.");
+      }
+      if (duplicateReferences.size > 0) {
+        limitations.push(
+          `${duplicateReferences.size} possible duplicate bibliography entr${duplicateReferences.size === 1 ? "y was" : "ies were"} detected and verified once.`,
+        );
       }
       if (model.chunks.length === 0) {
         limitations.push("No readable body passages were extracted from this PDF.");
@@ -171,7 +178,6 @@ export const run = action({
           }
         }
 
-        const fallback = !analysis;
         if (!analysis) {
           const relevance = fallbackRelevance(statement, chunks);
           const best = relevance.best;
@@ -204,9 +210,7 @@ export const run = action({
         for (const selection of analysis.evidence) {
           const chunk = bySource.get(selection.sourceId);
           if (!chunk) continue;
-          const quote =
-            validateEvidenceQuote(selection.quote, chunk.text) ??
-            bestEvidenceSentence(statement, chunk.text);
+          const quote = validateEvidenceQuote(selection.quote, chunk.text);
           if (!quote) continue;
           if (
             evidence.some(
@@ -229,22 +233,49 @@ export const run = action({
 
         let verdict = analysis.verdict;
         let explanation = analysis.explanation;
-        if (verdict === "SUPPORTED" && !evidence.some((item) => item.relationship === "SUPPORTS")) {
+        const hasSupport = evidence.some((item) => item.relationship === "SUPPORTS");
+        const hasContradiction = evidence.some((item) => item.relationship === "CONTRADICTS");
+        const originalVerdict = verdict;
+
+        if (verdict === "SUPPORTED" && !hasSupport) {
           verdict = "INSUFFICIENT_EVIDENCE";
           explanation =
             "The model reported support, but no exact supporting passage could be validated against the PDF. The verdict was downgraded.";
-        }
-        if (
-          verdict === "CONTRADICTED" &&
-          !evidence.some((item) => item.relationship === "CONTRADICTS")
-        ) {
-          verdict = "INSUFFICIENT_EVIDENCE";
+        } else if (verdict === "SUPPORTED" && hasContradiction) {
+          verdict = "PARTIALLY_SUPPORTED";
           explanation =
-            "The model reported a contradiction, but no exact contradicting passage could be validated against the PDF. The verdict was downgraded.";
+            "The model reported support, but the validated passages include an explicit contradiction. The verdict was reconciled to partial support.";
         }
 
+        if (verdict === "CONTRADICTED" && !hasContradiction) {
+          verdict = hasSupport ? "PARTIALLY_SUPPORTED" : "INSUFFICIENT_EVIDENCE";
+          explanation =
+            "The model reported a contradiction, but no exact contradicting passage could be validated against the PDF. The verdict was reconciled with the available evidence.";
+        }
+
+        if (verdict === "PARTIALLY_SUPPORTED" && !hasSupport && !hasContradiction) {
+          verdict = "INSUFFICIENT_EVIDENCE";
+          explanation =
+            "The model reported partial support, but the validated passages neither support nor contradict the statement. The verdict was downgraded to insufficient evidence.";
+        } else if (verdict === "PARTIALLY_SUPPORTED" && !hasSupport && hasContradiction) {
+          verdict = "CONTRADICTED";
+          explanation =
+            "The validated passage explicitly contradicts the statement, and no validated passage supports it. The verdict was reconciled to contradicted.";
+        }
+        if (verdict !== originalVerdict && !explanation.includes("reconciled")) {
+          explanation += " The verdict was reconciled with the validated evidence relationships.";
+        }
+
+        const absoluteLanguage = /\b(all|always|every|never|proves?|guarantee[sd]?|universally|invariably)\b/i.exec(
+          statement,
+        );
         const statementLimitations = uniqueStrings([
           ...analysis.limitations,
+          ...(absoluteLanguage
+            ? [
+                `The statement uses absolute language (“${absoluteLanguage[1]}”). Check that the study's scope, population and effect size justify that strength of claim.`,
+              ]
+            : []),
           ...(expansion.ok
             ? []
             : ["Semantic query expansion was unavailable; retrieval relied on the statement's own terms."]),
@@ -261,6 +292,7 @@ export const run = action({
 
         /* -------------------- external references -------------------- */
         const referenceResults: ReferenceResult[] = [];
+        let unresolvedReferences = 0;
         if (parsedReferences.length > 0 && evidence.length > 0) {
           const keys = new Set<string>();
           for (const item of evidence) {
@@ -277,20 +309,25 @@ export const run = action({
           const selectedReferences = Array.from(keys)
             .map((key) => parsedReferences.find((reference) => reference.refKey === key))
             .filter((reference): reference is ParsedReference => Boolean(reference))
-            .slice(0, 2);
+            .slice(0, 4);
 
           for (const reference of selectedReferences) {
-            let verification = referenceCache.get(reference.refKey);
+            const canonicalKey = duplicateReferences.get(reference.refKey) ?? reference.refKey;
+            let verification = referenceCache.get(canonicalKey);
             if (!verification) {
               verification = await verifyReference(reference);
-              referenceCache.set(reference.refKey, verification);
+              referenceCache.set(canonicalKey, verification);
             }
             const best = verification.best;
             if (!best || (verification.status !== "VERIFIED" && verification.status !== "POSSIBLE_MATCH")) {
+              unresolvedReferences += 1;
               continue;
             }
             const title = best.title ?? reference.title;
-            if (!title) continue;
+            if (!title) {
+              unresolvedReferences += 1;
+              continue;
+            }
             const authors = best.authors.length > 0 ? best.authors : reference.authors;
             const year = best.year ?? reference.year;
             const venue = best.venue ?? reference.venue;
@@ -305,6 +342,7 @@ export const run = action({
               doi,
               url,
               status: verification.status as "VERIFIED" | "POSSIBLE_MATCH",
+              retrievalLevel: verification.retrievalLevel,
               sourceName: best.source,
               citationApa: formatStatementCitation(paper, "APA"),
               citationIeee: formatStatementCitation(paper, "IEEE"),
@@ -312,6 +350,11 @@ export const run = action({
           }
         }
 
+        if (unresolvedReferences > 0) {
+          statementLimitations.push(
+            `${unresolvedReferences} cited bibliograph${unresolvedReferences === 1 ? "y entry" : "y entries"} could not be matched to a scholarly record and ${unresolvedReferences === 1 ? "was" : "were"} omitted rather than presented as verified.`,
+          );
+        }
         if (referenceResults.length === 0) {
           statementLimitations.push(
             evidence.length === 0
