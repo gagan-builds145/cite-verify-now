@@ -35,9 +35,17 @@ ml-service/
   common/schema.py            Labels, validation, dataset filename safety
   common/io.py                CSV/JSONL/JSON helpers and hashes
   common/registry.py          File-based model registry and job state
-  datasets/templates/         Empty relevance and evidence CSV schemas
-  datasets/raw/               Uploaded source datasets (not committed)
+  datasets/source_papers/     Place genuine source PDFs here (ignored by git)
+  datasets/extracted/         Per-paper extracted JSON, pages and passages
+  datasets/templates/         Empty schemas and annotation templates
+  datasets/raw/               Candidate and human-reviewed datasets (not committed)
   datasets/processed/         Paper-level train/validation/test JSONL
+  datasets/reports/           Manifest validation and preparation reports
+  scripts/extract_papers.py   Sequential, resumable PDF extraction
+  scripts/build_candidate_queue.py
+  scripts/annotate_candidates.py
+  scripts/validate_annotation.py
+  scripts/generate_dataset_report.py
   evaluation/evaluate_models.py
   evaluation/reports/         Generated confusion matrices and metrics
   inference/predictor.py      Lazy model loading, hybrid retrieval, NLI
@@ -76,6 +84,78 @@ Close other large applications before training. The relevance trainer freezes
 one MiniLM encoder and fits a small classifier head, so it does not hold a
 second large model in memory. Evidence training defaults to a MiniLM
 cross-encoder; use a DeBERTa-v3 checkpoint only if you have more RAM or a GPU.
+
+## Source papers and annotation workflow
+
+Put genuine, legally obtained PDFs in `datasets/source_papers/`. No PDFs are
+included in this repository, and no pilot rows are fabricated when the folder is
+empty. The workflow is sequential and CPU-only:
+
+```powershell
+cd ml-service
+python scripts\extract_papers.py
+```
+
+This writes one JSON record per PDF under `datasets/extracted/`, plus
+`datasets/source_manifest.json` and `.csv`. Each record keeps page text, section
+labels, passages, bibliography and extraction limitations. Missing title,
+authors, year or DOI remains empty; it is never invented. Scanned/image-only
+PDFs are marked unreadable and require a deliberate OCR step before they can be
+used. A DOI found in the PDF or embedded metadata is recorded with
+`doi_verified=false`; the extraction workflow does not claim external DOI
+validation.
+
+Build pending candidates from the extracted text:
+
+```powershell
+python scripts\build_candidate_queue.py
+```
+
+This creates `datasets/raw/pilot_relevance.csv` and
+`datasets/raw/pilot_evidence.jsonl`. Every generated row has
+`review_status=pending`, an empty `annotator_id`, and a suggested label. Those
+suggestions are not ground truth. No CONTRADICTION rows are generated
+automatically. For better statements, supply a human-authored
+`datasets/raw/my_statements.csv` using `datasets/templates/statement_template.csv`
+and pass `--statements` to the candidate builder.
+
+Review the queue with the lightweight terminal interface:
+
+```powershell
+python scripts\annotate_candidates.py `
+  --kind relevance `
+  --input datasets\raw\pilot_relevance.csv `
+  --output datasets\raw\pilot_relevance_annotated.csv `
+  --annotator-id reviewer-01
+
+python scripts\annotate_candidates.py `
+  --kind evidence `
+  --input datasets\raw\pilot_evidence.jsonl `
+  --output datasets\raw\pilot_evidence_annotated.jsonl `
+  --annotator-id reviewer-01
+```
+
+The reviewer sees the paper, page, section, exact passage and suggestion, then
+accepts, corrects, rejects or skips. `--resume` continues an interrupted review.
+Only explicit human input can produce `reviewed`, `approved` or `rejected`.
+
+Validate and report:
+
+```powershell
+python scripts\validate_annotation.py `
+  --relevance datasets\raw\pilot_relevance_annotated.csv `
+  --evidence datasets\raw\pilot_evidence_annotated.jsonl
+
+python scripts\generate_dataset_report.py
+```
+
+Validation checks manifest membership, missing fields, invalid labels,
+annotator ids, duplicates, page references and exact evidence containment. It
+writes `datasets/reports/dataset_validation_report.*` and
+`datasets/reports/dataset_preparation_report.*`.
+
+**Current status:** no source PDFs are present. The generated reports say
+`blocked_no_source_papers`; the datasets and training are intentionally blocked.
 
 ## Dataset collection and annotation
 

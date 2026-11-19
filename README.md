@@ -264,9 +264,13 @@ whenever the service or a deployed model is unavailable. Administrators manage d
 evaluation and deployment at `/admin/models`.
 
 **No trained weights or accuracy metrics are included.** The repository contains empty dataset
-templates and the complete training/evaluation tooling; a human-reviewed dataset must be supplied
-before training can be completed. See [`ml-service/README.md`](ml-service/README.md) for the Windows
-setup, annotation requirements, commands and security notes.
+templates, source-PDF extraction, a pending-candidate queue, a terminal human-review workflow,
+validation/report scripts and the complete training/evaluation tooling. A human-reviewed dataset
+must be supplied before training can be completed. No source PDFs are included, so the current
+dataset report is `blocked_no_source_papers`. See
+[`ml-service/README.md`](ml-service/README.md) and
+[`ml-service/datasets/templates/ANNOTATION.md`](ml-service/datasets/templates/ANNOTATION.md) for the
+Windows setup, annotation workflow, commands and security notes.
 
 ## Limitations
 

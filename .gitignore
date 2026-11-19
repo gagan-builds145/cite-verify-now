@@ -4,10 +4,16 @@ dist
 src/convex/_generated
 ml-service/.venv/
 ml-service/**/__pycache__/
+ml-service/datasets/source_papers/*
+!ml-service/datasets/source_papers/README.md
+ml-service/datasets/extracted/*
+!ml-service/datasets/extracted/.gitkeep
 ml-service/datasets/raw/*
 !ml-service/datasets/raw/.gitkeep
 ml-service/datasets/processed/*
 !ml-service/datasets/processed/.gitkeep
+ml-service/datasets/processed/**/*.bak-*
 ml-service/models/*
 !ml-service/models/README.md
 !ml-service/models/.gitkeep
+ml-service/datasets/**/*.bak-*

@@ -14,6 +14,7 @@ import random
 import re
 import shutil
 import sys
+import time
 from collections import Counter
 from pathlib import Path
 
@@ -40,6 +41,18 @@ def dataset_key(kind: str, row: dict) -> str:
     else:
         raw = f"{row['paper_id']}|{normalized(row['user_statement'])}|{normalized(row['evidence_passage'])}"
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def backup_directory(directory: Path) -> None:
+    if not directory.exists():
+        return
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    target = directory.with_name(f"{directory.name}.bak-{stamp}")
+    suffix = 1
+    while target.exists():
+        suffix += 1
+        target = directory.with_name(f"{directory.name}.bak-{stamp}-{suffix}")
+    shutil.copytree(directory, target)
 
 
 def validate_columns(rows: list[dict], required: tuple[str, ...], kind: str) -> None:
@@ -113,6 +126,7 @@ def prepare(kind: str, path: Path, output: Path, seed: int, val_fraction: float,
         for row in split_rows:
             row.pop("_dedupe_key", None)
 
+    backup_directory(output)
     output.mkdir(parents=True, exist_ok=True)
     for split_name, split_rows in splits.items():
         write_jsonl(output / f"{split_name}.jsonl", split_rows)
@@ -170,6 +184,7 @@ def main() -> int:
                 raise DatasetError(f"input does not exist: {path}")
             output = (args.output_dir / kind).resolve()
             if args.clean and output.exists():
+                backup_directory(output)
                 shutil.rmtree(output)
             report = prepare(kind, path, output, args.seed, args.val_fraction, args.test_fraction,
                              args.allow_unreviewed)

@@ -4,6 +4,25 @@ The files in `templates/` are empty schemas, not training data. Do not treat
 LLM-generated labels as ground truth. Every example must have an annotation
 provenance and a human review status of `reviewed` or `approved`.
 
+## Source-first workflow
+
+No source PDFs are included in this repository. Put genuine, legally obtained
+papers in `source_papers/` and follow `templates/ANNOTATION.md`.
+
+1. `scripts/extract_papers.py` creates `source_manifest.json/.csv` and one
+   inspectable JSON record per PDF under `extracted/`.
+2. `scripts/build_candidate_queue.py` creates pending candidates. Suggested
+   labels are not truth; no contradiction row is generated automatically.
+3. `scripts/annotate_candidates.py` is the human review interface.
+4. `scripts/validate_annotation.py` checks provenance, page references, exact
+   passage containment and duplicates.
+5. `scripts/generate_dataset_report.py` writes the preparation and training
+   readiness reports under `reports/`.
+
+The current reports are `blocked_no_source_papers` because the folder is empty.
+Do not create fabricated PDFs or fill classes with invented examples to satisfy a
+size target.
+
 ## Relevance examples
 
 | Field | Meaning |

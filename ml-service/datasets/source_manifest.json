@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "generated_at": 1795098649,
+  "source_dir": "/home/daytona/codebase/ml-service/datasets/source_papers",
+  "paper_count": 0,
+  "status": "no_source_pdfs",
+  "papers": [],
+  "errors": [],
+  "notice": "No PDFs were found in datasets/source_papers. Add genuine papers and run this script again. No dataset rows or quotations were generated."
+}

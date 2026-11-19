@@ -1,0 +1,54 @@
+{
+  "generated_at": "2026-11-19T14:33:38Z",
+  "status": "blocked_no_source_papers",
+  "source_papers": 0,
+  "extracted_papers": 0,
+  "relevance": {
+    "path": "/home/daytona/codebase/ml-service/datasets/raw/pilot_relevance.csv",
+    "exists": false,
+    "rows": 0,
+    "labels": {},
+    "review_status": {},
+    "errors": [
+      "Annotation file does not exist."
+    ],
+    "warnings": [],
+    "pending": 0,
+    "reviewed": 0,
+    "approved": 0,
+    "rejected": 0,
+    "missing_annotator_ids": 0,
+    "missing_provenance": 0,
+    "duplicate_rows": 0,
+    "exact_passage_failures": 0
+  },
+  "evidence": {
+    "path": "/home/daytona/codebase/ml-service/datasets/raw/pilot_evidence.jsonl",
+    "exists": false,
+    "rows": 0,
+    "labels": {},
+    "review_status": {},
+    "errors": [
+      "Annotation file does not exist."
+    ],
+    "warnings": [],
+    "pending": 0,
+    "reviewed": 0,
+    "approved": 0,
+    "rejected": 0,
+    "missing_annotator_ids": 0,
+    "missing_provenance": 0,
+    "duplicate_rows": 0,
+    "exact_passage_failures": 0
+  },
+  "ready_for_training": false,
+  "summary": {
+    "extracted_examples": 0,
+    "pending_annotations": 0,
+    "human_reviewed": 0,
+    "approved": 0,
+    "rejected": 0,
+    "validation_errors": 2,
+    "validation_warnings": 0
+  }
+}
