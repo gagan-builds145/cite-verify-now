@@ -12,6 +12,7 @@ const NAV_LINKS = [
   { label: "Home", to: "/", hash: "" },
   { label: "Features", to: "/", hash: "#features" },
   { label: "How It Works", to: "/", hash: "#how-it-works" },
+  { label: "Statement Check", to: "/statements", hash: "" },
   { label: "Explore", to: "/explorer", hash: "" },
   { label: "About", to: "/about", hash: "" },
 ];
@@ -117,6 +118,7 @@ export function SiteFooter() {
             title="Product"
             links={[
               { label: "Upload a paper", to: "/analyze" },
+              { label: "Statement check", to: "/statements" },
               { label: "Research explorer", to: "/explorer" },
               { label: "My library", to: "/library" },
               { label: "Citation graph", to: "/graph" },

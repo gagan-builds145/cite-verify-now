@@ -16,6 +16,8 @@ const AuthPage = lazy(() => import("./pages/Auth.tsx"));
 const Dashboard = lazy(() => import("./pages/Dashboard.tsx"));
 const Analyze = lazy(() => import("./pages/Analyze.tsx"));
 const AnalysisWorkspace = lazy(() => import("./pages/AnalysisWorkspace.tsx"));
+const StatementCheck = lazy(() => import("./pages/StatementCheck.tsx"));
+const StatementResults = lazy(() => import("./pages/StatementResults.tsx"));
 const Explorer = lazy(() => import("./pages/Explorer.tsx"));
 const LibraryPage = lazy(() => import("./pages/Library.tsx"));
 const ResearchGraph = lazy(() => import("./pages/ResearchGraph.tsx"));
@@ -131,6 +133,8 @@ createRoot(document.getElementById("root")!).render(
               <Route path="/" element={<Landing />} />
               <Route path="/auth" element={<AuthPage redirectAfterAuth="/dashboard" />} />
               <Route path="/analyze" element={<Analyze />} />
+              <Route path="/statements" element={<StatementCheck />} />
+              <Route path="/statements/:id" element={<StatementResults />} />
               <Route path="/analysis/:id" element={<AnalysisWorkspace />} />
               <Route
                 path="/dashboard"

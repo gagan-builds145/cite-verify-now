@@ -53,6 +53,19 @@ export const reviewDecisionValidator = v.union(
   v.literal("overridden"),
 );
 
+export const statementRelevanceValidator = v.union(
+  v.literal("RELEVANT"),
+  v.literal("PARTIALLY_RELEVANT"),
+  v.literal("IRRELEVANT"),
+  v.literal("CANNOT_DETERMINE"),
+);
+
+export const evidenceRelationshipValidator = v.union(
+  v.literal("SUPPORTS"),
+  v.literal("CONTRADICTS"),
+  v.literal("NEUTRAL"),
+);
+
 const schema = defineSchema(
   {
     // default auth tables using convex auth.
@@ -250,6 +263,86 @@ const schema = defineSchema(
       analysisId: v.optional(v.id("analyses")),
       createdAt: v.number(),
     }).index("by_user", ["userId"]),
+
+    // Statement-level relevance and evidence checks against one uploaded paper.
+    statementChecks: defineTable({
+      userId: v.id("users"),
+      fileName: v.string(),
+      fileSize: v.number(),
+      pageCount: v.number(),
+      pageChars: v.array(v.number()),
+      title: v.string(),
+      authors: v.array(v.string()),
+      year: v.optional(v.number()),
+      abstract: v.optional(v.string()),
+      keywords: v.array(v.string()),
+      sections: v.array(v.object({ name: v.string(), page: v.number() })),
+      tables: v.array(v.object({ page: v.number(), caption: v.string() })),
+      statements: v.array(v.object({ id: v.string(), text: v.string() })),
+      status: v.union(v.literal("processing"), v.literal("ready"), v.literal("failed")),
+      stages: v.array(
+        v.object({
+          key: v.string(),
+          label: v.string(),
+          status: stageStatusValidator,
+          detail: v.optional(v.string()),
+        }),
+      ),
+      engine: v.union(v.literal("ai"), v.literal("rules")),
+      limitations: v.array(v.string()),
+      skippedStatements: v.optional(v.number()),
+      completedAt: v.optional(v.number()),
+      createdAt: v.number(),
+    }).index("by_user", ["userId"]),
+
+    statementDocuments: defineTable({
+      checkId: v.id("statementChecks"),
+      pages: v.array(v.object({ page: v.number(), text: v.string() })),
+      charCount: v.number(),
+    }).index("by_check", ["checkId"]),
+
+    statementResults: defineTable({
+      checkId: v.id("statementChecks"),
+      statementId: v.string(),
+      statement: v.string(),
+      relevance: statementRelevanceValidator,
+      relevanceExplanation: v.string(),
+      verdict: verdictValidator,
+      confidence: v.optional(v.number()),
+      explanation: v.string(),
+      evidence: v.array(
+        v.object({
+          id: v.string(),
+          quote: v.string(),
+          page: v.number(),
+          section: v.optional(v.string()),
+          relationship: evidenceRelationshipValidator,
+          sourceId: v.string(),
+          sourceTitle: v.optional(v.string()),
+        }),
+      ),
+      references: v.array(
+        v.object({
+          title: v.string(),
+          authors: v.array(v.string()),
+          year: v.optional(v.number()),
+          venue: v.optional(v.string()),
+          doi: v.optional(v.string()),
+          url: v.optional(v.string()),
+          status: referenceStatusValidator,
+          sourceName: v.optional(v.string()),
+          citationApa: v.string(),
+          citationIeee: v.string(),
+        }),
+      ),
+      limitations: v.array(v.string()),
+      humanReviewRequired: v.boolean(),
+      reviewStatus: v.optional(reviewDecisionValidator),
+      reviewNote: v.optional(v.string()),
+      reviewerName: v.optional(v.string()),
+      reviewedAt: v.optional(v.number()),
+      sortIndex: v.number(),
+    }).index("by_check", ["checkId"]),
   },
   {
     schemaValidation: false,

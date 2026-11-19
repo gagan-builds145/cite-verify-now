@@ -14,6 +14,7 @@ import {
   LayoutDashboard,
   Library,
   LogOut,
+  MessageSquareQuote,
   Network,
   Settings,
   ShieldCheck,
@@ -35,6 +36,7 @@ const NAV_GROUPS = [
     label: "Verify",
     items: [
       { to: "/analyze", label: "Upload & Analyze", icon: FilePlus2 },
+      { to: "/statements", label: "Statement Check", icon: MessageSquareQuote },
       { to: "/assistant", label: "Research Assistant", icon: Bot },
       { to: "/reports", label: "Reports & Analytics", icon: FileBarChart },
     ],

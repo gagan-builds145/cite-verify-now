@@ -245,6 +245,193 @@ Never add facts, numbers or citations that are not in the abstract. Do not use m
   return { summary: content.trim().slice(0, 2000), ok: true };
 }
 
+/* ------------------------------------------------------------------ */
+/* Statement relevance and evidence verification                      */
+/* ------------------------------------------------------------------ */
+
+export type StatementRelevance =
+  | "RELEVANT"
+  | "PARTIALLY_RELEVANT"
+  | "IRRELEVANT"
+  | "CANNOT_DETERMINE";
+
+export type StatementRelationship = "SUPPORTS" | "CONTRADICTS" | "NEUTRAL";
+
+export type StatementEvidenceSelection = {
+  sourceId: string;
+  quote?: string;
+  relationship: StatementRelationship;
+};
+
+export type StatementAnalysis = {
+  relevance: StatementRelevance;
+  relevanceExplanation: string;
+  verdict: Verdict;
+  confidence?: number;
+  explanation: string;
+  evidence: StatementEvidenceSelection[];
+  limitations: string[];
+  humanReviewRequired: boolean;
+};
+
+/** Expands a statement into domain terms and paraphrases for recall. */
+export async function expandStatementQuery(
+  statement: string,
+): Promise<{ terms: string[]; ok: boolean }> {
+  if (!aiConfigured()) return { terms: [], ok: false };
+  const content = await complete(
+    `You expand an academic statement into search terms for a research-paper retrieval system.
+Return 4-10 short terms or phrases covering synonyms, technical vocabulary, abbreviations and likely section wording.
+Do not add facts, numbers, claims or author names. Do not explain. Return strict JSON only.`,
+    `STATEMENT:\n${statement.slice(0, 1200)}\n\nReturn {"terms":["term","synonym"]}.`,
+    220,
+  );
+  if (!content) return { terms: [], ok: false };
+  const parsed = parseJson<{ terms?: unknown[] }>(content);
+  if (!parsed || !Array.isArray(parsed.terms)) return { terms: [], ok: false };
+  return {
+    terms: parsed.terms
+      .filter((term): term is string => typeof term === "string")
+      .map((term) => term.trim().slice(0, 80))
+      .filter(Boolean)
+      .slice(0, 10),
+    ok: true,
+  };
+}
+
+const STATEMENT_SYSTEM = `You are CiteVerify's statement–evidence auditor. A user supplies a statement and one academic paper.
+You receive the paper's title, abstract, section map and candidate passages retrieved from that paper, each labelled [S1], [S2], etc.
+
+Your tasks:
+1. Decide semantic relevance between the statement and the paper, independently of whether the paper supports it.
+2. Decide whether the paper's retrieved passages SUPPORT, PARTIALLY SUPPORT, CONTRADICT, leave INSUFFICIENT_EVIDENCE, or are UNVERIFIED for the statement.
+3. Select exact evidence passages and state each passage's relationship.
+
+Strict safety rules:
+- Use ONLY the supplied paper metadata and passages. No outside knowledge, no invented findings.
+- Relevance labels: RELEVANT (the statement is about the paper's topic/question), PARTIALLY_RELEVANT (overlapping topic but different focus), IRRELEVANT (unrelated), CANNOT_DETERMINE (the paper text is insufficient to judge).
+- An IRRELEVANT statement must NOT be SUPPORTED or CONTRADICTED. Use INSUFFICIENT_EVIDENCE.
+- SUPPORTED requires one or more passages that explicitly establish the same finding and scope. Do not infer support from citations, titles or similar wording.
+- PARTIALLY_SUPPORTED means only part is established, the scope is narrower, the result is weaker, or the statement overgeneralizes.
+- CONTRADICTED requires an explicit conflicting finding. Absence of evidence is never contradiction.
+- UNVERIFIED means no usable passage was supplied. INSUFFICIENT_EVIDENCE means passages exist but do not answer the statement.
+- source_id must be an actual supplied [S#] id. quote must be one contiguous word-for-word span copied from THAT passage, at most 50 words. Never paraphrase a quote.
+- evidence relationship must be SUPPORTS, CONTRADICTS or NEUTRAL. Only include passages that materially help explain the verdict.
+- Flag overgeneralizations such as "all", "always", "proves" when the study is narrower.
+- confidence is an uncalibrated model signal from 0 to 1, not a probability. Do not use it to claim certainty.
+- human_review_required is true for anything uncertain or high-impact (medical, clinical, safety, policy or misconduct conclusions).
+- explanation must be concrete and under 90 words.
+Return strict JSON only.`;
+
+export async function analyzeStatementWithAI(input: {
+  statement: string;
+  title: string;
+  authors: string[];
+  year?: number;
+  abstract?: string;
+  sections: { name: string; page: number }[];
+  context: string;
+}): Promise<{ result?: StatementAnalysis; ok: boolean; error?: string }> {
+  if (!aiConfigured()) return { ok: false, error: "AI assistance is not configured." };
+  const content = await complete(
+    STATEMENT_SYSTEM,
+    `USER STATEMENT:\n${input.statement.slice(0, 1600)}
+
+PAPER:
+Title: ${input.title}
+Authors: ${input.authors.slice(0, 12).join(", ") || "not supplied"}
+Year: ${input.year ?? "not supplied"}
+Sections: ${input.sections.map((section) => `${section.name} (p.${section.page})`).join("; ") || "not detected"}
+Abstract: ${input.abstract?.slice(0, 2400) ?? "not supplied"}
+
+CANDIDATE PASSAGES:
+${input.context.slice(0, 30000)}
+
+Return JSON:
+{"relevance":{"label":"RELEVANT|PARTIALLY_RELEVANT|IRRELEVANT|CANNOT_DETERMINE","explanation":"..."},"verification":{"verdict":"SUPPORTED|PARTIALLY_SUPPORTED|CONTRADICTED|INSUFFICIENT_EVIDENCE|UNVERIFIED","confidence":0.0,"explanation":"..."},"evidence":[{"source_id":"S1","quote":"exact words from S1","relationship":"SUPPORTS|CONTRADICTS|NEUTRAL"}],"limitations":["..."],"human_review_required":true}`,
+    2600,
+  );
+  if (!content) return { ok: false, error: "The language model did not return a response." };
+  const parsed = parseJson<{
+    relevance?: { label?: string; explanation?: string };
+    verification?: { verdict?: string; confidence?: number; explanation?: string };
+    evidence?: { source_id?: string; quote?: string; relationship?: string }[];
+    limitations?: string[];
+    human_review_required?: boolean;
+  }>(content);
+  if (!parsed?.relevance || !parsed?.verification) {
+    return { ok: false, error: "The language model response was not valid JSON." };
+  }
+
+  const relevanceLabels: StatementRelevance[] = [
+    "RELEVANT",
+    "PARTIALLY_RELEVANT",
+    "IRRELEVANT",
+    "CANNOT_DETERMINE",
+  ];
+  const verdicts: Verdict[] = [
+    "SUPPORTED",
+    "PARTIALLY_SUPPORTED",
+    "CONTRADICTED",
+    "INSUFFICIENT_EVIDENCE",
+    "UNVERIFIED",
+  ];
+  const relationships: StatementRelationship[] = ["SUPPORTS", "CONTRADICTS", "NEUTRAL"];
+  const relevance = relevanceLabels.includes(parsed.relevance.label as StatementRelevance)
+    ? (parsed.relevance.label as StatementRelevance)
+    : "CANNOT_DETERMINE";
+  let verdict = verdicts.includes(parsed.verification.verdict as Verdict)
+    ? (parsed.verification.verdict as Verdict)
+    : "INSUFFICIENT_EVIDENCE";
+  if (relevance === "IRRELEVANT" || relevance === "CANNOT_DETERMINE") {
+    if (verdict === "SUPPORTED" || verdict === "CONTRADICTED" || verdict === "PARTIALLY_SUPPORTED") {
+      verdict = "INSUFFICIENT_EVIDENCE";
+    }
+  }
+
+  return {
+    ok: true,
+    result: {
+      relevance,
+      relevanceExplanation:
+        typeof parsed.relevance.explanation === "string"
+          ? parsed.relevance.explanation.trim().slice(0, 700)
+          : "No relevance explanation was returned.",
+      verdict,
+      confidence:
+        typeof parsed.verification.confidence === "number"
+          ? Math.max(0, Math.min(1, parsed.verification.confidence))
+          : undefined,
+      explanation:
+        typeof parsed.verification.explanation === "string"
+          ? parsed.verification.explanation.trim().slice(0, 1000)
+          : "No evidence explanation was returned.",
+      evidence: (parsed.evidence ?? [])
+        .filter(
+          (item) =>
+            item &&
+            typeof item.source_id === "string" &&
+            relationships.includes(item.relationship as StatementRelationship),
+        )
+        .map((item) => ({
+          sourceId: item.source_id as string,
+          quote: typeof item.quote === "string" ? item.quote.trim().slice(0, 700) : undefined,
+          relationship: item.relationship as StatementRelationship,
+        }))
+        .slice(0, 8),
+      limitations: (parsed.limitations ?? [])
+        .filter((item): item is string => typeof item === "string")
+        .map((item) => item.trim().slice(0, 300))
+        .filter(Boolean)
+        .slice(0, 6),
+      humanReviewRequired:
+        typeof parsed.human_review_required === "boolean"
+          ? parsed.human_review_required
+          : verdict !== "SUPPORTED",
+    },
+  };
+}
+
 export async function judgeEvidenceWithAI(
   items: EvidenceItem[],
 ): Promise<{ judgements: EvidenceJudgement[]; ok: boolean; error?: string }> {
