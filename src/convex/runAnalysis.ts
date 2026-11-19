@@ -203,6 +203,11 @@ type RefRow = {
   authors: string[];
   year?: number;
   doi?: string;
+  volume?: string;
+  issue?: string;
+  pages?: string;
+  articleNumber?: string;
+  publisher?: string;
   status:
     | "VERIFIED"
     | "PARTIALLY_VERIFIED"
@@ -216,6 +221,13 @@ type RefRow = {
   matchedYear?: number;
   matchedDoi?: string;
   matchedVenue?: string;
+  matchedVolume?: string;
+  matchedIssue?: string;
+  matchedPages?: string;
+  matchedArticleNumber?: string;
+  matchedPublisher?: string;
+  matchedPublishedOnline?: number;
+  matchedPublishedPrint?: number;
   sourceName?: string;
   sourceUrl?: string;
   retrievalLevel: RetrievalLevel;
@@ -528,6 +540,11 @@ export const run = action({
             authors: ref.authors,
             year: ref.year,
             doi: ref.doi,
+            volume: ref.volume,
+            issue: ref.issue,
+            pages: ref.pages,
+            articleNumber: ref.articleNumber,
+            publisher: ref.publisher,
             duplicateOf,
           };
           refRows.set(ref.refKey, duplicateRow);
@@ -547,6 +564,13 @@ export const run = action({
             matchedYear: duplicateRow.matchedYear,
             matchedDoi: duplicateRow.matchedDoi,
             matchedVenue: duplicateRow.matchedVenue,
+            matchedVolume: duplicateRow.matchedVolume,
+            matchedIssue: duplicateRow.matchedIssue,
+            matchedPages: duplicateRow.matchedPages,
+            matchedArticleNumber: duplicateRow.matchedArticleNumber,
+            matchedPublisher: duplicateRow.matchedPublisher,
+            matchedPublishedOnline: duplicateRow.matchedPublishedOnline,
+            matchedPublishedPrint: duplicateRow.matchedPublishedPrint,
             sourceName: duplicateRow.sourceName,
             sourceUrl: duplicateRow.sourceUrl,
             retrievalLevel: duplicateRow.retrievalLevel,
@@ -585,6 +609,11 @@ export const run = action({
           authors: ref.authors,
           year: ref.year,
           doi: ref.doi,
+          volume: ref.volume,
+          issue: ref.issue,
+          pages: ref.pages,
+          articleNumber: ref.articleNumber,
+          publisher: ref.publisher,
           status: verification.status,
           matchScore: verification.matchScore,
           matchedTitle: best?.title,
@@ -592,6 +621,13 @@ export const run = action({
           matchedYear: best?.year,
           matchedDoi: best?.doi,
           matchedVenue: best?.venue,
+          matchedVolume: best?.volume,
+          matchedIssue: best?.issue,
+          matchedPages: best?.pages,
+          matchedArticleNumber: best?.articleNumber,
+          matchedPublisher: best?.publisher,
+          matchedPublishedOnline: best?.publishedOnline,
+          matchedPublishedPrint: best?.publishedPrint,
           sourceName: best?.source,
           sourceUrl: best?.url,
           retrievalLevel: verification.retrievalLevel,
@@ -629,6 +665,11 @@ export const run = action({
           authors: row.authors,
           year: row.year,
           doi: row.doi,
+          volume: row.volume,
+          issue: row.issue,
+          pages: row.pages,
+          articleNumber: row.articleNumber,
+          publisher: row.publisher,
           status: row.status,
           matchScore: row.matchScore,
           matchNotes: verification.matchNotes.slice(0, 5),
@@ -637,6 +678,13 @@ export const run = action({
           matchedYear: row.matchedYear,
           matchedDoi: row.matchedDoi,
           matchedVenue: row.matchedVenue,
+          matchedVolume: row.matchedVolume,
+          matchedIssue: row.matchedIssue,
+          matchedPages: row.matchedPages,
+          matchedArticleNumber: row.matchedArticleNumber,
+          matchedPublisher: row.matchedPublisher,
+          matchedPublishedOnline: row.matchedPublishedOnline,
+          matchedPublishedPrint: row.matchedPublishedPrint,
           sourceName: row.sourceName,
           sourceUrl: row.sourceUrl,
           retrievalLevel: row.retrievalLevel,

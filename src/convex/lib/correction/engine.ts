@@ -1,4 +1,5 @@
 import { normalizeWhitespace } from "../text";
+import { findBibliographyCorrections } from "./bibliographyCorrection";
 import { findCitationCorrections } from "./citationCorrection";
 import { findClaimCorrections } from "./claimCorrection";
 import {
@@ -102,6 +103,7 @@ export function runCorrectionEngine(input: CorrectionEngineInput): CorrectionEng
   const candidates = dedupe([
     ...findLanguageCorrections(input.pages),
     ...findCitationCorrections(input.pages, input.claims, input.references),
+    ...findBibliographyCorrections(input.pages, input.claims, input.references),
     ...findClaimCorrections(input.claims, input.references),
     ...findStatisticalCorrections(input.pages),
     ...findMethodologyCorrections(input.pages),

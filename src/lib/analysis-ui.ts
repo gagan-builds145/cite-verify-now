@@ -112,6 +112,11 @@ export type ReferenceRecord = {
   year?: number;
   doi?: string;
   venue?: string;
+  volume?: string;
+  issue?: string;
+  pages?: string;
+  articleNumber?: string;
+  publisher?: string;
   status: ReferenceStatus;
   matchScore?: number;
   matchNotes: string[];
@@ -120,6 +125,13 @@ export type ReferenceRecord = {
   matchedYear?: number;
   matchedDoi?: string;
   matchedVenue?: string;
+  matchedVolume?: string;
+  matchedIssue?: string;
+  matchedPages?: string;
+  matchedArticleNumber?: string;
+  matchedPublisher?: string;
+  matchedPublishedOnline?: number;
+  matchedPublishedPrint?: number;
   sourceName?: string;
   sourceUrl?: string;
   retrievalLevel: RetrievalLevel;

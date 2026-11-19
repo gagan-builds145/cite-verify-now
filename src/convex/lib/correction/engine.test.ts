@@ -375,6 +375,152 @@ test("citation identity, missing, duplicate and DOI-format findings are distingu
   );
 });
 
+const bibliographyPages: PageText[] = [
+  {
+    page: 1,
+    text:
+      "References\n" +
+      "[1] Topal, E. J. (2018). High-performance medicine. Nature Medicine, 24, 44-56. doi:10.1038/s41591-018-0300-7\n" +
+      "[2] Smith, J., & Topol, E. J. (2019). High-performance medicine. Nature Medicine, 25, 44-56. doi:10.1038/s41591-018-0300-7\n" +
+      "[3] Topol, E. J. (2018). High-performance medicine. Nature Medicine, 25, 44-56. doi:10.1038/s41591-018-0300-7\n" +
+      "[4] Topol, E. J. (2019). High-performance medicine: a review. Nature Med, 25, 44-56. doi:10.1038/s41591-018-0300-7\n" +
+      "[5] Topol, E. J. (2018). High-performance medicine. Nature Medicine, 25, 44-56. doi:10.9999/not-the-paper",
+  },
+];
+
+function bibliographyReference(
+  refKey: string,
+  rawText: string,
+  overrides: Partial<ReferenceInput>,
+): ReferenceInput {
+  return {
+    refKey,
+    rawText,
+    title: "High-performance medicine",
+    authors: ["Topol"],
+    year: 2019,
+    doi: "10.1038/s41591-018-0300-7",
+    venue: "Nature Medicine",
+    volume: "25",
+    pages: "44-56",
+    status: "METADATA_MISMATCH",
+    matchedTitle: "High-performance medicine",
+    matchedAuthors: ["Eric J. Topol"],
+    matchedYear: 2019,
+    matchedDoi: "10.1038/s41591-018-0300-7",
+    matchedVenue: "Nature Medicine",
+    matchedVolume: "25",
+    matchedPages: "44-56",
+    retrievalLevel: "abstract",
+    identityJson: JSON.stringify({
+      doi: "MATCH",
+      title: "MATCH",
+      authors: "MISMATCH",
+      year: "UNVERIFIED",
+      venue: "MATCH",
+    }),
+    ...overrides,
+  };
+}
+
+const bibliographyReferences: ReferenceInput[] = [
+  bibliographyReference("1", bibliographyPages[0].text.split("\n")[1], {
+    title: "High-performance medicine",
+    authors: ["Topal"],
+    year: 2018,
+    volume: "24",
+  }),
+  bibliographyReference("2", bibliographyPages[0].text.split("\n")[2], {
+    authors: ["Smith", "Topol"],
+    matchedAuthors: ["Eric J. Topol", "Jane Smith"],
+  }),
+  bibliographyReference("3", bibliographyPages[0].text.split("\n")[3], {
+    year: 2018,
+    matchedYear: 2019,
+    matchedPublishedOnline: 2018,
+    matchedPublishedPrint: 2019,
+  }),
+  bibliographyReference("4", bibliographyPages[0].text.split("\n")[4], {
+    title: "High-performance medicine: a review",
+    venue: "Nature Med",
+  }),
+  bibliographyReference("5", bibliographyPages[0].text.split("\n")[5], {
+    doi: "10.9999/not-the-paper",
+    matchedDoi: "10.1038/s41591-018-0300-7",
+    year: 2018,
+    matchedYear: 2024,
+    identityJson: JSON.stringify({
+      doi: "MISMATCH",
+      title: "MATCH",
+      authors: "MISMATCH",
+      year: "MISMATCH",
+      venue: "MATCH",
+    }),
+  }),
+];
+
+const bibliographyResult = runCorrectionEngine({
+  analysisId: "bibliography-fixture",
+  pages: bibliographyPages,
+  claims: [],
+  references: bibliographyReferences,
+  now: 1,
+});
+const bibliographyRows = bibliographyResult.corrections.filter((item) => item.bibliography);
+
+function fieldRows(refKey: string, field: string): CorrectionDraft[] {
+  return bibliographyRows.filter(
+    (item) => item.bibliography?.referenceKey === refKey && item.bibliography.field === field,
+  );
+}
+
+test("bibliography corrections distinguish author spelling, order, year, title and venue", () => {
+  assert.equal(fieldRows("1", "authors").some((item) => item.errorType === "BIBLIOGRAPHY_AUTHOR_NAME_MISMATCH"), true);
+  assert.equal(fieldRows("1", "year").length, 1);
+  assert.equal(fieldRows("1", "volume").length, 1);
+  assert.equal(fieldRows("2", "author_order").length, 1);
+  assert.equal(fieldRows("3", "year").length, 1);
+  assert.match(fieldRows("3", "year")[0].reason, /online-first/);
+  assert.equal(fieldRows("4", "title").length, 1);
+  assert.equal(fieldRows("4", "venue").length, 1);
+});
+
+test("identity-sensitive bibliography rows require human approval and hold the provider source", () => {
+  const author = fieldRows("1", "authors")[0];
+  assert.equal(author.correctionLevel, "HUMAN_APPROVAL_REQUIRED");
+  assert.equal(author.applicationStatus, "NOT_APPLIED");
+  assert.equal(author.validationStatus, "PASSED");
+  assert.ok(author.bibliography?.provider);
+  assert.equal(author.bibliography?.verifiedValue, "Eric J. Topol");
+  assert.equal(author.bibliography?.sourceDoi, "10.1038/s41591-018-0300-7");
+});
+
+test("an ambiguous DOI/title identity never produces field replacements", () => {
+  assert.equal(fieldRows("5", "authors").length, 0);
+  assert.equal(fieldRows("5", "year").length, 0);
+  assert.equal(fieldRows("5", "title").length, 0);
+});
+
+test("approved author and year fields merge into one reference while rejected fields stay out", () => {
+  const accepted = [fieldRows("1", "authors")[0], fieldRows("1", "year")[0]].map((item) => ({
+    ...item,
+    approvalStatus: "APPROVED" as const,
+    applicationStatus: "APPLIED" as const,
+  }));
+  const rejected = fieldRows("1", "volume").map((item) => ({
+    ...item,
+    approvalStatus: "REJECTED" as const,
+    applicationStatus: "NOT_APPLIED" as const,
+  }));
+  const source = bibliographyPages[0].text;
+  const applied = applyAcceptedCorrections(bibliographyPages, [...accepted, ...rejected]);
+  assert.equal(applied.appliedCorrectionIds.length, 2);
+  assert.match(applied.pages[0].text, /Topol, E\. J\. \(2019\)/);
+  assert.doesNotMatch(applied.pages[0].text, /Topal/);
+  assert.match(applied.pages[0].text, /Nature Medicine, 24, 44-56/);
+  assert.equal(bibliographyPages[0].text, source);
+});
+
 if (failures > 0) {
   console.error(`${failures} correction engine test(s) failed.`);
   process.exit(1);

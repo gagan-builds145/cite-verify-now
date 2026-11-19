@@ -4,9 +4,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import type { AnalysisRecord } from "@/lib/analysis-ui";
+import type { AnalysisRecord, ReferenceRecord } from "@/lib/analysis-ui";
 import {
   APPROVAL_LABEL,
+  BIBLIOGRAPHY_FIELD_LABEL,
   CATEGORY_META,
   LEVEL_LABEL,
   SEVERITY_META,
@@ -14,6 +15,7 @@ import {
   countCorrections,
   type CorrectionCategory,
   type CorrectionHistoryRecord,
+  type BibliographyField,
   type CorrectionRecord,
   type CorrectionSeverity,
 } from "@/lib/correction-ui";
@@ -53,6 +55,9 @@ type Filter = {
   approval: string;
   page: string;
   section: string;
+  scope: "ALL" | "BIBLIOGRAPHY";
+  bibliographyField: BibliographyField | "ALL";
+  identityStatus: string;
 };
 
 const EMPTY_FILTER: Filter = {
@@ -63,6 +68,9 @@ const EMPTY_FILTER: Filter = {
   approval: "ALL",
   page: "",
   section: "",
+  scope: "ALL",
+  bibliographyField: "ALL",
+  identityStatus: "ALL",
 };
 
 function tone(color: string): CSSProperties {
@@ -100,10 +108,15 @@ export function CorrectionWorkbench({
   onShowPage: (page: number) => void;
 }) {
   const rowsRaw = useQuery(api.analyses.corrections, { analysisId });
+  const referencesRaw = useQuery(api.analyses.references, { analysisId });
   const historyRaw = useQuery(api.analyses.correctionHistory, { analysisId });
   const decide = useMutation(api.analyses.decideCorrection);
   const runFocusedReview = useAction(api.runFocusedCorrections.run);
   const rows = useMemo(() => (rowsRaw ?? []) as unknown as CorrectionRecord[], [rowsRaw]);
+  const references = useMemo(
+    () => (referencesRaw ?? []) as unknown as ReferenceRecord[],
+    [referencesRaw],
+  );
   const history = useMemo(
     () => (historyRaw ?? []) as unknown as CorrectionHistoryRecord[],
     [historyRaw],
@@ -119,6 +132,9 @@ export function CorrectionWorkbench({
   const [focusing, setFocusing] = useState(false);
 
   const filtered = rows.filter((row) => {
+    if (filter.scope === "BIBLIOGRAPHY" && !row.bibliography) return false;
+    if (filter.bibliographyField !== "ALL" && row.bibliography?.field !== filter.bibliographyField) return false;
+    if (filter.identityStatus !== "ALL" && row.bibliography?.identityStatus !== filter.identityStatus) return false;
     if (filter.category !== "ALL" && row.errorCategory !== filter.category) return false;
     if (filter.severity !== "ALL" && row.severity !== filter.severity) return false;
     if (filter.level !== "ALL" && row.correctionLevel !== filter.level) return false;
@@ -136,6 +152,93 @@ export function CorrectionWorkbench({
   const selected =
     filtered.find((row) => row.correctionId === selectedId) ?? filtered[0] ?? null;
   const stats = countCorrections(rows);
+  const bibliographyRows = useMemo(
+    () => rows.filter((row) => Boolean(row.bibliography)),
+    [rows],
+  );
+  const bibliographyStats = useMemo(() => {
+    const fieldCounts = new Map<BibliographyField, number>();
+    const reviewKeys = new Set<string>();
+    for (const row of bibliographyRows) {
+      if (!row.bibliography) continue;
+      fieldCounts.set(row.bibliography.field, (fieldCounts.get(row.bibliography.field) ?? 0) + 1);
+      if (row.approvalStatus === "PENDING") reviewKeys.add(row.bibliography.referenceKey);
+    }
+    return {
+      total: references.length,
+      verified: references.filter((reference) => reference.status === "VERIFIED").length,
+      partial: references.filter((reference) => reference.status === "PARTIALLY_VERIFIED").length,
+      mismatch: references.filter((reference) => reference.status === "METADATA_MISMATCH").length,
+      unresolved: references.filter((reference) =>
+        ["UNVERIFIED", "NOT_FOUND", "LOOKUP_FAILED"].includes(reference.status),
+      ).length,
+      review: reviewKeys.size,
+      fieldCounts,
+    };
+  }, [bibliographyRows, references]);
+  const bibliographyComparison = selected?.bibliography
+    ? [
+        {
+          field: "authors" as const,
+          original: selected.bibliography.originalAuthors.join("; ") || "—",
+          verified: selected.bibliography.verifiedAuthors.join("; ") || "—",
+        },
+        {
+          field: "author_order" as const,
+          original: selected.bibliography.originalAuthors.join(" → ") || "—",
+          verified: selected.bibliography.verifiedAuthors.join(" → ") || "—",
+        },
+        {
+          field: "year" as const,
+          original: selected.bibliography.originalYear
+            ? String(selected.bibliography.originalYear)
+            : "—",
+          verified: selected.bibliography.verifiedYear
+            ? String(selected.bibliography.verifiedYear)
+            : "—",
+        },
+        {
+          field: "title" as const,
+          original: selected.bibliography.originalTitle ?? "—",
+          verified: selected.bibliography.verifiedTitle ?? "—",
+        },
+        {
+          field: "venue" as const,
+          original: selected.bibliography.originalVenue ?? "—",
+          verified: selected.bibliography.verifiedVenue ?? "—",
+        },
+        {
+          field: "doi" as const,
+          original: selected.bibliography.originalDoi ?? "—",
+          verified: selected.bibliography.verifiedDoi ?? "—",
+        },
+        {
+          field: "volume" as const,
+          original: selected.bibliography.originalVolume ?? "—",
+          verified: selected.bibliography.verifiedVolume ?? "—",
+        },
+        {
+          field: "issue" as const,
+          original: selected.bibliography.originalIssue ?? "—",
+          verified: selected.bibliography.verifiedIssue ?? "—",
+        },
+        {
+          field: "pages" as const,
+          original: selected.bibliography.originalPages ?? "—",
+          verified: selected.bibliography.verifiedPages ?? "—",
+        },
+        {
+          field: "article_number" as const,
+          original: selected.bibliography.originalArticleNumber ?? "—",
+          verified: selected.bibliography.verifiedArticleNumber ?? "—",
+        },
+        {
+          field: "publisher" as const,
+          original: selected.bibliography.originalPublisher ?? "—",
+          verified: selected.bibliography.verifiedPublisher ?? "—",
+        },
+      ].filter((row) => row.original !== "—" || row.verified !== "—")
+    : [];
   const selectedHistory = selected
     ? history.filter((event) => event.correctionId === selected.correctionId).slice(0, 6)
     : [];
@@ -143,7 +246,7 @@ export function CorrectionWorkbench({
 
   const runAction = async (
     action: "ACCEPT" | "REJECT" | "EDIT" | "RESTORE" | "INTENTIONAL" | "REQUEST_EVIDENCE",
-    extra: { proposedText?: string; note?: string } = {},
+    extra: { proposedText?: string; acceptedValue?: string; note?: string } = {},
   ) => {
     if (!selected) return;
     setBusy(action);
@@ -154,6 +257,7 @@ export function CorrectionWorkbench({
         action,
         expectedVersion: selected.version,
         proposedText: extra.proposedText,
+        acceptedValue: extra.acceptedValue,
         note: extra.note?.trim() || undefined,
       });
       toast.success(
@@ -273,7 +377,7 @@ export function CorrectionWorkbench({
               onClick={() =>
                 downloadText(
                   safeFileName(analysis.title, "corrections.csv"),
-                  buildCorrectionsCsv(rows),
+                  buildCorrectionsCsv(rows, history),
                   "text/csv",
                 )
               }
@@ -304,6 +408,75 @@ export function CorrectionWorkbench({
             </div>
           ))}
         </div>
+
+        <div className="mt-3 rounded-xl border border-border bg-card p-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="text-[11px] font-semibold">Bibliography corrections</p>
+              <p className="text-[9px] leading-4 text-muted-foreground">
+                Field-level metadata from identity-matched scholarly records. Authorship and author-order
+                changes always require approval.
+              </p>
+            </div>
+            <div className="flex gap-1">
+              <Button
+                size="sm"
+                variant={filter.scope === "ALL" ? "default" : "outline"}
+                className="h-7 rounded-full px-2.5 text-[10px]"
+                onClick={() => setFilter((current) => ({ ...current, scope: "ALL" }))}
+              >
+                All findings
+              </Button>
+              <Button
+                size="sm"
+                variant={filter.scope === "BIBLIOGRAPHY" ? "default" : "outline"}
+                className="h-7 rounded-full px-2.5 text-[10px]"
+                onClick={() =>
+                  setFilter((current) => ({ ...current, scope: "BIBLIOGRAPHY" }))
+                }
+              >
+                Bibliography only ({bibliographyRows.length})
+              </Button>
+            </div>
+          </div>
+          <div className="mt-2 grid grid-cols-3 gap-1.5">
+            {[
+              { label: "References", value: bibliographyStats.total },
+              { label: "Verified", value: bibliographyStats.verified },
+              { label: "Partial", value: bibliographyStats.partial },
+              { label: "Metadata errors", value: bibliographyStats.mismatch },
+              { label: "Unresolved", value: bibliographyStats.unresolved },
+              { label: "Needs review", value: bibliographyStats.review },
+            ].map((tile) => (
+              <div key={tile.label} className="rounded-md border border-border/70 bg-secondary/20 px-2 py-1.5">
+                <p className="font-mono text-[8px] uppercase tracking-[0.05em] text-muted-foreground">
+                  {tile.label}
+                </p>
+                <p className="tabular text-[13px] font-semibold leading-tight">{tile.value}</p>
+              </div>
+            ))}
+          </div>
+          {bibliographyStats.fieldCounts.size > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {[...bibliographyStats.fieldCounts.entries()].map(([fieldName, count]) => (
+                <button
+                  key={fieldName}
+                  type="button"
+                  onClick={() =>
+                    setFilter((current) => ({
+                      ...current,
+                      scope: "BIBLIOGRAPHY",
+                      bibliographyField: fieldName,
+                    }))
+                  }
+                  className="rounded-full border border-border px-2 py-0.5 text-[8.5px] text-muted-foreground hover:bg-secondary"
+                >
+                  {BIBLIOGRAPHY_FIELD_LABEL[fieldName]} · {count}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </section>
 
       <section className="border-b border-border px-3 py-2">
@@ -333,6 +506,45 @@ export function CorrectionWorkbench({
 
       <section className="border-b border-border bg-secondary/20 px-3 py-2">
         <div className="flex flex-wrap gap-1.5">
+          <select
+            aria-label="Filter bibliography field"
+            className="h-7 rounded-md border border-border bg-card px-1.5 text-[10px]"
+            value={filter.bibliographyField}
+            onChange={(event) =>
+              setFilter((current) => ({
+                ...current,
+                scope: "BIBLIOGRAPHY",
+                bibliographyField: event.target.value as Filter["bibliographyField"],
+              }))
+            }
+          >
+            <option value="ALL">All bibliography fields</option>
+            {Object.entries(BIBLIOGRAPHY_FIELD_LABEL).map(([key, value]) => (
+              <option key={key} value={key}>
+                {value}
+              </option>
+            ))}
+          </select>
+          <select
+            aria-label="Filter reference identity status"
+            className="h-7 rounded-md border border-border bg-card px-1.5 text-[10px]"
+            value={filter.identityStatus}
+            onChange={(event) =>
+              setFilter((current) => ({
+                ...current,
+                scope: "BIBLIOGRAPHY",
+                identityStatus: event.target.value,
+              }))
+            }
+          >
+            <option value="ALL">All identity statuses</option>
+            <option value="VERIFIED">Verified</option>
+            <option value="PARTIALLY_VERIFIED">Partially verified</option>
+            <option value="METADATA_MISMATCH">Metadata mismatch</option>
+            <option value="UNVERIFIED">Unverified</option>
+            <option value="NOT_FOUND">Not found</option>
+            <option value="LOOKUP_FAILED">Lookup failed</option>
+          </select>
           <select
             aria-label="Filter correction category"
             className="h-7 rounded-md border border-border bg-card px-1.5 text-[10px]"
@@ -450,7 +662,11 @@ export function CorrectionWorkbench({
                   onClick={() => {
                     setSelectedId(row.correctionId);
                     setEditing(false);
-                    setDraft(row.proposedText);
+                    setDraft(
+                      row.bibliography
+                        ? row.bibliography.acceptedValue ?? row.bibliography.verifiedValue
+                        : row.proposedText,
+                    );
                     setNote("");
                   }}
                   className={`flex w-full items-start gap-2 rounded-lg border px-2 py-1.5 text-left transition-colors ${
@@ -529,6 +745,91 @@ export function CorrectionWorkbench({
 
               <p className="mt-2 text-[10.5px] leading-5 text-foreground/80">{selected.reason}</p>
 
+              {selected.bibliography && (
+                <div className="mt-2 rounded-lg border border-border bg-card p-2.5">
+                  <div className="flex flex-wrap items-center justify-between gap-1.5">
+                    <p className="font-mono text-[8.5px] uppercase tracking-[0.07em] text-muted-foreground">
+                      Original vs verified metadata · {selected.bibliography.referenceKey}
+                    </p>
+                    <div className="flex items-center gap-1.5">
+                      <span className="rounded-full border border-border px-1.5 py-px text-[8.5px]">
+                        {selected.bibliography.identityStatus.replace(/_/g, " ")}
+                      </span>
+                      {(selected.bibliography.sourceUrl || selected.bibliography.sourceDoi) && (
+                        <a
+                          href={
+                            selected.bibliography.sourceUrl ??
+                            `https://doi.org/${selected.bibliography.sourceDoi}`
+                          }
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-full border border-border px-1.5 py-px text-[8.5px] text-[var(--ink)] hover:bg-secondary"
+                        >
+                          View authoritative source ↗
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                  <p className="mt-1 text-[9px] leading-4 text-muted-foreground">
+                    Provider: {selected.bibliography.provider}
+                    {selected.bibliography.sourceDoi
+                      ? ` · DOI ${selected.bibliography.sourceDoi}`
+                      : ""}
+                    {selected.bibliography.publishedOnline
+                      ? ` · online-first ${selected.bibliography.publishedOnline}`
+                      : ""}
+                    {selected.bibliography.publishedPrint
+                      ? ` · print ${selected.bibliography.publishedPrint}`
+                      : ""}
+                  </p>
+                  <div className="mt-1.5 overflow-hidden rounded-md border border-border/70">
+                    <table className="w-full border-collapse text-left text-[9.5px]">
+                      <thead className="bg-secondary/40 text-muted-foreground">
+                        <tr>
+                          <th className="px-2 py-1 font-medium">Field</th>
+                          <th className="px-2 py-1 font-medium">Original reference</th>
+                          <th className="px-2 py-1 font-medium">Verified metadata</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {bibliographyComparison.map((item) => {
+                          const changed = item.original !== item.verified;
+                          return (
+                            <tr
+                              key={item.field}
+                              className={
+                                selected.bibliography?.field === item.field
+                                  ? "bg-[var(--verdict-partial-soft)]"
+                                  : undefined
+                              }
+                            >
+                              <td className="border-t border-border/60 px-2 py-1 align-top font-medium">
+                                {BIBLIOGRAPHY_FIELD_LABEL[item.field]}
+                              </td>
+                              <td className="border-t border-border/60 px-2 py-1 align-top text-foreground/75">
+                                {item.original}
+                              </td>
+                              <td
+                                className={`border-t border-border/60 px-2 py-1 align-top ${
+                                  changed ? "font-medium text-foreground" : "text-foreground/75"
+                                }`}
+                              >
+                                {item.verified}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="mt-1 text-[8.5px] text-muted-foreground">
+                    This row approves only the {BIBLIOGRAPHY_FIELD_LABEL[selected.bibliography.field]}{
+                      " "
+                    }field. Other fields remain independently reviewable.
+                  </p>
+                </div>
+              )}
+
               <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <div className="rounded-lg border border-border bg-card p-2.5">
                   <p className="font-mono text-[8.5px] uppercase tracking-[0.07em] text-muted-foreground">
@@ -604,7 +905,14 @@ export function CorrectionWorkbench({
                       size="sm"
                       className="h-7 text-[10.5px]"
                       disabled={busy === "EDIT" || !draft.trim()}
-                      onClick={() => runAction("EDIT", { proposedText: draft, note })}
+                      onClick={() =>
+                        runAction(
+                          "EDIT",
+                          selected.bibliography
+                            ? { acceptedValue: draft, note }
+                            : { proposedText: draft, note },
+                        )
+                      }
                     >
                       {busy === "EDIT" ? <Loader2 className="mr-1 size-3 animate-spin" /> : null}
                       Save edit
@@ -643,7 +951,12 @@ export function CorrectionWorkbench({
                     className="h-7 gap-1 rounded-full px-2.5 text-[10.5px]"
                     onClick={() => {
                       setEditing(true);
-                      setDraft(selected.proposedText);
+                      setDraft(
+                        selected.bibliography
+                          ? selected.bibliography.acceptedValue ??
+                              selected.bibliography.verifiedValue
+                          : selected.proposedText,
+                      );
                     }}
                   >
                     <Pencil className="size-3" />

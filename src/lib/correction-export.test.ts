@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { strFromU8, unzipSync } from "fflate";
-import { buildCorrectedDocxBlob, buildCorrectionsCsv, buildCorrectionsJson } from "./correction-export";
+import {
+  buildCorrectedDocxBlob,
+  buildCorrectionReportBlob,
+  buildCorrectionsCsv,
+  buildCorrectionsJson,
+} from "./correction-export";
 import type { AnalysisRecord } from "./analysis-ui";
 import type { CorrectionHistoryRecord, CorrectionRecord } from "./correction-ui";
 
@@ -104,6 +109,140 @@ await test("correction JSON and CSV preserve the complete audit record", () => {
   assert.match(csv, /CR-001/);
   assert.match(csv, /SAFE_AUTO_FIX/);
   assert.match(csv, /The study is small/);
+});
+
+const bibliographyCorrections: CorrectionRecord[] = [
+  {
+    ...corrections[0],
+    _id: "bib-row-1",
+    correctionId: "CR-B01",
+    errorCategory: "CITATION",
+    errorType: "BIBLIOGRAPHY_AUTHOR_NAME_MISMATCH",
+    originalText:
+      "[1] Topal, E. J. (2018). High-performance medicine. Nature Medicine, 25, 44-56. doi:10.1038/s41591-018-0300-7",
+    proposedText:
+      "[1] Topol, E. J. (2018). High-performance medicine. Nature Medicine, 25, 44-56. doi:10.1038/s41591-018-0300-7",
+    correctionLevel: "HUMAN_APPROVAL_REQUIRED",
+    approvalStatus: "APPROVED",
+    applicationStatus: "APPLIED",
+    bibliography: {
+      referenceKey: "1",
+      field: "authors",
+      originalValue: "Topal",
+      verifiedValue: "Eric J. Topol",
+      provider: "Crossref",
+      sourceDoi: "10.1038/s41591-018-0300-7",
+      sourceUrl: "https://doi.org/10.1038/s41591-018-0300-7",
+      identityStatus: "METADATA_MISMATCH",
+      verificationNotes: ["DOI matched."],
+      originalAuthors: ["Topal"],
+      verifiedAuthors: ["Eric J. Topol"],
+      originalYear: 2018,
+      verifiedYear: 2019,
+      originalTitle: "High-performance medicine",
+      verifiedTitle: "High-performance medicine",
+      originalDoi: "10.1038/s41591-018-0300-7",
+      verifiedDoi: "10.1038/s41591-018-0300-7",
+      originalVenue: "Nature Medicine",
+      verifiedVenue: "Nature Medicine",
+      originalVolume: "25",
+      verifiedVolume: "25",
+      originalPages: "44-56",
+      verifiedPages: "44-56",
+      publishedOnline: 2018,
+      publishedPrint: 2019,
+    },
+  },
+  {
+    ...corrections[0],
+    _id: "bib-row-2",
+    correctionId: "CR-B02",
+    errorCategory: "CITATION",
+    errorType: "BIBLIOGRAPHY_YEAR_MISMATCH",
+    originalText:
+      "[1] Topal, E. J. (2018). High-performance medicine. Nature Medicine, 25, 44-56. doi:10.1038/s41591-018-0300-7",
+    proposedText:
+      "[1] Topal, E. J. (2019). High-performance medicine. Nature Medicine, 25, 44-56. doi:10.1038/s41591-018-0300-7",
+    correctionLevel: "HUMAN_APPROVAL_REQUIRED",
+    approvalStatus: "APPROVED",
+    applicationStatus: "APPLIED",
+    bibliography: {
+      referenceKey: "1",
+      field: "year",
+      originalValue: "2018",
+      verifiedValue: "2019",
+      provider: "Crossref",
+      sourceDoi: "10.1038/s41591-018-0300-7",
+      sourceUrl: "https://doi.org/10.1038/s41591-018-0300-7",
+      identityStatus: "METADATA_MISMATCH",
+      verificationNotes: ["DOI matched; issue year verified."],
+      originalAuthors: ["Topal"],
+      verifiedAuthors: ["Eric J. Topol"],
+      originalYear: 2018,
+      verifiedYear: 2019,
+      originalTitle: "High-performance medicine",
+      verifiedTitle: "High-performance medicine",
+      originalDoi: "10.1038/s41591-018-0300-7",
+      verifiedDoi: "10.1038/s41591-018-0300-7",
+      originalVenue: "Nature Medicine",
+      verifiedVenue: "Nature Medicine",
+      originalVolume: "25",
+      verifiedVolume: "25",
+      originalPages: "44-56",
+      verifiedPages: "44-56",
+      publishedOnline: 2018,
+      publishedPrint: 2019,
+    },
+  },
+];
+
+await test("accepted bibliography fields merge into the DOCX and rejected fields are excluded", async () => {
+  const sourceText =
+    "References\n[1] Topal, E. J. (2018). High-performance medicine. Nature Medicine, 25, 44-56. doi:10.1038/s41591-018-0300-7";
+  const built = await buildCorrectedDocxBlob(analysis, bibliographyCorrections, [
+    { page: 1, text: sourceText },
+  ]);
+  assert.equal(built.applied, 2);
+  const archive = unzipSync(new Uint8Array(await built.blob.arrayBuffer()));
+  const xml = strFromU8(archive["word/document.xml"]);
+  const reconstructed = xml.split("Page 1").pop() ?? "";
+  assert.match(reconstructed, /Topol, E\. J\. \(2019\)/);
+  assert.doesNotMatch(reconstructed, /Topal/);
+  assert.match(reconstructed, /44-56/);
+});
+
+await test("bibliography JSON and CSV include field values, provider and verification status", () => {
+  const json = JSON.parse(buildCorrectionsJson(analysis, bibliographyCorrections, [])) as {
+    corrections: CorrectionRecord[];
+  };
+  assert.equal(json.corrections[0].bibliography?.field, "authors");
+  assert.equal(json.corrections[0].bibliography?.provider, "Crossref");
+  assert.equal(json.corrections[0].bibliography?.verifiedValue, "Eric J. Topol");
+  assert.equal(
+    (json.corrections[0] as CorrectionRecord & { acceptedValue?: string }).acceptedValue,
+    "Eric J. Topol",
+  );
+  const csv = buildCorrectionsCsv(bibliographyCorrections, [
+    { ...history[0], correctionId: "CR-B01" },
+  ]);
+  assert.match(csv, /bibliography_field/);
+  assert.match(csv, /verified_value/);
+  assert.match(csv, /accepted_value/);
+  assert.match(csv, /accepted_bibliography_value/);
+  assert.match(csv, /audit_history/);
+  assert.match(csv, /Crossref/);
+  assert.match(csv, /Eric J\. Topol/);
+  assert.match(csv, /METADATA_MISMATCH/);
+  assert.match(csv, /Reviewer ACCEPT/);
+});
+
+await test("bibliography correction PDF is a real non-empty PDF containing the audit report", async () => {
+  const blob = buildCorrectionReportBlob(analysis, bibliographyCorrections, [
+    { ...history[0], correctionId: "CR-B01" },
+  ]);
+  assert.ok(blob.size > 1000);
+  const header = new TextDecoder().decode(await blob.slice(0, 5).arrayBuffer());
+  assert.equal(header, "%PDF-");
 });
 
 if (failures > 0) {

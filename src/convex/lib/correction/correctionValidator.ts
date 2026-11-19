@@ -58,6 +58,48 @@ function identityIsStrong(reference: ReferenceInput): boolean {
   }
 }
 
+function bibliographyIdentityStrong(reference: ReferenceInput): boolean {
+  if (!reference.identityJson) return false;
+  try {
+    const identity = JSON.parse(reference.identityJson) as Record<string, unknown>;
+    if (identity.doi === "MATCH" && identity.title !== "MISMATCH") return true;
+    return (
+      (reference.status === "VERIFIED" || reference.status === "PARTIALLY_VERIFIED") &&
+      identity.title !== "MISMATCH"
+    );
+  } catch {
+    return false;
+  }
+}
+
+function verifiedFieldValue(reference: ReferenceInput, field: string): string | undefined {
+  switch (field) {
+    case "authors":
+    case "author_order":
+      return reference.matchedAuthors.join("; ");
+    case "year":
+      return reference.matchedYear ? String(reference.matchedYear) : undefined;
+    case "title":
+      return reference.matchedTitle;
+    case "venue":
+      return reference.matchedVenue;
+    case "doi":
+      return reference.matchedDoi;
+    case "volume":
+      return reference.matchedVolume;
+    case "issue":
+      return reference.matchedIssue;
+    case "pages":
+      return reference.matchedPages;
+    case "article_number":
+      return reference.matchedArticleNumber;
+    case "publisher":
+      return reference.matchedPublisher;
+    default:
+      return undefined;
+  }
+}
+
 export function validateCorrection(
   draft: CorrectionDraft,
   pages: { page: number; text: string }[],
@@ -88,9 +130,54 @@ export function validateCorrection(
     }
   }
 
+  const bibliography = draft.bibliography;
+  if (bibliography) {
+    const reference = references.find((item) => item.refKey === bibliography.referenceKey);
+    if (!reference) {
+      return {
+        status: "FAILED",
+        notes: [...notes, "The bibliography reference for this correction does not exist."],
+      };
+    }
+    if (!bibliographyIdentityStrong(reference)) {
+      return {
+        status: "FAILED",
+        notes: [...notes, "The publication identity is not established strongly enough for a bibliography correction."],
+      };
+    }
+    if (!bibliography.provider) {
+      return {
+        status: "FAILED",
+        notes: [...notes, "No authoritative metadata provider was recorded."],
+      };
+    }
+    const authoritative = verifiedFieldValue(reference, bibliography.field);
+    if (!authoritative) {
+      return {
+        status: "FAILED",
+        notes: [...notes, "The provider did not return a verified value for this field."],
+      };
+    }
+    if (normalizeWhitespace(authoritative) !== normalizeWhitespace(bibliography.verifiedValue)) {
+      return {
+        status: "FAILED",
+        notes: [...notes, "The proposed value does not match the verified provider metadata."],
+      };
+    }
+    if (
+      (bibliography.field === "authors" || bibliography.field === "author_order") &&
+      draft.correctionLevel !== "HUMAN_APPROVAL_REQUIRED"
+    ) {
+      return {
+        status: "FAILED",
+        notes: [...notes, "Authorship and author-order changes always require human approval."],
+      };
+    }
+  }
+
   const numericChange = !numbersMatch(draft.originalText, draft.proposedText);
   const arithmetic = /arithmetic|percentage|percent|total|recalculat|p[_ -]?value|confidence/i.test(draft.errorType);
-  if (numericChange && !arithmetic) {
+  if (numericChange && !arithmetic && !bibliography) {
     return {
       status: "FAILED",
       notes: [...notes, "The replacement changes numbers outside a recalculated arithmetic correction."],

@@ -44,6 +44,13 @@ export type ScholarlyRecord = {
   year?: number;
   doi?: string;
   venue?: string;
+  volume?: string;
+  issue?: string;
+  pages?: string;
+  articleNumber?: string;
+  publisher?: string;
+  publishedOnline?: number;
+  publishedPrint?: number;
   url?: string;
   abstract?: string;
   type?: string;
@@ -471,6 +478,13 @@ type CrossrefItem = {
   URL?: string;
   type?: string;
   issued?: { "date-parts"?: number[][] };
+  "published-online"?: { "date-parts"?: number[][] };
+  "published-print"?: { "date-parts"?: number[][] };
+  volume?: string;
+  issue?: string;
+  page?: string;
+  "article-number"?: string;
+  publisher?: string;
   author?: { given?: string; family?: string; name?: string }[];
 };
 
@@ -487,6 +501,13 @@ function mapCrossref(item: CrossrefItem): ScholarlyRecord | null {
     year: item.issued?.["date-parts"]?.[0]?.[0],
     doi: item.DOI,
     venue: item["container-title"]?.[0],
+    volume: item.volume,
+    issue: item.issue,
+    pages: item.page,
+    articleNumber: item["article-number"],
+    publisher: item.publisher,
+    publishedOnline: item["published-online"]?.["date-parts"]?.[0]?.[0],
+    publishedPrint: item["published-print"]?.["date-parts"]?.[0]?.[0],
     url: item.DOI ? `https://doi.org/${item.DOI}` : item.URL,
     abstract: item.abstract ? stripMarkup(item.abstract) : undefined,
     type: item.type,
@@ -527,8 +548,10 @@ type OpenAlexWork = {
   publication_year?: number;
   type?: string;
   authorships?: { author?: { display_name?: string } }[];
+  publication_date?: string;
+  biblio?: { volume?: string; issue?: string; first_page?: string; last_page?: string };
   primary_location?: {
-    source?: { display_name?: string };
+    source?: { display_name?: string; host_organization_name?: string };
     landing_page_url?: string;
     pdf_url?: string;
   };
@@ -564,6 +587,14 @@ function mapOpenAlex(work: OpenAlexWork): ScholarlyRecord | null {
     year: work.publication_year,
     doi,
     venue: work.primary_location?.source?.display_name,
+    volume: work.biblio?.volume,
+    issue: work.biblio?.issue,
+    pages:
+      work.biblio?.first_page && work.biblio?.last_page
+        ? `${work.biblio.first_page}-${work.biblio.last_page}`
+        : work.biblio?.first_page,
+    publisher: work.primary_location?.source?.host_organization_name,
+    publishedOnline: work.publication_date ? Number(work.publication_date.slice(0, 4)) : undefined,
     url: doi ? `https://doi.org/${doi}` : work.id,
     abstract: reconstructAbstract(work.abstract_inverted_index),
     type: work.type,
@@ -678,6 +709,7 @@ type DataCiteResponse = {
       creators?: { name?: string }[];
       publicationYear?: number;
       publisher?: string | { name?: string };
+      version?: string;
       url?: string;
       descriptions?: { description?: string; descriptionType?: string }[];
       types?: { resourceTypeGeneral?: string };
@@ -703,6 +735,8 @@ async function dataCiteByDoi(doi: string): Promise<FetchResult & { record?: Scho
       year: attributes?.publicationYear,
       doi: attributes?.doi ?? doi,
       venue:
+        typeof attributes?.publisher === "string" ? attributes.publisher : attributes?.publisher?.name,
+      publisher:
         typeof attributes?.publisher === "string" ? attributes.publisher : attributes?.publisher?.name,
       url: attributes?.url ?? `https://doi.org/${doi}`,
       abstract: abstract ? stripMarkup(abstract) : undefined,

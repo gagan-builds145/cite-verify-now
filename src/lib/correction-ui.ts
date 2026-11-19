@@ -20,6 +20,55 @@ export type CorrectionApproval =
 export type CorrectionApplication = "APPLIED" | "NOT_APPLIED" | "RESTORED" | "BLOCKED";
 export type CorrectionValidation = "PASSED" | "FAILED" | "PENDING";
 
+export type BibliographyField =
+  | "authors"
+  | "author_order"
+  | "year"
+  | "title"
+  | "venue"
+  | "doi"
+  | "volume"
+  | "issue"
+  | "pages"
+  | "article_number"
+  | "publisher"
+  | "url";
+
+export type BibliographyCorrection = {
+  referenceKey: string;
+  field: BibliographyField;
+  originalValue: string;
+  verifiedValue: string;
+  acceptedValue?: string;
+  provider: string;
+  sourceUrl?: string;
+  sourceDoi?: string;
+  identityStatus: string;
+  verificationNotes: string[];
+  originalAuthors: string[];
+  verifiedAuthors: string[];
+  originalYear?: number;
+  verifiedYear?: number;
+  originalTitle?: string;
+  verifiedTitle?: string;
+  originalDoi?: string;
+  verifiedDoi?: string;
+  originalVenue?: string;
+  verifiedVenue?: string;
+  originalVolume?: string;
+  verifiedVolume?: string;
+  originalIssue?: string;
+  verifiedIssue?: string;
+  originalPages?: string;
+  verifiedPages?: string;
+  originalArticleNumber?: string;
+  verifiedArticleNumber?: string;
+  originalPublisher?: string;
+  verifiedPublisher?: string;
+  publishedOnline?: number;
+  publishedPrint?: number;
+};
+
 export type CorrectionEvidence = {
   quote: string;
   page?: number;
@@ -50,6 +99,7 @@ export type CorrectionRecord = {
   section?: string;
   confidenceLevel: number;
   correctionLevel: CorrectionLevel;
+  bibliography?: BibliographyCorrection;
   validationStatus: CorrectionValidation;
   validationNotes: string[];
   approvalStatus: CorrectionApproval;
@@ -108,6 +158,21 @@ export const APPLICATION_LABEL: Record<CorrectionApplication, string> = {
   NOT_APPLIED: "Not applied",
   RESTORED: "Original restored",
   BLOCKED: "Blocked",
+};
+
+export const BIBLIOGRAPHY_FIELD_LABEL: Record<BibliographyField, string> = {
+  authors: "Authors",
+  author_order: "Author order",
+  year: "Publication year",
+  title: "Title",
+  venue: "Journal / conference",
+  doi: "DOI",
+  volume: "Volume",
+  issue: "Issue",
+  pages: "Pages",
+  article_number: "Article number",
+  publisher: "Publisher",
+  url: "URL",
 };
 
 export const VALIDATION_LABEL: Record<CorrectionValidation, string> = {

@@ -42,6 +42,7 @@ function asDraft(rows: CorrectionRecord[]): CorrectionDraft[] {
     section: row.section,
     confidenceLevel: row.confidenceLevel,
     correctionLevel: row.correctionLevel,
+    bibliography: row.bibliography,
     validationStatus: row.validationStatus,
     validationNotes: row.validationNotes,
     approvalStatus: row.approvalStatus,
@@ -91,7 +92,15 @@ export function buildCorrectionsJson(
         correctionsPending: analysis.correctionsPending,
       },
       summary: correctionSummary(corrections),
-      corrections,
+      corrections: corrections.map((row) => ({
+        ...row,
+        acceptedValue:
+          row.approvalStatus === "APPROVED"
+            ? row.bibliography?.acceptedValue ??
+              row.bibliography?.verifiedValue ??
+              row.proposedText
+            : undefined,
+      })),
       auditHistory: history,
       originalDocumentPreserved: true,
     },
@@ -100,7 +109,10 @@ export function buildCorrectionsJson(
   );
 }
 
-export function buildCorrectionsCsv(corrections: CorrectionRecord[]): string {
+export function buildCorrectionsCsv(
+  corrections: CorrectionRecord[],
+  history: CorrectionHistoryRecord[] = [],
+): string {
   const header = [
     "correction_id",
     "error_category",
@@ -114,12 +126,23 @@ export function buildCorrectionsCsv(corrections: CorrectionRecord[]): string {
     "application",
     "original_text",
     "proposed_text",
+    "accepted_value",
     "reason",
     "evidence_quote",
     "source_reference",
     "source_doi",
     "confidence",
     "version",
+    "bibliography_field",
+    "original_value",
+    "verified_value",
+    "accepted_bibliography_value",
+    "metadata_provider",
+    "source_url",
+    "identity_status",
+    "published_online",
+    "published_print",
+    "audit_history",
   ];
   return [
     header.join(","),
@@ -137,12 +160,35 @@ export function buildCorrectionsCsv(corrections: CorrectionRecord[]): string {
         row.applicationStatus,
         row.originalText,
         row.proposedText,
+        row.approvalStatus === "APPROVED"
+          ? row.bibliography?.acceptedValue ??
+            row.bibliography?.verifiedValue ??
+            row.proposedText
+          : "",
         row.reason,
         row.evidence.map((item) => item.quote).join(" | "),
         row.sourceReference ?? "",
         row.sourceDoi ?? "",
         row.confidenceLevel,
         row.version,
+        row.bibliography?.field ?? "",
+        row.bibliography?.originalValue ?? "",
+        row.bibliography?.verifiedValue ?? "",
+        row.approvalStatus === "APPROVED"
+          ? row.bibliography?.acceptedValue ?? row.bibliography?.verifiedValue ?? ""
+          : "",
+        row.bibliography?.provider ?? "",
+        row.bibliography?.sourceUrl ?? "",
+        row.bibliography?.identityStatus ?? "",
+        row.bibliography?.publishedOnline ?? "",
+        row.bibliography?.publishedPrint ?? "",
+        history
+          .filter((event) => event.correctionId === row.correctionId)
+          .map(
+            (event) =>
+              `${new Date(event.createdAt).toISOString()} ${event.actorName} ${event.action}${event.note ? `: ${event.note}` : ""}`,
+          )
+          .join(" | "),
       ]
         .map(escapeCsv)
         .join(","),
@@ -306,11 +352,11 @@ export async function downloadCorrectedDocx(
   return { applied: built.applied, skipped: built.skipped };
 }
 
-export function downloadCorrectionReport(
+export function buildCorrectionReportBlob(
   analysis: AnalysisRecord,
   corrections: CorrectionRecord[],
   history: CorrectionHistoryRecord[],
-): void {
+): Blob {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const margin = 48;
   const width = doc.internal.pageSize.getWidth();
@@ -411,5 +457,16 @@ export function downloadCorrectionReport(
     { size: 8, color: [100, 105, 115], gap: 4 },
   );
 
-  doc.save(safeFileName(analysis.title, "corrections.pdf"));
+  return doc.output("blob");
+}
+
+export function downloadCorrectionReport(
+  analysis: AnalysisRecord,
+  corrections: CorrectionRecord[],
+  history: CorrectionHistoryRecord[],
+): void {
+  downloadBlob(
+    safeFileName(analysis.title, "corrections.pdf"),
+    buildCorrectionReportBlob(analysis, corrections, history),
+  );
 }

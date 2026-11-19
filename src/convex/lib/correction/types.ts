@@ -25,6 +25,55 @@ export type CorrectionApproval =
   | "NEEDS_EVIDENCE";
 export type CorrectionApplication = "APPLIED" | "NOT_APPLIED" | "RESTORED" | "BLOCKED";
 
+export type BibliographyField =
+  | "authors"
+  | "author_order"
+  | "year"
+  | "title"
+  | "venue"
+  | "doi"
+  | "volume"
+  | "issue"
+  | "pages"
+  | "article_number"
+  | "publisher"
+  | "url";
+
+export type BibliographyCorrection = {
+  referenceKey: string;
+  field: BibliographyField;
+  originalValue: string;
+  verifiedValue: string;
+  acceptedValue?: string;
+  provider: string;
+  sourceUrl?: string;
+  sourceDoi?: string;
+  identityStatus: string;
+  verificationNotes: string[];
+  originalAuthors: string[];
+  verifiedAuthors: string[];
+  originalYear?: number;
+  verifiedYear?: number;
+  originalTitle?: string;
+  verifiedTitle?: string;
+  originalDoi?: string;
+  verifiedDoi?: string;
+  originalVenue?: string;
+  verifiedVenue?: string;
+  originalVolume?: string;
+  verifiedVolume?: string;
+  originalIssue?: string;
+  verifiedIssue?: string;
+  originalPages?: string;
+  verifiedPages?: string;
+  originalArticleNumber?: string;
+  verifiedArticleNumber?: string;
+  originalPublisher?: string;
+  verifiedPublisher?: string;
+  publishedOnline?: number;
+  publishedPrint?: number;
+};
+
 export type CorrectionEvidence = {
   quote: string;
   page?: number;
@@ -64,6 +113,7 @@ export type CorrectionDraft = {
   section?: string;
   confidenceLevel: number;
   correctionLevel: CorrectionLevel;
+  bibliography?: BibliographyCorrection;
   validationStatus: CorrectionValidation;
   validationNotes: string[];
   approvalStatus: CorrectionApproval;
@@ -108,6 +158,11 @@ export type ReferenceInput = {
   year?: number;
   doi?: string;
   venue?: string;
+  volume?: string;
+  issue?: string;
+  pages?: string;
+  articleNumber?: string;
+  publisher?: string;
   status:
     | "VERIFIED"
     | "PARTIALLY_VERIFIED"
@@ -120,6 +175,13 @@ export type ReferenceInput = {
   matchedYear?: number;
   matchedDoi?: string;
   matchedVenue?: string;
+  matchedVolume?: string;
+  matchedIssue?: string;
+  matchedPages?: string;
+  matchedArticleNumber?: string;
+  matchedPublisher?: string;
+  matchedPublishedOnline?: number;
+  matchedPublishedPrint?: number;
   sourceName?: string;
   sourceUrl?: string;
   retrievalLevel: RetrievalLevel;

@@ -483,6 +483,7 @@ export const decideCorrection = mutation({
     ),
     expectedVersion: v.number(),
     proposedText: v.optional(v.string()),
+    acceptedValue: v.optional(v.string()),
     note: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -506,6 +507,7 @@ export const decideCorrection = mutation({
     let applicationStatus = correction.applicationStatus;
     let validationStatus = correction.validationStatus;
     let validationNotes = correction.validationNotes;
+    let bibliography = correction.bibliography;
 
     if (args.action === "ACCEPT") {
       if (validationStatus !== "PASSED") {
@@ -520,15 +522,25 @@ export const decideCorrection = mutation({
       approvalStatus = "REJECTED";
       applicationStatus = "NOT_APPLIED";
     } else if (args.action === "EDIT") {
-      proposedText = args.proposedText?.trim().slice(0, 1400) ?? "";
-      const validation = validateEditedText(
-        correction.originalText,
-        proposedText,
-        correction.errorCategory,
-        correction.errorType,
-      );
-      validationStatus = validation.status;
-      validationNotes = validation.notes;
+      if (correction.bibliography && args.acceptedValue !== undefined) {
+        const acceptedValue = args.acceptedValue.trim().slice(0, 500);
+        if (!acceptedValue) throw new Error("The edited field value cannot be empty.");
+        bibliography = { ...correction.bibliography, acceptedValue };
+        validationStatus = "PASSED";
+        validationNotes = [
+          "Manual field edit recorded. The provider value remains preserved separately in the audit record.",
+        ];
+      } else {
+        proposedText = args.proposedText?.trim().slice(0, 1400) ?? "";
+        const validation = validateEditedText(
+          correction.originalText,
+          proposedText,
+          correction.errorCategory,
+          correction.errorType,
+        );
+        validationStatus = validation.status;
+        validationNotes = validation.notes;
+      }
       approvalStatus = "PENDING";
       applicationStatus = "NOT_APPLIED";
     } else if (args.action === "RESTORE") {
@@ -546,6 +558,7 @@ export const decideCorrection = mutation({
     const now = Date.now();
     const patch = {
       proposedText,
+      bibliography,
       approvalStatus,
       applicationStatus,
       validationStatus,
@@ -802,6 +815,11 @@ export const addReference = internalMutation({
     year: v.optional(v.number()),
     doi: v.optional(v.string()),
     venue: v.optional(v.string()),
+    volume: v.optional(v.string()),
+    issue: v.optional(v.string()),
+    pages: v.optional(v.string()),
+    articleNumber: v.optional(v.string()),
+    publisher: v.optional(v.string()),
     status: referenceStatusValidator,
     matchScore: v.optional(v.number()),
     matchNotes: v.array(v.string()),
@@ -810,6 +828,13 @@ export const addReference = internalMutation({
     matchedYear: v.optional(v.number()),
     matchedDoi: v.optional(v.string()),
     matchedVenue: v.optional(v.string()),
+    matchedVolume: v.optional(v.string()),
+    matchedIssue: v.optional(v.string()),
+    matchedPages: v.optional(v.string()),
+    matchedArticleNumber: v.optional(v.string()),
+    matchedPublisher: v.optional(v.string()),
+    matchedPublishedOnline: v.optional(v.number()),
+    matchedPublishedPrint: v.optional(v.number()),
     sourceName: v.optional(v.string()),
     sourceUrl: v.optional(v.string()),
     retrievalLevel: retrievalLevelValidator,

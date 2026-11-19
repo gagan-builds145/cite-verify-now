@@ -143,6 +143,11 @@ export type ParsedReference = {
   year?: number;
   doi?: string;
   venue?: string;
+  volume?: string;
+  issue?: string;
+  pages?: string;
+  articleNumber?: string;
+  publisher?: string;
   numbered: boolean;
 };
 
@@ -263,6 +268,33 @@ export function extractReferenceVenue(raw: string, title?: string): string | und
   return venue.slice(0, 120);
 }
 
+export function extractReferenceDetails(
+  raw: string,
+  venue?: string,
+): { volume?: string; issue?: string; pages?: string; articleNumber?: string; publisher?: string } {
+  const cleaned = normalizeWhitespace(raw);
+  const venueIndex = venue ? cleaned.indexOf(venue) : -1;
+  const tail = venueIndex >= 0 ? cleaned.slice(venueIndex + (venue?.length ?? 0)) : cleaned;
+  const volumeMatch =
+    /\b(?:vol(?:ume)?\.?\s*)(\d{1,4})(?:\s*\(([^)]{1,20})\))?/i.exec(tail) ??
+    /^[\s,.;]*(\d{1,4})(?:\s*\(([^)]{1,20})\))?(?:\s*[,;]\s*([A-Za-z]?\d[\w.–-]*))?/.exec(tail);
+  const volume = volumeMatch?.[1];
+  const issue = volumeMatch?.[2]?.trim();
+  const pageLike = volumeMatch?.[3]?.replace(/[.,;]+$/, "");
+  const pageMatch =
+    /\b(?:pp?\.?\s*)?(\d{1,5}\s*[–—-]\s*\d{1,5}|[A-Za-z]?\d{2,}[A-Za-z0-9.-]*)\b/.exec(tail);
+  const pages = pageLike ?? pageMatch?.[1]?.replace(/[.,;]+$/, "");
+  const article = /\b(?:article|art\.)\s*(?:no\.?\s*)?([A-Za-z]?\d{2,}[\w.-]*)/i.exec(cleaned);
+  const publisherMatch = /\b(?:publisher|published by)\s*:\s*([^.;]{2,100})/i.exec(cleaned);
+  return {
+    volume: volume?.slice(0, 20),
+    issue: issue?.slice(0, 20),
+    pages: pages?.slice(0, 40),
+    articleNumber: (article?.[1] ?? (/^(?:e|m)\d{3,}$/i.test(pages ?? "") ? pages : undefined))?.slice(0, 40),
+    publisher: publisherMatch?.[1]?.trim().slice(0, 120),
+  };
+}
+
 export function extractReferenceAuthors(raw: string): string[] {
   const yearIndex = raw.search(/\((?:19|20)\d{2}|(?:19|20)\d{2}/);
   const segment = yearIndex > 0 ? raw.slice(0, yearIndex) : raw.slice(0, 120);
@@ -298,6 +330,7 @@ export function parseReferences(sectionText: string, max = 60): ParsedReference[
     const authors = extractReferenceAuthors(rawText);
     const title = extractReferenceTitle(rawText);
     const venue = extractReferenceVenue(rawText, title);
+    const details = extractReferenceDetails(rawText, venue);
     const numberMatch = rawText.match(/^\[?\s*(\d{1,3})\s*[\].)]\s+/);
     const refKey = numbered && numberMatch ? numberMatch[1] : `${authors[0]?.split(" ")[0] ?? "Ref"}${year ?? index + 1}`;
     parsed.push({
@@ -308,6 +341,7 @@ export function parseReferences(sectionText: string, max = 60): ParsedReference[
       year,
       doi,
       venue,
+      ...details,
       numbered,
     });
   });
