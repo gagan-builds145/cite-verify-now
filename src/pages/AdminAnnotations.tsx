@@ -107,6 +107,10 @@ type LicensePaper = {
   download_url?: string;
   license?: string;
   license_url?: string;
+  license_category?: string;
+  dataset_license?: string;
+  dataset_license_url?: string;
+  annotation_license?: string;
   open_access_status?: string;
   reuse_status?: string;
   training_eligibility?: boolean;
@@ -137,6 +141,7 @@ type PermissionMap = {
   human_annotation: string;
   ml_training: string;
   redistribute_dataset: string;
+  commercial_use: string;
 };
 
 type LicenseQueue = { items: LicensePaper[]; page: number; pages: number; total: number };
@@ -157,6 +162,7 @@ const PERMISSION_FIELDS = [
   ["human_annotation", "Use text for human annotation"],
   ["ml_training", "Use content for ML training"],
   ["redistribute_dataset", "Redistribute extracted dataset"],
+  ["commercial_use", "Commercial use"],
 ] as const;
 
 function labelHelp(label: string) {
@@ -221,6 +227,7 @@ export default function AdminAnnotations() {
     human_annotation: "UNKNOWN",
     ml_training: "UNKNOWN",
     redistribute_dataset: "UNKNOWN",
+    commercial_use: "UNKNOWN",
   });
   const [licenseOutcome, setLicenseOutcome] = useState("REVIEW_REQUIRED");
   const [licenseRationale, setLicenseRationale] = useState("");
@@ -351,6 +358,7 @@ export default function AdminAnnotations() {
       human_annotation: existing?.permissions?.human_annotation ?? "UNKNOWN",
       ml_training: existing?.permissions?.ml_training ?? "UNKNOWN",
       redistribute_dataset: existing?.permissions?.redistribute_dataset ?? "UNKNOWN",
+      commercial_use: existing?.permissions?.commercial_use ?? "UNKNOWN",
     });
     setLicenseOutcome(existing?.outcome ?? "REVIEW_REQUIRED");
     setLicenseRationale(existing?.rationale ?? "");
@@ -693,7 +701,10 @@ export default function AdminAnnotations() {
                     <p><span className="text-muted-foreground">Repository:</span> {licenseDetail.original_source || "—"}</p>
                     <p><span className="text-muted-foreground">Publication:</span> {licenseDetail.publication || "—"} {licenseDetail.publication_year || ""}</p>
                     <p><span className="text-muted-foreground">Source:</span> {licenseDetail.source_record_url ? <a className="text-[#2463B5] underline" href={licenseDetail.source_record_url} target="_blank" rel="noreferrer">record</a> : "—"}</p>
-                    <p><span className="text-muted-foreground">Detected license:</span> {licenseDetail.license || "not supplied"}</p>
+                    <p><span className="text-muted-foreground">Detected article license:</span> {licenseDetail.license || "not supplied"}</p>
+                    <p><span className="text-muted-foreground">PMC initial category:</span> {licenseDetail.license_category || "OTHER_OR_UNCLEAR"}</p>
+                    <p><span className="text-muted-foreground">Dataset license:</span> {licenseDetail.dataset_license || "not supplied"}</p>
+                    <p><span className="text-muted-foreground">Annotation/metadata license:</span> {licenseDetail.annotation_license || "not supplied"}</p>
                     <p><span className="text-muted-foreground">Access:</span> {licenseDetail.open_access_status || "UNKNOWN"}</p>
                     <p><span className="text-muted-foreground">PDF validation:</span> {licenseDetail.pdf_validation_status || "—"}</p>
                     <p><span className="text-muted-foreground">Extraction:</span> {licenseDetail.extraction_status || "—"}</p>

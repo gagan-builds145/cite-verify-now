@@ -1,18 +1,18 @@
 {
-  "generated_at": "2026-11-19T16:45:49Z",
+  "generated_at": "2026-11-19T18:47:09Z",
   "annotation": {
-    "total": 946,
-    "relevance": 346,
-    "evidence": 600,
-    "pending": 946,
+    "total": 1047,
+    "relevance": 387,
+    "evidence": 660,
+    "pending": 1047,
     "in_review": 0,
     "reviewed": 0,
     "approved": 0,
     "rejected": 0,
     "needs_adjudication": 0,
-    "relevance_pending": 346,
-    "evidence_pending": 600,
-    "papers": 25,
+    "relevance_pending": 387,
+    "evidence_pending": 660,
+    "papers": 65,
     "per_paper": {
       "paper_5692a5514787a8c6": {
         "total": 36,
@@ -163,20 +163,260 @@
         "reviewed": 0,
         "approved": 0,
         "pending": 38
+      },
+      "paper_2cab0f8470225dc5": {
+        "total": 4,
+        "reviewed": 0,
+        "approved": 0,
+        "pending": 4
+      },
+      "paper_6bc6ff3e9016fe83": {
+        "total": 3,
+        "reviewed": 0,
+        "approved": 0,
+        "pending": 3
+      },
+      "paper_66c2f875b788bec8": {
+        "total": 3,
+        "reviewed": 0,
+        "approved": 0,
+        "pending": 3
+      },
+      "paper_3abecf6f52c24273": {
+        "total": 3,
+        "reviewed": 0,
+        "approved": 0,
+        "pending": 3
+      },
+      "paper_3ea060dae3eae67e": {
+        "total": 3,
+        "reviewed": 0,
+        "approved": 0,
+        "pending": 3
+      },
+      "paper_6e02d2d433e7ef6e": {
+        "total": 3,
+        "reviewed": 0,
+        "approved": 0,
+        "pending": 3
+      },
+      "paper_34a1b7242686302e": {
+        "total": 3,
+        "reviewed": 0,
+        "approved": 0,
+        "pending": 3
+      },
+      "paper_d48bad470c74dd15": {
+        "total": 3,
+        "reviewed": 0,
+        "approved": 0,
+        "pending": 3
+      },
+      "paper_db0f1b4cbe33f991": {
+        "total": 3,
+        "reviewed": 0,
+        "approved": 0,
+        "pending": 3
+      },
+      "paper_9f15a2a7ff53fd85": {
+        "total": 3,
+        "reviewed": 0,
+        "approved": 0,
+        "pending": 3
+      },
+      "paper_3110c213b2646ace": {
+        "total": 3,
+        "reviewed": 0,
+        "approved": 0,
+        "pending": 3
+      },
+      "paper_0b4089e6e80e58df": {
+        "total": 3,
+        "reviewed": 0,
+        "approved": 0,
+        "pending": 3
+      },
+      "paper_a415944199fb4917": {
+        "total": 3,
+        "reviewed": 0,
+        "approved": 0,
+        "pending": 3
+      },
+      "paper_2d87d33697717fd8": {
+        "total": 3,
+        "reviewed": 0,
+        "approved": 0,
+        "pending": 3
+      },
+      "paper_1d731b73152013fb": {
+        "total": 3,
+        "reviewed": 0,
+        "approved": 0,
+        "pending": 3
+      },
+      "paper_f873cc8ddf0475b4": {
+        "total": 3,
+        "reviewed": 0,
+        "approved": 0,
+        "pending": 3
+      },
+      "paper_bd62ce04017c9f6a": {
+        "total": 3,
+        "reviewed": 0,
+        "approved": 0,
+        "pending": 3
+      },
+      "paper_4b67a35602a5730c": {
+        "total": 3,
+        "reviewed": 0,
+        "approved": 0,
+        "pending": 3
+      },
+      "paper_0e4f1a7d3962ce78": {
+        "total": 3,
+        "reviewed": 0,
+        "approved": 0,
+        "pending": 3
+      },
+      "paper_78dd03d23f36fcca": {
+        "total": 3,
+        "reviewed": 0,
+        "approved": 0,
+        "pending": 3
+      },
+      "paper_dc47b29faf201e0f": {
+        "total": 2,
+        "reviewed": 0,
+        "approved": 0,
+        "pending": 2
+      },
+      "paper_a0ac7f37eaed8777": {
+        "total": 2,
+        "reviewed": 0,
+        "approved": 0,
+        "pending": 2
+      },
+      "paper_b5cd1b389ff9c3e5": {
+        "total": 2,
+        "reviewed": 0,
+        "approved": 0,
+        "pending": 2
+      },
+      "paper_da2a2c7f3c8c9f3e": {
+        "total": 2,
+        "reviewed": 0,
+        "approved": 0,
+        "pending": 2
+      },
+      "paper_fd5330f460672368": {
+        "total": 2,
+        "reviewed": 0,
+        "approved": 0,
+        "pending": 2
+      },
+      "paper_1b9dc958e4ea4742": {
+        "total": 2,
+        "reviewed": 0,
+        "approved": 0,
+        "pending": 2
+      },
+      "paper_d82dc75b49fdfde7": {
+        "total": 2,
+        "reviewed": 0,
+        "approved": 0,
+        "pending": 2
+      },
+      "paper_d5aba3f98d2fb649": {
+        "total": 2,
+        "reviewed": 0,
+        "approved": 0,
+        "pending": 2
+      },
+      "paper_89c22dce6ed0dfbd": {
+        "total": 2,
+        "reviewed": 0,
+        "approved": 0,
+        "pending": 2
+      },
+      "paper_e63c228b3cb953cc": {
+        "total": 2,
+        "reviewed": 0,
+        "approved": 0,
+        "pending": 2
+      },
+      "paper_69fa3df43cea36ca": {
+        "total": 2,
+        "reviewed": 0,
+        "approved": 0,
+        "pending": 2
+      },
+      "paper_5edac0a5c43e16f6": {
+        "total": 2,
+        "reviewed": 0,
+        "approved": 0,
+        "pending": 2
+      },
+      "paper_e60481185c35ed38": {
+        "total": 2,
+        "reviewed": 0,
+        "approved": 0,
+        "pending": 2
+      },
+      "paper_41081b1cf9a1e4bf": {
+        "total": 2,
+        "reviewed": 0,
+        "approved": 0,
+        "pending": 2
+      },
+      "paper_d391cda9bd5ebd2d": {
+        "total": 2,
+        "reviewed": 0,
+        "approved": 0,
+        "pending": 2
+      },
+      "paper_5f8a3aa8fa49efca": {
+        "total": 2,
+        "reviewed": 0,
+        "approved": 0,
+        "pending": 2
+      },
+      "paper_5f04084d662397e5": {
+        "total": 2,
+        "reviewed": 0,
+        "approved": 0,
+        "pending": 2
+      },
+      "paper_41d951db7f6793e5": {
+        "total": 2,
+        "reviewed": 0,
+        "approved": 0,
+        "pending": 2
+      },
+      "paper_5f494d97ef7dadfe": {
+        "total": 2,
+        "reviewed": 0,
+        "approved": 0,
+        "pending": 2
+      },
+      "paper_58360b7a70465236": {
+        "total": 2,
+        "reviewed": 0,
+        "approved": 0,
+        "pending": 2
       }
     },
     "reviewers": {},
     "disagreements": [],
-    "generated_at": "2026-11-19T16:45:49Z"
+    "generated_at": "2026-11-19T18:47:08Z"
   },
   "license": {
-    "papers": 25,
+    "papers": 65,
     "APPROVED": 0,
     "REJECTED": 0,
-    "REVIEW_REQUIRED": 25,
+    "REVIEW_REQUIRED": 65,
     "training_eligible_papers": 0,
     "reviews": 0,
-    "generated_at": "2026-11-19T16:45:49Z"
+    "generated_at": "2026-11-19T18:47:08Z"
   },
   "approved_relevance": 0,
   "approved_evidence": 0,
@@ -186,10 +426,10 @@
   "evidence_exact_failures": 0,
   "duplicate_examples": 46,
   "split_ready": false,
-  "unique_papers": 25,
+  "unique_papers": 65,
   "training_readiness": "BLOCKED",
   "blockers": [
-    "946 candidate row(s) remain pending human review.",
+    "1047 candidate row(s) remain pending human review.",
     "No candidate rows are approved by a human.",
     "No paper has an explicit approved ML-training license review.",
     "46 duplicate candidate example(s) require review.",

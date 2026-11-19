@@ -338,7 +338,7 @@ def annotation_queue(
     page_size: int = 20,
 ) -> dict:
     try:
-        return _review_store().queue(kind, status, paper_id, topic, suggested_label, reviewer, date_from, date_to, search, page, page_size)
+        return _review_store().queue(kind, status, paper_id, topic, suggested_label, reviewer, date_from, date_to, search, page, page_size, include_external=True)
     except _review_store().ReviewError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
 

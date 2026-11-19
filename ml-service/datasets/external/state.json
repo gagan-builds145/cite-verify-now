@@ -1,0 +1,76 @@
+{
+  "sources": {
+    "pmc": {
+      "last_run": "2026-11-19T18:40:53Z",
+      "imported": 20,
+      "records": 20,
+      "duplicates": 0,
+      "failures": [],
+      "candidates": {
+        "new_relevance_candidates": 19,
+        "new_evidence_candidates": 38,
+        "relevance_candidates": 20,
+        "evidence_candidates": 38,
+        "pending_new": 57
+      }
+    },
+    "biomed_enriched": {
+      "last_run": "2026-11-19T18:41:40Z",
+      "imported": 20,
+      "records": 40,
+      "duplicates": 4,
+      "failures": [],
+      "candidates": {
+        "new_relevance_candidates": 4,
+        "new_evidence_candidates": 4,
+        "relevance_candidates": 40,
+        "evidence_candidates": 58,
+        "pending_new": 8
+      }
+    },
+    "pubmed_ocr": {
+      "last_run": "2026-11-19T18:44:27Z",
+      "imported": 0,
+      "records": 40,
+      "duplicates": 0,
+      "failures": [
+        {
+          "source": "pubmed_ocr",
+          "error": "Bounded viewer read unavailable; no bulk OCR download attempted: HTTP request failed for https://datasets-server.huggingface.co/first-rows?dataset=bevaya/pubmed-ocr&config=default&split=train: HTTP Error 501: Not Implemented"
+        }
+      ],
+      "candidates": {
+        "new_relevance_candidates": 0,
+        "new_evidence_candidates": 0
+      }
+    },
+    "pes2o": {
+      "last_run": "2026-11-19T18:44:27Z",
+      "imported": 0,
+      "records": 40,
+      "duplicates": 0,
+      "failures": [
+        {
+          "source": "pes2o",
+          "error": "Bounded viewer unavailable; no corpus download attempted."
+        }
+      ],
+      "candidates": {
+        "new_relevance_candidates": 0,
+        "new_evidence_candidates": 0
+      }
+    },
+    "scilad": {
+      "last_run": "2026-11-19T18:44:27Z",
+      "imported": 0,
+      "records": 40,
+      "duplicates": 0,
+      "failures": [],
+      "candidates": {
+        "new_relevance_candidates": 0,
+        "new_evidence_candidates": 0
+      }
+    }
+  },
+  "updated_at": "2026-11-19T18:44:27Z"
+}

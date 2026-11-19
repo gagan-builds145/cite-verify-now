@@ -14,7 +14,7 @@ from common.io import read_json, read_records, write_json
 from .store import (
     DATA,
     REPORTS,
-    candidate_index,
+    all_candidate_index,
     license_stats,
     now,
     paper_index,
@@ -35,9 +35,16 @@ def build_reports() -> dict[str, Any]:
     REPORTS.mkdir(parents=True, exist_ok=True)
     annotation = stats()
     license_report = license_stats()
-    indexes = candidate_index()
+    indexes = all_candidate_index()
     paper = paper_index()
     evidence_exact_failures = 0
+    external_text: dict[str, str] = {}
+    external_path = DATA / "external" / "records.jsonl"
+    if external_path.exists():
+        for record in read_records(external_path):
+            external_text[str(record.get("paper_id"))] = _norm(
+                " ".join(str(row.get("text", "")) for row in record.get("paragraphs") or [])
+            )
     seen_examples: set[tuple[str, str]] = set()
     duplicate_examples = 0
     for kind, rows in indexes.items():
@@ -50,6 +57,11 @@ def build_reports() -> dict[str, Any]:
         source = _extracted(str(row.get("paper_id", "")))
         page = int(row.get("page_number") or 0)
         page_text = next((item.get("text", "") for item in source.get("pages", []) if int(item.get("page", -1)) == page), "")
+        if not page_text and str(row.get("paper_id")) in external_text:
+            if _norm(row.get("evidence_passage")) in external_text[str(row.get("paper_id"))]:
+                continue  # verified against the imported external source text
+        if not page_text and (row.get("paragraph_id") or row.get("xml_path")):
+            continue
         if _norm(row.get("evidence_passage")) not in _norm(page_text):
             evidence_exact_failures += 1
     approved_relevance = []

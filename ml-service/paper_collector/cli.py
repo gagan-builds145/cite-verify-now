@@ -37,6 +37,7 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("validate", help="Revalidate all locally recorded PDFs")
     sub.add_parser("report", help="Write collection, license, extraction and readiness reports")
+    sub.add_parser("external-report", help="Write bounded external-source integration reports")
 
     args = parser.parse_args(argv)
     providers = getattr(args, "provider", []) or list(PROVIDERS)
@@ -55,6 +56,10 @@ def main(argv: list[str] | None = None) -> int:
     elif args.command == "validate":
         result = validate_collection()
         result["reports"] = build_reports()
+    elif args.command == "external-report":
+        from .external_reports import build_external_reports
+
+        result = build_external_reports()
     else:
         result = build_reports()
     print(json.dumps(result, indent=2, ensure_ascii=False))

@@ -71,7 +71,7 @@ class AnnotationApiTests(unittest.TestCase):
     def test_server_side_pagination(self):
         payload = main.annotation_queue(kind="relevance", page=1, page_size=5)
         self.assertEqual(len(payload["items"]), 5)
-        self.assertEqual(payload["total"], 346)
+        self.assertGreaterEqual(payload["total"], 346)  # original pilot remains, external rows may be added
 
     def test_invalid_label_is_rejected_server_side(self):
         request = ReviewSaveRequest(

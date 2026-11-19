@@ -182,6 +182,7 @@ export const saveLicense = action({
       human_annotation: v.string(),
       ml_training: v.string(),
       redistribute_dataset: v.string(),
+      commercial_use: v.string(),
     }),
     outcome: v.string(),
     rationale: v.string(),

@@ -24,6 +24,9 @@ RAW = DATA / "raw"
 EXTRACTED = DATA / "extracted"
 REPORTS = DATA / "reports"
 STATE = DATA / "annotations"
+EXTERNAL_RECORDS = DATA / "external" / "records.jsonl"
+EXTERNAL_RELEVANCE = DATA / "external" / "candidates_relevance.csv"
+EXTERNAL_EVIDENCE = DATA / "external" / "candidates_evidence.jsonl"
 REVIEWS = STATE / "reviews.jsonl"
 HISTORY = STATE / "review_history.jsonl"
 LICENSES = STATE / "license_reviews.jsonl"
@@ -41,6 +44,7 @@ PERMISSION_FIELDS = (
     "human_annotation",
     "ml_training",
     "redistribute_dataset",
+    "commercial_use",
 )
 
 _LOCK = threading.RLock()
@@ -97,8 +101,26 @@ def candidate_index() -> dict[str, dict[str, dict[str, Any]]]:
     return {"relevance": relevance, "evidence": evidence}
 
 
+def external_candidate_index() -> dict[str, dict[str, dict[str, Any]]]:
+    return {
+        "relevance": {str(row.get("example_id")): row for row in _load(EXTERNAL_RELEVANCE)},
+        "evidence": {str(row.get("example_id")): row for row in _load(EXTERNAL_EVIDENCE)},
+    }
+
+
+def all_candidate_index() -> dict[str, dict[str, dict[str, Any]]]:
+    original = candidate_index()
+    external = external_candidate_index()
+    return {
+        kind: {**original[kind], **external[kind]}
+        for kind in ("relevance", "evidence")
+    }
+
+
 def paper_index() -> dict[str, dict[str, Any]]:
-    return {str(row.get("paper_id")): row for row in _load(RECORDS) if row.get("paper_id")}
+    original = {str(row.get("paper_id")): row for row in _load(RECORDS) if row.get("paper_id")}
+    external = {str(row.get("paper_id")): row for row in _load(EXTERNAL_RECORDS) if row.get("paper_id")}
+    return {**original, **external}
 
 
 def _extracted(paper_id: str) -> dict[str, Any]:
@@ -155,7 +177,11 @@ def _summary(candidate: dict[str, Any], reviews: list[dict[str, Any]]) -> dict[s
 def _candidate_payload(kind: str, candidate: dict[str, Any], paper: dict[str, Any] | None = None,
                        include_page_context: bool = True) -> dict[str, Any]:
     context = _paper_context(str(candidate.get("paper_id", "")), paper, include_page_context)
-    payload = {**candidate, **context, "kind": kind, "suggested_label": _suggested(candidate)}
+    payload = dict(context)
+    for key, value in candidate.items():
+        if value not in (None, "", [], {}) or key not in payload:
+            payload[key] = value
+    payload.update({"kind": kind, "suggested_label": _suggested(candidate)})
     if kind == "evidence" and include_page_context:
         page = int(candidate.get("page_number") or 0)
         extracted = _extracted(str(candidate.get("paper_id", "")))
@@ -164,7 +190,10 @@ def _candidate_payload(kind: str, candidate: dict[str, Any], paper: dict[str, An
             "",
         )
         payload["page_context"] = page_text[:6000]
-        payload["passage_exact"] = norm(candidate.get("evidence_passage")) in norm(page_text)
+        payload["passage_exact"] = norm(candidate.get("evidence_passage")) in norm(page_text) if page_text else bool(
+            candidate.get("paragraph_id") or candidate.get("xml_path")
+            or candidate.get("candidate_source") == "external_source_text"
+        )
     return payload
 
 
@@ -203,14 +232,14 @@ def _matches(row: dict[str, Any], filters: dict[str, Any], reviews: list[dict[st
 
 def queue(kind: str = "", status: str = "", paper_id: str = "", topic: str = "", suggested_label: str = "",
           reviewer: str = "", date_from: str = "", date_to: str = "", search: str = "", page: int = 1,
-          page_size: int = 20) -> dict[str, Any]:
+          page_size: int = 20, include_external: bool = False) -> dict[str, Any]:
     if kind and kind not in {"relevance", "evidence"}:
         raise ReviewError("kind must be relevance or evidence")
     if status and status not in {"pending", *REVIEW_STATUSES}:
         raise ReviewError("invalid status filter")
     page = max(1, int(page))
     page_size = max(1, min(int(page_size), 50))
-    indexes = candidate_index()
+    indexes = all_candidate_index() if include_external else candidate_index()
     papers = paper_index()
     all_reviews: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for item in _current_reviews():
@@ -245,7 +274,7 @@ def queue(kind: str = "", status: str = "", paper_id: str = "", topic: str = "",
 
 
 def candidate(kind: str, example_id: str) -> dict[str, Any]:
-    row = candidate_index().get(kind, {}).get(example_id)
+    row = all_candidate_index().get(kind, {}).get(example_id)
     if not row:
         raise NotFound("Candidate not found.")
     payload = _candidate_payload(kind, row)
@@ -268,7 +297,7 @@ def save_review(kind: str, example_id: str, reviewer_id: str, reviewer_name: str
         raise ReviewError("A real authenticated reviewer email is required.")
     if review_status not in REVIEW_STATUSES:
         raise ReviewError(f"invalid review_status: {review_status}")
-    row = candidate_index().get(kind, {}).get(example_id)
+    row = all_candidate_index().get(kind, {}).get(example_id)
     if not row:
         raise NotFound("Candidate not found.")
     final_label = final_label.strip().upper()
@@ -327,8 +356,8 @@ def save_review(kind: str, example_id: str, reviewer_id: str, reviewer_name: str
         return record
 
 
-def stats() -> dict[str, Any]:
-    indexes = candidate_index()
+def stats(include_external: bool = True) -> dict[str, Any]:
+    indexes = all_candidate_index() if include_external else candidate_index()
     reviews = _current_reviews()
     by_key: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for item in reviews:
@@ -497,7 +526,7 @@ def _ml_eligible_papers() -> set[str]:
 
 
 def export_approved() -> dict[str, Any]:
-    indexes = candidate_index()
+    indexes = all_candidate_index()
     reviews = _current_reviews()
     eligible = _ml_eligible_papers()
     by_key: dict[str, list[dict[str, Any]]] = defaultdict(list)

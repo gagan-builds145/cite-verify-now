@@ -45,6 +45,10 @@ def build_reports() -> dict[str, Any]:
     state = read_json(STATE_PATH, {})
     relevance = _read_jsonl(RAW_DIR / "pilot_relevance.csv")
     evidence = _read_jsonl(RAW_DIR / "pilot_evidence.jsonl")
+    external_dir = REPORTS_DIR.parent / "external"
+    external_records = _read_jsonl(external_dir / "records.jsonl")
+    external_relevance = _read_jsonl(external_dir / "candidates_relevance.csv")
+    external_evidence = _read_jsonl(external_dir / "candidates_evidence.jsonl")
     validation = read_json(REPORTS_DIR / "dataset_validation_report.json", {})
     extracted = {
         path.stem: read_json(path, {})
@@ -63,7 +67,7 @@ def build_reports() -> dict[str, Any]:
 
     discovered = state.get("discovered") or []
     source_rows: dict[str, dict[str, int]] = {}
-    for record in records:
+    for record in [*records, *external_records]:
         provider = str(record.get("original_source") or "Unknown")
         row = source_rows.setdefault(provider, {"discovered": 0, "downloaded": 0, "validated": 0, "training_eligible": 0, "review_required": 0})
         row["downloaded"] += 1
@@ -80,13 +84,15 @@ def build_reports() -> dict[str, Any]:
     reviewed = sum(1 for row in [*relevance, *evidence] if str(row.get("review_status", "")).lower() in {"reviewed", "approved"})
     approved = sum(1 for row in [*relevance, *evidence] if str(row.get("review_status", "")).lower() == "approved")
     pending = sum(1 for row in [*relevance, *evidence] if str(row.get("review_status", "")).lower() == "pending")
+    external_pending = sum(1 for row in [*external_relevance, *external_evidence] if str(row.get("review_status", "")).lower() == "pending")
+    all_pending = pending + external_pending
     validation_errors = sum(
         len(validation.get(kind, {}).get("errors", []))
         for kind in ("relevance", "evidence")
         if isinstance(validation.get(kind), dict)
     )
-    unique_papers = len({record.get("paper_id") for record in records if record.get("paper_id")})
-    eligible_papers = len({record.get("paper_id") for record in records if record.get("training_eligibility")})
+    unique_papers = len({record.get("paper_id") for record in [*records, *external_records] if record.get("paper_id")})
+    eligible_papers = len({record.get("paper_id") for record in [*records, *external_records] if record.get("training_eligibility")})
     split_manifest = read_json(Path(__file__).resolve().parents[1] / "datasets" / "processed" / "last_prepare_report.json", {})
     split_ready = bool(split_manifest.get("datasets"))
 
@@ -96,8 +102,8 @@ def build_reports() -> dict[str, Any]:
         blockers.append(f"Collection target is {target}, but only {len(records)} paper record(s) are available.")
     if unique_papers < 3:
         blockers.append(f"Only {unique_papers} independent paper(s); paper-level train/validation/test splits need at least 3.")
-    if pending:
-        blockers.append(f"{pending} candidate row(s) remain pending human review.")
+    if all_pending:
+        blockers.append(f"{all_pending} candidate row(s) remain pending human review.")
     if approved == 0:
         blockers.append("No candidate rows are approved.")
     if validation_errors:
@@ -127,7 +133,10 @@ def build_reports() -> dict[str, Any]:
         "dataset": {
             "relevance_candidates": len(relevance),
             "evidence_candidates": len(evidence),
-            "pending": pending,
+            "pending": all_pending,
+            "original_pending": pending,
+            "external_pending": external_pending,
+            "external_candidates": len(external_relevance) + len(external_evidence),
             "human_reviewed": reviewed,
             "approved": approved,
             "validation_errors": validation_errors,
@@ -141,6 +150,12 @@ def build_reports() -> dict[str, Any]:
     }
 
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        from .external_reports import build_external_reports
+
+        report["external_sources"] = build_external_reports()
+    except Exception as error:  # reports must remain available if no external source exists
+        report["external_sources_error"] = str(error)
     write_json(REPORTS_DIR / "paper_collection_report.json", report)
     (REPORTS_DIR / "paper_collection_report.md").write_text(_collection_markdown(report, manifest), encoding="utf-8")
     _write_csv(

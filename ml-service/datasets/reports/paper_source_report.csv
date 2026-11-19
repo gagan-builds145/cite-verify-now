@@ -1,3 +1,5 @@
 ﻿source,discovered,downloaded,validated,training_eligible,review_required
+Biomed-Enriched,0,20,0,0,20
 OpenAlex,0,1,1,0,1
+PMC Open Access,0,20,0,0,20
 arXiv,46,24,24,0,24

@@ -1,6 +1,6 @@
 # CiteVerify dataset preparation report
 
-Generated: 2026-11-19T16:42:11Z
+Generated: 2026-11-19T18:45:53Z
 
 **Status:** `needs_human_review`
 
@@ -20,7 +20,7 @@ Generated: 2026-11-19T16:42:11Z
 - Relevance statements/examples: 346
 - Evidence statement-passage pairs: 600
 - AI/heuristic suggestions: 946 (not ground truth)
-- Pending human review: 946
+- Pending human review: 1047
 - Human reviewed: 0
 - Approved: 0
 - Rejected: 0
@@ -73,7 +73,7 @@ Generated: 2026-11-19T16:42:11Z
 - Render_the_Robot_Generate_the_World_One_Video_World_Model_Across_Embodim_2611_24.pdf: extracted_with_warnings.
 - Relevance classes with no examples: CANNOT_DETERMINE, PARTIALLY_RELEVANT.
 - Evidence classes with no examples: CONTRADICTION.
-- 946 candidate row(s) remain pending human review.
+- 1047 candidate row(s) remain pending human review.
 - Validation status: needs_human_review.
 
 ## Source provenance and extraction

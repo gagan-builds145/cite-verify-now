@@ -93,6 +93,22 @@ def assess_license(record: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def classify_pmc_license(license_text: Any, license_url: Any = "") -> str:
+    """Initial PMC workflow category, not a training or legal permission."""
+    text = re.sub(r"[^a-z0-9]+", " ", _normalized(f"{license_text} {license_url}")).strip()
+    if not text:
+        return "OTHER_OR_UNCLEAR"
+    if re.search(r"\b(?:noncommercial|non commercial|cc by nc|by nc|by nc nd|by nc sa)\b", text):
+        return "NON_COMMERCIAL_ONLY"
+    if any(token in text for token in ("cc0", "public domain", "pdm")):
+        return "COMMERCIAL_USE_ALLOWED"
+    if re.search(r"\b(?:cc by|creative commons attribution|creativecommons org licenses by)\b", text):
+        if re.search(r"\b(?:nd|sa|no derivatives|share alike|sharealike)\b", text):
+            return "OTHER_OR_UNCLEAR"
+        return "COMMERCIAL_USE_ALLOWED"
+    return "OTHER_OR_UNCLEAR"
+
+
 def license_statistics(records: list[dict[str, Any]]) -> dict[str, int]:
     counts = {"PERMITTED": 0, "REVIEW_REQUIRED": 0, "RESTRICTED": 0, "UNKNOWN": 0}
     for record in records:

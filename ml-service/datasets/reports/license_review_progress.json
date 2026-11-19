@@ -1,9 +1,9 @@
 {
-  "papers": 25,
+  "papers": 65,
   "APPROVED": 0,
   "REJECTED": 0,
-  "REVIEW_REQUIRED": 25,
+  "REVIEW_REQUIRED": 65,
   "training_eligible_papers": 0,
   "reviews": 0,
-  "generated_at": "2026-11-19T16:45:49Z"
+  "generated_at": "2026-11-19T18:47:09Z"
 }

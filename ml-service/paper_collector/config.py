@@ -11,6 +11,12 @@ EXTRACTED_DIR = DATASETS_DIR / "extracted"
 RAW_DIR = DATASETS_DIR / "raw"
 REPORTS_DIR = DATASETS_DIR / "reports"
 CACHE_DIR = DATASETS_DIR / "cache" / "discovery"
+EXTERNAL_DIR = DATASETS_DIR / "external"
+EXTERNAL_RECORDS_PATH = EXTERNAL_DIR / "records.jsonl"
+EXTERNAL_RELEVANCE_PATH = EXTERNAL_DIR / "candidates_relevance.csv"
+EXTERNAL_EVIDENCE_PATH = EXTERNAL_DIR / "candidates_evidence.jsonl"
+EXTERNAL_STATE_PATH = EXTERNAL_DIR / "state.json"
+EXTERNAL_REPORTS_DIR = REPORTS_DIR
 RECORDS_PATH = DATASETS_DIR / "paper_records.jsonl"
 STATE_PATH = DATASETS_DIR / "collection_state.json"
 METADATA_CSV = SOURCE_DIR / "metadata.csv"
@@ -81,6 +87,13 @@ ALLOWED_API_DOMAINS = frozenset(
         "api.crossref.org",
         "doi.org",
         "api.datacite.org",
+        "eutils.ncbi.nlm.nih.gov",
+        "www.ncbi.nlm.nih.gov",
+        "pmc.ncbi.nlm.nih.gov",
+        "ftp.ncbi.nlm.nih.gov",
+        "datasets-server.huggingface.co",
+        "huggingface.co",
+        "creativecommons.org",
     }
 )
 
