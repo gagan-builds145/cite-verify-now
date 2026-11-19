@@ -94,9 +94,10 @@ def _page_texts(reader: Any) -> list[dict[str, Any]]:
         try:
             text = page.extract_text() or ""
         except Exception as error:  # noqa: BLE001 - one malformed page should not stop the paper
-            pages.append({"page": index, "text": "", "error": f"page {index}: {error}"})
+            pages.append({"page": index, "text": "", "text_length": 0, "error": f"page {index}: {error}"})
             continue
-        pages.append({"page": index, "text": text.replace("\x00", " ")})
+        cleaned_text = text.replace("\x00", " ")
+        pages.append({"page": index, "text": cleaned_text, "text_length": len(cleaned_text.strip())})
     return pages
 
 
@@ -309,6 +310,9 @@ def extract_pdf(path: Path) -> dict[str, Any]:
     if not bibliography:
         limitations.append("A bibliography/reference section was not identified.")
     total_chars = sum(len(page["text"].strip()) for page in pages)
+    successful_pages = [page["page"] for page in pages if len(page["text"].strip()) > 0]
+    empty_pages = [page["page"] for page in pages if len(page["text"].strip()) == 0]
+    page_errors = [page["error"] for page in pages if page.get("error")]
     if total_chars < 300:
         limitations.append("Very little selectable text was found; this may be a scanned/image-only PDF.")
 
@@ -317,12 +321,21 @@ def extract_pdf(path: Path) -> dict[str, Any]:
         "source_file": path.name,
         "source_sha256": source_sha256(path),
         "page_count": len(pages),
+        "total_text_chars": total_chars,
+        "successful_pages": successful_pages,
+        "empty_pages": empty_pages,
+        "page_errors": page_errors,
         "extraction_status": "unreadable" if total_chars < 300 else ("extracted_with_warnings" if limitations else "extracted"),
         "title": title,
         "authors": [value.strip() for value in re.split(r";|\band\b|&", authors) if value.strip()] if authors else [],
         "year": year,
         "doi": doi,
         "doi_verified": False,
+        "source_url": "",
+        "publication": "",
+        "license": "",
+        "license_url": "",
+        "metadata_source": "pdf_embedded_or_first_page",
         "abstract": abstract,
         "keywords": keywords,
         "introduction": by_name.get("Introduction", ""),

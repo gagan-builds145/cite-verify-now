@@ -1,7 +1,9 @@
 # CiteVerify training readiness
 
-Generated: 2026-11-19T14:33:57Z
+Generated: 2026-11-19T15:09:02Z
 Status: `blocked_no_source_papers`
+pypdf: `6.21.4`
+PDF extraction validated: `false`
 Training ready: `false`
 
 ## Blockers

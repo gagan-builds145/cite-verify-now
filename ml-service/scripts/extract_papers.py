@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import re
 import shutil
 import sys
 import time
@@ -31,12 +32,21 @@ MANIFEST_FIELDS = (
     "year",
     "doi",
     "doi_verified",
+    "source_url",
+    "publication",
+    "license",
+    "license_url",
     "extraction_status",
     "page_count",
+    "total_text_chars",
+    "successful_pages",
+    "empty_pages",
+    "page_errors",
     "extraction_limitations",
     "source_sha256",
     "extracted_file",
     "provenance",
+    "metadata_source",
 )
 
 
@@ -56,13 +66,67 @@ def manifest_entry(paper: dict[str, Any], extracted_file: str) -> dict[str, Any]
         "year": paper.get("year"),
         "doi": paper.get("doi", ""),
         "doi_verified": bool(paper.get("doi_verified", False)),
+        "source_url": paper.get("source_url", ""),
+        "publication": paper.get("publication", ""),
+        "license": paper.get("license", ""),
+        "license_url": paper.get("license_url", ""),
         "extraction_status": paper.get("extraction_status", ""),
         "page_count": paper.get("page_count", 0),
+        "total_text_chars": paper.get("total_text_chars", 0),
+        "successful_pages": paper.get("successful_pages", []),
+        "empty_pages": paper.get("empty_pages", []),
+        "page_errors": paper.get("page_errors", []),
         "extraction_limitations": paper.get("limitations", []),
         "source_sha256": paper.get("source_sha256", ""),
         "extracted_file": extracted_file,
         "provenance": paper.get("provenance", ""),
+        "metadata_source": paper.get("metadata_source", ""),
     }
+
+
+def load_sidecar_metadata(source_dir: Path) -> dict[str, dict[str, str]]:
+    """Read optional user-supplied metadata.csv; never infer missing values."""
+    path = source_dir / "metadata.csv"
+    if not path.exists():
+        return {}
+    with path.open("r", encoding="utf-8-sig", newline="") as handle:
+        return {
+            str(row.get("original_filename", "")).strip(): row
+            for row in csv.DictReader(handle)
+            if str(row.get("original_filename", "")).strip()
+        }
+
+
+def apply_sidecar(paper: dict[str, Any], metadata: dict[str, str]) -> None:
+    if not metadata:
+        return
+    boolean = str(metadata.get("doi_verified", "")).strip().lower() in {"1", "true", "yes", "y"}
+    if metadata.get("title", "").strip():
+        paper["title"] = metadata["title"].strip()
+    if metadata.get("authors", "").strip():
+        paper["authors"] = [
+            value.strip() for value in re.split(r";", metadata["authors"])
+            if value.strip()
+        ]
+    if metadata.get("year", "").strip().isdigit():
+        paper["year"] = int(metadata["year"].strip())
+    if metadata.get("doi", "").strip():
+        paper["doi"] = metadata["doi"].strip()
+    paper["doi_verified"] = boolean
+    for key in ("source_url", "publication", "license", "license_url", "provenance"):
+        if metadata.get(key, "").strip():
+            paper[key] = metadata[key].strip()
+    paper["metadata_source"] = "sidecar_metadata_csv"
+    limitations = list(paper.get("limitations", []))
+    if paper.get("title"):
+        limitations = [value for value in limitations if not value.startswith("Title could not")]
+    if paper.get("authors"):
+        limitations = [value for value in limitations if not value.startswith("Author names could not")]
+    if paper.get("year"):
+        limitations = [value for value in limitations if not value.startswith("Publication year could not")]
+    if paper.get("doi"):
+        limitations = [value for value in limitations if not value.startswith("DOI was not present")]
+    paper["limitations"] = limitations
 
 
 def write_manifest(
@@ -77,10 +141,8 @@ def write_manifest(
         writer.writeheader()
         for paper in manifest.get("papers", []):
             row = {key: paper.get(key, "") for key in MANIFEST_FIELDS}
-            row["authors"] = "; ".join(str(value) for value in row["authors"] or [])
-            row["extraction_limitations"] = " | ".join(
-                str(value) for value in row["extraction_limitations"] or []
-            )
+            for key in ("authors", "successful_pages", "empty_pages", "page_errors", "extraction_limitations"):
+                row[key] = " | ".join(str(value) for value in row[key] or [])
             writer.writerow(row)
 
 
@@ -102,6 +164,7 @@ def main() -> int:
         (path for path in source_dir.iterdir() if path.is_file() and path.suffix.lower() == ".pdf"),
         key=lambda path: path.name.lower(),
     )
+    sidecar = load_sidecar_metadata(source_dir)
     if args.limit > 0:
         pdfs = pdfs[:args.limit]
 
@@ -158,6 +221,7 @@ def main() -> int:
                 shutil.copy2(target, backup_dir / f"{paper_id}-{time.strftime('%Y%m%d-%H%M%S')}.json")
             paper = extract_pdf(path)
             paper["paper_id"] = paper_id
+            apply_sidecar(paper, sidecar.get(path.name, {}))
             write_json(target, paper)
             manifest["papers"].append(manifest_entry(paper, str(target)))
             seen_hashes[digest] = path.name

@@ -40,6 +40,11 @@ def main() -> int:
     parser.add_argument("--readiness-md", type=Path, default=ROOT / "datasets" / "reports" / "training_readiness_report.md")
     args = parser.parse_args()
 
+    try:
+        import pypdf  # type: ignore[import-not-found]
+        pypdf_version = getattr(pypdf, "__version__", "unknown")
+    except ImportError:
+        pypdf_version = ""
     manifest = read_json(args.manifest, {})
     papers_manifest = manifest.get("papers", [])
     extraction_errors = manifest.get("errors", [])
@@ -96,11 +101,18 @@ def main() -> int:
     if validation.get("status"):
         warnings.append(f"Validation status: {validation['status']}.")
 
-    status = "blocked_no_source_papers" if not papers_manifest else (
-        "blocked_validation_errors" if validation.get("status") == "blocked_validation_errors"
-        else "needs_human_review" if pending or not reviewed and not approved
-        else "ready_for_prepare"
-    )
+    if not papers_manifest:
+        status = "blocked_no_source_papers"
+    elif not pypdf_version:
+        status = "blocked_pypdf_missing"
+    elif extraction_errors:
+        status = "blocked_extraction_errors"
+    elif validation.get("status") == "blocked_validation_errors":
+        status = "blocked_validation_errors"
+    elif pending or not reviewed and not approved:
+        status = "needs_human_review"
+    else:
+        status = "ready_for_prepare"
     report = {
         "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "status": status,
@@ -108,6 +120,10 @@ def main() -> int:
         "source_papers": len({paper.get("paper_id") for paper in papers_manifest}),
         "extracted_papers": len(extracted_papers),
         "pdfs_processed": len(papers_manifest),
+        "pypdf_installed": bool(pypdf_version),
+        "pypdf_version": pypdf_version,
+        "manifest_status": manifest.get("status", ""),
+        "extraction_validated": bool(papers_manifest and pypdf_version and not extraction_errors),
         "extracted_statements": len(relevance_rows),
         "evidence_passages": len(evidence_rows),
         "extracted_passages_available": passages,
@@ -133,12 +149,23 @@ def main() -> int:
                 "paper_id": paper.get("paper_id"),
                 "original_filename": paper.get("source_file"),
                 "title": paper.get("title"),
+                "authors": paper.get("authors"),
+                "year": paper.get("year"),
                 "doi": paper.get("doi"),
                 "doi_verified": bool(paper.get("doi_verified", False)),
+                "source_url": paper.get("source_url", ""),
+                "publication": paper.get("publication", ""),
+                "license": paper.get("license", ""),
+                "license_url": paper.get("license_url", ""),
                 "extraction_status": paper.get("extraction_status"),
                 "page_count": paper.get("page_count"),
+                "total_text_chars": paper.get("total_text_chars", 0),
+                "successful_pages": paper.get("successful_pages", []),
+                "empty_pages": paper.get("empty_pages", []),
+                "page_errors": paper.get("page_errors", []),
                 "limitations": paper.get("limitations"),
                 "provenance": paper.get("provenance"),
+                "metadata_source": paper.get("metadata_source"),
             }
             for paper in extracted_papers
         ],
@@ -179,6 +206,9 @@ def main() -> int:
         "",
         "## Extraction",
         "",
+        f"- pypdf installed: {report['pypdf_installed']} (version `{report['pypdf_version'] or 'missing'}`)",
+        f"- Manifest status: `{report['manifest_status']}`",
+        f"- Extraction validated against source PDFs: `{str(report['extraction_validated']).lower()}`",
         f"- PDFs processed: {report['pdfs_processed']}",
         f"- Distinct papers: {report['source_papers']}",
         f"- Extracted paper records: {report['extracted_papers']}",
@@ -220,12 +250,19 @@ def main() -> int:
         lines.extend(f"- {warning}" for warning in warnings)
     else:
         lines.append("- None")
-    lines.extend(["", "## Source provenance", ""])
+    lines.extend(["", "## Source provenance and extraction", ""])
     if report["source_provenance"]:
+        lines.extend([
+            "| File | Pages | Text chars | Successful pages | Empty pages | Errors | Status | Title | Source URL | License |",
+            "|---|---:|---:|---|---|---|---|---|---|---|",
+        ])
         for paper in report["source_provenance"]:
             lines.append(
-                f"- `{paper['paper_id']}` — {paper.get('title') or '(title not established)'} — "
-                f"{paper.get('original_filename')} — {paper.get('extraction_status')}"
+                f"| {paper.get('original_filename') or ''} | {paper.get('page_count') or 0} | "
+                f"{paper.get('total_text_chars') or 0} | {paper.get('successful_pages') or []} | "
+                f"{paper.get('empty_pages') or []} | {paper.get('page_errors') or []} | "
+                f"{paper.get('extraction_status') or ''} | {paper.get('title') or '(title not established)'} | "
+                f"{paper.get('source_url') or '(not supplied)'} | {paper.get('license') or '(not supplied)'} |"
             )
     else:
         lines.append("- No source papers supplied.")
@@ -249,6 +286,8 @@ def main() -> int:
         "",
         f"Generated: {report['generated_at']}",
         f"Status: `{status}`",
+        f"pypdf: `{pypdf_version or 'missing'}`",
+        f"PDF extraction validated: `{str(report.get('extraction_validated', False)).lower()}`",
         f"Training ready: `{str(validation.get('ready_for_training', False)).lower()}`",
         "",
         "## Blockers",
@@ -256,6 +295,10 @@ def main() -> int:
     ]
     if status == "blocked_no_source_papers":
         readiness.append("- No genuine source PDFs are available in `datasets/source_papers/`.")
+    if status == "blocked_pypdf_missing":
+        readiness.append("- pypdf is not installed; install it and verify the import version.")
+    if status == "blocked_extraction_errors":
+        readiness.append("- Extraction errors must be resolved and the manifest reviewed.")
     if pending:
         readiness.append(f"- {pending} candidate row(s) still need human annotation.")
     if validation.get("status") == "blocked_validation_errors":

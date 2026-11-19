@@ -6,6 +6,7 @@ ml-service/.venv/
 ml-service/**/__pycache__/
 ml-service/datasets/source_papers/*
 !ml-service/datasets/source_papers/README.md
+!ml-service/datasets/source_papers/metadata_template.csv
 ml-service/datasets/extracted/*
 !ml-service/datasets/extracted/.gitkeep
 ml-service/datasets/raw/*

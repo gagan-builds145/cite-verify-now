@@ -103,7 +103,11 @@ authors, year or DOI remains empty; it is never invented. Scanned/image-only
 PDFs are marked unreadable and require a deliberate OCR step before they can be
 used. A DOI found in the PDF or embedded metadata is recorded with
 `doi_verified=false`; the extraction workflow does not claim external DOI
-validation.
+validation. To record a verified DOI, source URL, publication, license or
+license URL, copy `datasets/source_papers/metadata_template.csv` to
+`metadata.csv` and fill only values you can verify. The manifest and report also
+include page count, total extracted characters, successful pages, empty pages
+and page-level extraction errors.
 
 Build pending candidates from the extracted text:
 

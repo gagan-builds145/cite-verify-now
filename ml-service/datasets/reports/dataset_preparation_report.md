@@ -1,11 +1,14 @@
 # CiteVerify dataset preparation report
 
-Generated: 2026-11-19T14:33:57Z
+Generated: 2026-11-19T15:09:02Z
 
 **Status:** `blocked_no_source_papers`
 
 ## Extraction
 
+- pypdf installed: True (version `6.21.4`)
+- Manifest status: `no_source_pdfs`
+- Extraction validated against source PDFs: `false`
 - PDFs processed: 0
 - Distinct papers: 0
 - Extracted paper records: 0
@@ -47,7 +50,7 @@ Generated: 2026-11-19T14:33:57Z
 - Evidence classes with no examples: CONTRADICTION, ENTAILMENT, NEUTRAL.
 - Validation status: blocked_no_source_papers.
 
-## Source provenance
+## Source provenance and extraction
 
 - No source papers supplied.
 
