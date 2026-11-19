@@ -55,14 +55,45 @@ function Reveal({
 const FEATURES: {
   kind: FeatureKind;
   title: string;
+  body: string;
   note: string;
 }[] = [
-  { kind: "claims", title: "AI-Powered Claim Extraction", note: "Claims stay verbatim" },
-  { kind: "citations", title: "Citation Verification", note: "DOI + author + year" },
-  { kind: "evidence", title: "Original Evidence Retrieval", note: "Retrieval level labelled" },
-  { kind: "references", title: "Reference Validation", note: "No fake-paper claims" },
-  { kind: "retraction", title: "Retraction Detection", note: "Flags, not automatic guilt" },
-  { kind: "discovery", title: "Research Discovery", note: "Crossref · OpenAlex" },
+  {
+    kind: "claims",
+    title: "AI-Powered Claim Extraction",
+    body: "Automatically identify scientific claims and connect them to their corresponding citations and bibliography entries.",
+    note: "Claims stay verbatim",
+  },
+  {
+    kind: "citations",
+    title: "Citation Verification",
+    body: "Check academic references against trusted research databases and identify missing or inconsistent publication details.",
+    note: "DOI + author + year",
+  },
+  {
+    kind: "evidence",
+    title: "Original Evidence Retrieval",
+    body: "Trace every research claim to its original source and inspect the available supporting evidence.",
+    note: "Retrieval level labelled",
+  },
+  {
+    kind: "references",
+    title: "Reference Validation",
+    body: "Validate publication details using scholarly records. Missing information is flagged for review rather than treated as proof of fabrication.",
+    note: "No fake-paper claims",
+  },
+  {
+    kind: "retraction",
+    title: "Retraction Detection",
+    body: "Identify available retraction and correction notices to help assess the reliability of cited research.",
+    note: "Flags, not automatic guilt",
+  },
+  {
+    kind: "discovery",
+    title: "Research Discovery",
+    body: "Find related studies, explore citation connections and organize useful research papers.",
+    note: "Crossref · OpenAlex",
+  },
 ];
 
 const STEPS: {
@@ -213,7 +244,10 @@ export default function Landing() {
                       <h3 className="text-[15px] font-semibold leading-snug tracking-[-0.015em]">
                         {feature.title}
                       </h3>
-                      <p className="mt-auto flex items-center gap-1.5 border-t border-border pt-3 text-[9.5px] font-medium uppercase tracking-[0.09em] text-muted-foreground">
+                      <p className="mt-2 flex-1 text-[12.5px] leading-6 text-muted-foreground">
+                        {feature.body}
+                      </p>
+                      <p className="mt-4 flex items-center gap-1.5 border-t border-border pt-3 text-[9.5px] font-medium uppercase tracking-[0.09em] text-muted-foreground">
                         <span className="size-1 rounded-full bg-[#2463B5]" />
                         {feature.note}
                       </p>
