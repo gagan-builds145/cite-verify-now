@@ -96,6 +96,21 @@ test("hard author, year or venue conflicts produce metadata mismatch", () => {
   );
 });
 
+test("conflicting metadata from another provider cannot displace the DOI-matched record", () => {
+  const conflictingProvider = record({
+    source: "OpenAlex",
+    authors: ["Unrelated Author"],
+    year: 2004,
+    venue: "Unrelated Journal",
+    doi: "10.1000/conflicting-provider-doi",
+  });
+  const result = assess([conflictingProvider, record()], "matched");
+  assert.equal(result.status, "VERIFIED");
+  assert.equal(result.best?.source, "Crossref");
+  assert.equal(result.identity.doi, "MATCH");
+  assert.equal(result.identity.authors, "MATCH");
+});
+
 test("an unresolved DOI with agreeing metadata is partial, not a mismatch", () => {
   const result = assess([record({ doi: undefined })], "not_found");
   assert.equal(result.status, "PARTIALLY_VERIFIED");

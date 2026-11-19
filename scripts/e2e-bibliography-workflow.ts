@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
+import { mkdirSync, readFileSync, existsSync } from "node:fs";
 import { extname, resolve } from "node:path";
 import { unzipSync, strFromU8 } from "fflate";
 import { chromium, type BrowserContext, type Page } from "playwright-core";
@@ -63,7 +63,7 @@ async function waitForAnalysis(page: Page) {
   await page.getByText("Open workspace").waitFor({ timeout: 120_000 });
   await page.getByText("Open workspace").click();
   await page.waitForURL(/\/analysis\//, { timeout: 30_000 });
-  await page.getByText("Correction audit").waitFor({ timeout: 30_000 });
+  await page.getByRole("button", { name: /^Errors/ }).waitFor({ timeout: 30_000 });
   return page.url();
 }
 
@@ -125,13 +125,14 @@ async function jwt(page: Page) {
   return { token: candidate?.[1], keys: Object.keys(entries) };
 }
 
-async function convexMutation(
+async function convexRequest(
   deployment: string,
   token: string,
+  kind: "query" | "mutation",
   path: string,
   args: Record<string, unknown>,
 ) {
-  const response = await fetch(`${deployment}/api/mutation`, {
+  const response = await fetch(`${deployment}/api/${kind}`, {
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -140,6 +141,15 @@ async function convexMutation(
     body: JSON.stringify({ path, args, format: "json" }),
   });
   return { status: response.status, body: await response.text() };
+}
+
+async function convexMutation(
+  deployment: string,
+  token: string,
+  path: string,
+  args: Record<string, unknown>,
+) {
+  return convexRequest(deployment, token, "mutation", path, args);
 }
 
 const browser = await chromium.launch({ headless: true });
@@ -171,12 +181,34 @@ try {
   assert.ok(analysisId, "Analysis id was not present in the URL.");
   report.analysisUrl = ownerUrl;
   report.analysisId = analysisId;
+  const ownerAuth = await jwt(page);
+  assert.ok(ownerAuth.token, "Owner session token was not available.");
+  report.ownerAuthKeys = ownerAuth.keys;
+
+  const correctionsBefore = await convexRequest(
+    deployment,
+    ownerAuth.token,
+    "query",
+    "analyses:corrections",
+    { analysisId },
+  );
+  assert.equal(correctionsBefore.status, 200);
+  const beforeRows = (JSON.parse(correctionsBefore.body) as {
+    status: string;
+    value: { correctionId: string; errorType: string; version: number }[];
+  }).value;
+  const authorCorrection = beforeRows.find(
+    (row) => row.errorType === "BIBLIOGRAPHY_AUTHOR_NAME_MISMATCH",
+  );
+  assert.ok(authorCorrection, "Author correction was not returned by the backend.");
+  report.authorCorrectionId = authorCorrection.correctionId;
 
   const originalHashBefore = await storedPdfHash(page, analysisId);
   assert.equal(originalHashBefore, fixtureHash, "Stored original PDF changed after upload.");
   report.originalPdfHashBefore = originalHashBefore;
 
   await openBibliography(page);
+  await page.getByText("Topal").first().waitFor({ timeout: 30_000 });
   const initialBody = await page.locator("body").innerText();
   assert.match(initialBody, /Bibliography corrections/);
   assert.match(initialBody, /Topal/);
@@ -186,11 +218,75 @@ try {
 
   await selectField(page, /^Authors ·/);
   await page.getByRole("button", { name: "Accept", exact: true }).click();
-  await page.getByText("Correction accepted").waitFor({ timeout: 15_000 });
+  await page.getByText("Correction accepted").last().waitFor({ timeout: 15_000 });
+
+  const duplicatePayload = {
+    analysisId,
+    correctionId: authorCorrection.correctionId,
+    action: "ACCEPT",
+    expectedVersion: 2,
+  };
+  const concurrent = await Promise.all([
+    convexMutation(deployment, ownerAuth.token, "analyses:decideCorrection", duplicatePayload),
+    convexMutation(deployment, ownerAuth.token, "analyses:decideCorrection", duplicatePayload),
+  ]);
+  const concurrentResults = concurrent.map((result) => {
+    const parsed = JSON.parse(result.body) as { status?: string; errorMessage?: string };
+    return { status: result.status, outcome: parsed.status, error: parsed.errorMessage ?? null };
+  });
+  report.concurrentApprovals = concurrentResults;
+  assert.equal(
+    concurrentResults.filter((result) => result.outcome === "success").length,
+    1,
+    "Exactly one concurrent approval must commit.",
+  );
+  assert.equal(
+    concurrentResults.filter(
+      (result) =>
+        result.outcome === "error" && /changed since/i.test(result.error ?? ""),
+    ).length,
+    1,
+    "The losing concurrent approval must be rejected by the version check.",
+  );
+  const afterDuplicate = await convexRequest(
+    deployment,
+    ownerAuth.token,
+    "query",
+    "analyses:corrections",
+    { analysisId },
+  );
+  const duplicateRow = (
+    JSON.parse(afterDuplicate.body) as {
+      value: { correctionId: string; approvalStatus: string; version: number }[];
+    }
+  ).value.find((row) => row.correctionId === authorCorrection.correctionId);
+  assert.ok(duplicateRow);
+  assert.equal(duplicateRow.approvalStatus, "APPROVED");
+  assert.equal(duplicateRow.version, 3);
+  report.duplicateFinalVersion = duplicateRow.version;
+
+  const historyBefore = await convexRequest(
+    deployment,
+    ownerAuth.token,
+    "query",
+    "analyses:correctionHistory",
+    { analysisId },
+  );
+  const historySnapshot = (
+    JSON.parse(historyBefore.body) as {
+      value: { _id: string; correctionId: string; action: string; createdAt: number }[];
+    }
+  ).value.map((event) => ({
+    id: event._id,
+    correctionId: event.correctionId,
+    action: event.action,
+    createdAt: event.createdAt,
+  }));
+  assert.ok(historySnapshot.length > 0, "Audit history was empty after approval.");
 
   await selectField(page, /^Publication year ·/);
   await page.getByRole("button", { name: "Accept", exact: true }).click();
-  await page.getByText("Correction accepted").waitFor({ timeout: 15_000 });
+  await page.getByText("Correction accepted").last().waitFor({ timeout: 15_000 });
 
   await selectField(page, /^Title ·/);
   await page.getByRole("button", { name: "Edit", exact: true }).click();
@@ -198,15 +294,15 @@ try {
     .getByPlaceholder("Edited replacement text")
     .fill("High-performance medicine: manual QA edit");
   await page.getByRole("button", { name: "Save edit", exact: true }).click();
-  await page.getByText("Edited correction saved").waitFor({ timeout: 15_000 });
+  await page.getByText("Edited correction saved").last().waitFor({ timeout: 15_000 });
   await page.getByRole("button", { name: "Accept", exact: true }).click();
-  await page.getByText("Correction accepted").waitFor({ timeout: 15_000 });
+  await page.getByText("Correction accepted").last().waitFor({ timeout: 15_000 });
   await page.getByRole("button", { name: "Restore original", exact: true }).click();
-  await page.getByText("Original text restored").waitFor({ timeout: 15_000 });
+  await page.getByText("Original text restored").last().waitFor({ timeout: 15_000 });
 
   await selectField(page, /^Volume ·/);
   await page.getByRole("button", { name: "Reject", exact: true }).click();
-  await page.getByText("Correction rejected").waitFor({ timeout: 15_000 });
+  await page.getByText("Correction rejected").last().waitFor({ timeout: 15_000 });
   await page.screenshot({ path: resolve(OUTPUT, "02-after-decisions.png") });
 
   await page.waitForTimeout(1_000);
@@ -257,6 +353,12 @@ try {
         event.actorName.length > 0,
     ),
   );
+  const authorAcceptEvents = json.auditHistory.filter(
+    (event) => event.correctionId === author.correctionId && event.action === "ACCEPT",
+  );
+  assert.equal(authorAcceptEvents.length, 2, "The committed duplicate approval must be audited.");
+  report.authorAuditAcceptEvents = authorAcceptEvents.length;
+  report.auditActorNames = [...new Set(json.auditHistory.map((event) => event.actorName))];
   assert.ok(
     json.auditHistory.some(
       (event) => event.correctionId === volume.correctionId && event.action === "REJECT",
@@ -281,6 +383,11 @@ try {
   assert.match(pageBody, /2019/);
   assert.doesNotMatch(pageBody, /Topal/);
   assert.match(pageBody, /24/);
+  assert.equal(
+    (pageBody.match(/\[1\] Topol/g) ?? []).length,
+    1,
+    "The duplicate approval must not duplicate the corrected reference.",
+  );
   report.docx = {
     bytes: readFileSync(docxPath).length,
     hasAcceptedAuthor: /Topol/.test(pageBody),
@@ -304,6 +411,28 @@ try {
     pdf: pdfPath,
     pdfBytes: readFileSync(pdfPath).length,
   };
+
+  const historyAfter = await convexRequest(
+    deployment,
+    ownerAuth.token,
+    "query",
+    "analyses:correctionHistory",
+    { analysisId },
+  );
+  const historyAfterRows = (
+    JSON.parse(historyAfter.body) as {
+      value: { _id: string; correctionId: string; action: string; createdAt: number }[];
+    }
+  ).value;
+  for (const event of historySnapshot) {
+    const preserved = historyAfterRows.find((row) => row._id === event.id);
+    assert.ok(preserved, "A previous audit event disappeared.");
+    assert.equal(preserved.correctionId, event.correctionId);
+    assert.equal(preserved.action, event.action);
+    assert.equal(preserved.createdAt, event.createdAt);
+  }
+  report.auditEventsBefore = historySnapshot.length;
+  report.auditEventsAfter = historyAfterRows.length;
 
   const originalHashAfter = await storedPdfHash(page, analysisId);
   assert.equal(originalHashAfter, fixtureHash, "Original PDF changed after approvals and exports.");
@@ -330,28 +459,23 @@ try {
   assert.equal(mobileOverflow, false, "Mobile workspace overflows horizontally.");
   await page.screenshot({ path: resolve(OUTPUT, "03-mobile-workspace.png"), fullPage: false });
 
-  const ownerAuth = await jwt(page);
-  report.ownerAuthKeys = ownerAuth.keys;
-  let ownerVersionConflict: { status: number; body: string } | null = null;
-  if (ownerAuth.token) {
-    ownerVersionConflict = await convexMutation(
-      deployment,
-      ownerAuth.token,
-      "analyses:decideCorrection",
-      {
-        analysisId,
-        correctionId: author.correctionId,
-        action: "ACCEPT",
-        expectedVersion: 1,
-      },
-    );
-    report.ownerVersionConflict = ownerVersionConflict;
-    assert.ok(
-      ownerVersionConflict.status >= 400 ||
-        /changed since|version|not been modified/i.test(ownerVersionConflict.body),
-      "Stale correction version was not rejected.",
-    );
-  }
+  const ownerVersionConflict = await convexMutation(
+    deployment,
+    ownerAuth.token,
+    "analyses:decideCorrection",
+    {
+      analysisId,
+      correctionId: author.correctionId,
+      action: "ACCEPT",
+      expectedVersion: 1,
+    },
+  );
+  report.ownerVersionConflict = ownerVersionConflict;
+  assert.ok(
+    ownerVersionConflict.status >= 400 ||
+      /changed since|version|not been modified/i.test(ownerVersionConflict.body),
+    "Stale correction version was not rejected.",
+  );
 
   const second = await browser.newContext({
     acceptDownloads: true,
@@ -384,6 +508,19 @@ try {
     fullPage: false,
   });
 
+  const unauthorizedQuery = await convexRequest(
+    deployment,
+    secondAuth.token,
+    "query",
+    "analyses:corrections",
+    { analysisId },
+  );
+  report.unauthorizedQuery = unauthorizedQuery;
+  assert.ok(
+    JSON.parse(unauthorizedQuery.body).value.length === 0,
+    "Unauthorized query returned another user's correction records.",
+  );
+
   const unauthorizedMutation = await convexMutation(
     deployment,
     secondAuth.token,
@@ -392,14 +529,33 @@ try {
       analysisId,
       correctionId: author.correctionId,
       action: "ACCEPT",
-      expectedVersion: 2,
+      expectedVersion: 3,
     },
   );
   report.unauthorizedMutation = unauthorizedMutation;
   assert.ok(
     unauthorizedMutation.status >= 400 ||
       /not found|session|Unauthorized|permission/i.test(unauthorizedMutation.body),
-    "Unauthorized mutation did not fail safely.",
+    "Unauthorized approval did not fail safely.",
+  );
+
+  const unauthorizedEdit = await convexMutation(
+    deployment,
+    secondAuth.token,
+    "analyses:decideCorrection",
+    {
+      analysisId,
+      correctionId: author.correctionId,
+      action: "EDIT",
+      acceptedValue: "Injected Author",
+      expectedVersion: 3,
+    },
+  );
+  report.unauthorizedEdit = unauthorizedEdit;
+  assert.ok(
+    unauthorizedEdit.status >= 400 ||
+      /not found|session|Unauthorized|permission/i.test(unauthorizedEdit.body),
+    "Unauthorized edit did not fail safely.",
   );
   await second.close();
 

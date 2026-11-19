@@ -275,14 +275,13 @@ function candidate(
     originalValue,
     verifiedValue,
   };
-  const originalText = reference.rawText.replace(/^\[(?=\s*\d)/, "");
   return {
     documentId: "",
     errorCategory: "CITATION",
     errorType,
     severity,
-    originalText,
-    proposedText: applyBibliographyFields(originalText, [bibliography]),
+    originalText: reference.rawText,
+    proposedText: applyBibliographyFields(reference.rawText, [bibliography]),
     reason: `${reason} Source: ${bibliography.provider}${
       bibliography.sourceDoi ? ` (${bibliography.sourceDoi})` : ""
     }. Human approval is required for this identity-sensitive change.`,
