@@ -14,7 +14,7 @@ import {
   parseReferences,
   type PageText,
 } from "./text";
-import { validateEvidenceQuote } from "./statement";
+import { buildPaperModel, validateEvidenceQuote } from "./statement";
 
 let failures = 0;
 async function test(name: string, fn: () => void | Promise<void>) {
@@ -174,7 +174,7 @@ await test("the manuscript PDF itself contains the references and C1-C6", async 
     extracted.push(
       content.items
         .map((item) => ("str" in item ? item.str : ""))
-        .join(" "),
+        .join("\n"),
     );
   }
   const text = extracted.join("\n");
@@ -183,6 +183,21 @@ await test("the manuscript PDF itself contains the references and C1-C6", async 
   assert.match(text, /C6\s*\|/);
   assert.match(text, /2\.2 Clinical integration/);
   assert.match(text, /2\.3 Comparative-study evidence/);
+
+  const model = buildPaperModel(
+    extracted.map((pageText, index) => ({ page: index + 1, text: pageText })),
+    { title: "Clinical Integration of Artificial Intelligence", authors: [] },
+  );
+  const sectionNames = model.sections.map((section) => section.name);
+  assert.ok(sectionNames.includes("2.2 Clinical integration"));
+  assert.ok(sectionNames.includes("2.3 Comparative-study evidence"));
+  assert.ok(sectionNames.includes("3 Demonstration claims"));
+  const topolChunk = model.chunks.find((chunk) => /Topol \(2019\)/.test(chunk.text));
+  assert.equal(topolChunk?.page, 2);
+  assert.equal(topolChunk?.section, "2.2 Clinical integration");
+  const claimChunk = model.chunks.find((chunk) => /C1 \|/.test(chunk.text));
+  assert.equal(claimChunk?.page, 3);
+  assert.equal(claimChunk?.section, "3 Demonstration claims");
 });
 
 if (failures > 0) {

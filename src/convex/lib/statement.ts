@@ -41,6 +41,16 @@ const SECTION_PATTERNS: [RegExp, string][] = [
   [/^references$/i, "References"],
 ];
 
+function numberedHeading(line: string): string | undefined {
+  const normalized = normalizeWhitespace(line);
+  const match = /^(\d+(?:\.\d+)*)\.?\s+([A-Z].+)$/.exec(normalized);
+  if (!match) return undefined;
+  const title = match[2].replace(/[:.]+$/, "").trim();
+  if (!title || title.length > 60 || title.split(/\s+/).length > 9) return undefined;
+  if (/[.!?]$/.test(normalized)) return undefined;
+  return `${match[1]} ${title}`;
+}
+
 function headingName(line: string): string | undefined {
   const cleaned = line
     .replace(/^\d+(?:\.\d+)*\.?\s+/, "")
@@ -48,7 +58,7 @@ function headingName(line: string): string | undefined {
     .trim();
   if (!cleaned || cleaned.length > 52) return undefined;
   for (const [pattern, name] of SECTION_PATTERNS) if (pattern.test(cleaned)) return name;
-  return undefined;
+  return numberedHeading(line);
 }
 
 export function extractKeywords(pages: PageText[]): string[] {

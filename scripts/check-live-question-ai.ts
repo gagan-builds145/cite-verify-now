@@ -38,12 +38,18 @@ const model = buildPaperModel(pages, {
 const questions = [
   "What did Topol (2019) argue about clinical integration and validation?",
   "Does the manuscript establish that retrieval augmentation improves grounding across all clinical deployments?",
+  "Does retrieval augmentation improve clinical outcomes in deployed hospital systems?",
   "Does the manuscript conclude that comparative performance proves universal superiority across every specialty?",
   "What sample size did the randomized controlled trial use?",
+  "What effect size did human oversight have on diagnostic accuracy in the reported deployment?",
+  "What was the 95% confidence interval for the 18.4% accuracy improvement?",
   "What did Nagendran et al. (2020) find about study design, reporting standards and claims of deep learning performance?",
 ];
+const onlyQuestion = process.env.QUESTION;
+const questionsToRun = onlyQuestion ? [onlyQuestion] : questions;
 
-for (const question of questions) {
+for (const question of questionsToRun) {
+
   const chunks = retrieveEvidenceChunks(question, model, 12);
   const result = await answerQuestionWithAI({
     question,
@@ -70,6 +76,11 @@ for (const question of questions) {
         answer: result.result?.answer,
         evidenceSelections: result.result?.evidence.length ?? 0,
         validatedQuotes: validated,
+        retrieved: chunks.map((chunk) => ({
+          id: chunk.id,
+          page: chunk.page,
+          section: chunk.section,
+        })),
         limitations: result.result?.limitations,
       },
       null,
