@@ -199,7 +199,7 @@ export default function StatementResults() {
       await removeCheck({ checkId });
       await deletePdfLocally(id).catch(() => undefined);
       toast("Statement check deleted");
-      navigate("/statements");
+      navigate("/dashboard?mode=statement");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not delete this check.");
       setDeleting(false);
@@ -302,7 +302,7 @@ export default function StatementResults() {
       <header className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur">
         <div className="mx-auto flex h-14 w-full max-w-[1560px] items-center gap-2 px-3 sm:px-5">
           <Link
-            to="/statements"
+            to="/dashboard?mode=statement"
             className="flex shrink-0 items-center gap-2 rounded-lg py-1 pr-2 hover:bg-secondary/60"
             aria-label="Back to statement checks"
           >
@@ -335,7 +335,7 @@ export default function StatementResults() {
               PDF
             </Button>
             <Button variant="ghost" size="icon" className="size-8" asChild>
-              <Link to="/statements" aria-label="New statement check">
+              <Link to="/dashboard?mode=statement" aria-label="New statement check">
                 <MessageSquareQuote className="size-4" />
               </Link>
             </Button>
@@ -435,7 +435,7 @@ export default function StatementResults() {
               {check.limitations[check.limitations.length - 1] ?? "The check completed without producing a result."}
             </p>
             <Button asChild className="mt-4 rounded-full" size="sm">
-              <Link to="/statements">Start another check</Link>
+              <Link to="/dashboard?mode=statement">Start another check</Link>
             </Button>
           </div>
         ) : (
@@ -895,7 +895,7 @@ function ResultDetail({
               {result.reviewStatus ? "Update review" : "Review result"}
             </Button>
             <Button variant="ghost" size="sm" className="h-7 rounded-full px-2 text-[10px]" asChild>
-              <Link to="/statements">
+              <Link to="/dashboard?mode=statement">
                 <ScanSearch className="mr-1 size-3" />
                 New check
               </Link>
@@ -1083,7 +1083,7 @@ function ProcessingReport({ check }: { check: StatementCheckRecord }) {
         ))}
       </ol>
       <Button asChild variant="outline" size="sm" className="mt-4 rounded-full">
-        <Link to="/statements">
+        <Link to="/dashboard?mode=statement">
           <ArrowLeft className="mr-1.5 size-3.5" />
           Back to statement checks
         </Link>
@@ -1099,7 +1099,7 @@ function MissingState({ message }: { message: string }) {
       <h1 className="mt-4 font-display text-2xl tracking-tight">Statement check unavailable</h1>
       <p className="mt-2 max-w-sm text-[12px] leading-6 text-muted-foreground">{message}</p>
       <Button asChild className="mt-5 rounded-full" size="sm">
-        <Link to="/statements">Open statement checker</Link>
+        <Link to="/dashboard?mode=statement">Open statement checker</Link>
       </Button>
     </div>
   );

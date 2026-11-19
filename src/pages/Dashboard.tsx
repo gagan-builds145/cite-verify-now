@@ -1,5 +1,5 @@
 import { AppShell } from "@/components/app/AppShell";
-import { IntelligentSearch } from "@/components/IntelligentSearch";
+import { IntelligentSearch, type SearchMode } from "@/components/IntelligentSearch";
 import { VerdictBadge } from "@/components/app/Badges";
 import { EmptyStateIllustration } from "@/components/illustrations/Editorial";
 import {
@@ -36,16 +36,13 @@ import {
   ArrowUpRight,
   Bell,
   Bookmark,
-  Compass,
-  FilePlus2,
   Loader2,
-  MessageSquareQuote,
   ShieldCheck,
   Sparkles,
   Trash2,
 } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import {
   Bar,
   BarChart,
@@ -89,6 +86,11 @@ export default function Dashboard() {
 
   const [pendingDelete, setPendingDelete] = useState<LibraryItem | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [searchParams] = useSearchParams();
+  const requestedMode = searchParams.get("mode");
+  const initialSearchMode: SearchMode =
+    requestedMode === "statement" || requestedMode === "paper" ? requestedMode : "research";
+  const presetSearchQuery = searchParams.get("q") ?? undefined;
 
   const items = (analyses ?? []) as unknown as LibraryItem[];
   const activityRows = (activity ?? []) as unknown as ActivityRow[];
@@ -181,26 +183,7 @@ export default function Dashboard() {
               {unread > 0 ? ` ${unread} unread notification${unread === 1 ? "" : "s"}.` : ""}
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button asChild className="rounded-full">
-              <Link to="/analyze">
-                <FilePlus2 className="mr-1.5 size-4" />
-                New analysis
-              </Link>
-            </Button>
-            <Button asChild variant="outline" className="rounded-full">
-              <Link to="/statements">
-                <MessageSquareQuote className="mr-1.5 size-4" />
-                Check a statement
-              </Link>
-            </Button>
-            <Button asChild variant="outline" className="rounded-full">
-              <Link to="/explorer">
-                <Compass className="mr-1.5 size-4" />
-                Explore research
-              </Link>
-            </Button>
-          </div>
+
         </div>
 
         {user?.isAnonymous && (
@@ -238,7 +221,12 @@ export default function Dashboard() {
             </p>
           </div>
           <div className="mt-3.5">
-            <IntelligentSearch idPrefix="dashboard" className="max-w-[920px]" />
+            <IntelligentSearch
+              idPrefix="dashboard"
+              className="max-w-[920px]"
+              initialMode={initialSearchMode}
+              presetQuery={presetSearchQuery}
+            />
           </div>
         </section>
 
@@ -453,15 +441,13 @@ export default function Dashboard() {
                   Upload a research paper for a claim-by-claim evidence report, or run the annotated
                   demo manuscript first.
                 </p>
-                <div className="mt-4 flex flex-col justify-center gap-2 sm:flex-row">
-                  <Button asChild className="rounded-full" size="sm">
-                    <Link to="/analyze">Upload a paper</Link>
-                  </Button>
-                  <Button asChild variant="outline" className="rounded-full" size="sm">
-                    <Link to="/analyze?demo=1">Try the demo</Link>
-                  </Button>
-                  <Button asChild variant="ghost" className="rounded-full" size="sm">
-                    <Link to="/statements">Check a statement</Link>
+                <div className="mt-4 flex justify-center">
+                  <Button
+                    className="rounded-full"
+                    size="sm"
+                    onClick={() => document.getElementById("dashboard-paper-file")?.click()}
+                  >
+                    Upload a paper
                   </Button>
                 </div>
               </div>
@@ -605,9 +591,6 @@ export default function Dashboard() {
                   <Sparkles className="size-3.5 text-primary" />
                   <h2 className="text-[12px] font-semibold tracking-tight">Research leads</h2>
                 </div>
-                <Link to="/explorer" className="text-[9.5px] text-primary hover:underline">
-                  Explorer
-                </Link>
               </div>
               {recommendations === undefined ? (
                 <p className="mt-2 text-[11px] text-muted-foreground">Loading…</p>

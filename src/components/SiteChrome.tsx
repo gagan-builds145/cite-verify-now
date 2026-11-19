@@ -13,7 +13,6 @@ const NAV_LINKS: NavItem[] = [
   { label: "Home", to: "/", hash: "" },
   { label: "How It Works", to: "/", hash: "#how-it-works" },
   { label: "Features", to: "/", hash: "#features" },
-  { label: "Statement Check", to: "/statements", hash: "" },
   { label: "Explore", to: "/explorer", hash: "" },
   { label: "About", to: "/about", hash: "" },
 ];
@@ -207,8 +206,7 @@ export function SiteFooter() {
           <FooterColumn
             title="Product"
             links={[
-              { label: "Analyze a paper", to: "/analyze" },
-              { label: "Statement check", to: "/statements" },
+              { label: "Start verification", to: "/dashboard" },
               { label: "Research explorer", to: "/explorer" },
               { label: "My library", to: "/library" },
               { label: "Citation graph", to: "/graph" },

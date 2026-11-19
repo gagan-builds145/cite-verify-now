@@ -90,7 +90,7 @@ export default function Notifications() {
                 When an analysis finishes, its report notification appears here automatically.
               </p>
               <Button asChild variant="outline" className="mt-4 rounded-full" size="sm">
-                <Link to="/analyze">Start an analysis</Link>
+                <Link to="/dashboard">Start an analysis</Link>
               </Button>
             </div>
           ) : (

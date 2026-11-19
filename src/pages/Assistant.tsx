@@ -122,7 +122,7 @@ export default function Assistant() {
             </p>
           </div>
           <Button asChild variant="outline" size="sm" className="rounded-full">
-            <Link to="/analyze">
+            <Link to="/dashboard">
               New analysis
               <ArrowRight className="ml-1.5 size-3.5" />
             </Link>
@@ -141,7 +141,7 @@ export default function Assistant() {
                 : "Run a paper through verification first. The assistant can only use evidence that has actually been retrieved and stored."}
             </p>
             <Button asChild className="mt-4 rounded-full" size="sm">
-              <Link to="/analyze">Upload a paper</Link>
+              <Link to="/dashboard">Upload a paper</Link>
             </Button>
           </div>
         ) : (

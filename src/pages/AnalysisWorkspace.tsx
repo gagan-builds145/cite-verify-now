@@ -215,7 +215,7 @@ export default function AnalysisWorkspace() {
             </p>
             <div className="mt-5 flex flex-col justify-center gap-2 sm:flex-row">
               <Button asChild className="rounded-full">
-                <Link to="/analyze">New analysis</Link>
+                <Link to="/dashboard">New analysis</Link>
               </Button>
               <Button asChild variant="outline" className="rounded-full">
                 <Link to="/dashboard">Back to library</Link>
@@ -283,7 +283,7 @@ export default function AnalysisWorkspace() {
             </p>
             <div className="mt-5 flex flex-wrap gap-2">
               <Button asChild className="rounded-full">
-                <Link to="/analyze">Start a new analysis</Link>
+                <Link to="/dashboard">Start a new analysis</Link>
               </Button>
               <Button variant="outline" className="rounded-full" onClick={() => setConfirmDelete(true)}>
                 Delete session
@@ -570,7 +570,7 @@ function WorkspaceHeader({
           aria-label="New analysis"
           asChild
         >
-          <Link to="/analyze">
+          <Link to="/dashboard">
             <FilePlus2 className="size-4" />
           </Link>
         </Button>

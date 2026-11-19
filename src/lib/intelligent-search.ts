@@ -26,7 +26,7 @@ export const SEARCH_ITEMS: SearchItem[] = [
   {
     label: "Analyze a research paper",
     description: "Upload a PDF, extract claims and verify citations.",
-    to: "/analyze",
+    to: "/dashboard",
     keywords: [
       "upload",
       "paper",
@@ -47,7 +47,7 @@ export const SEARCH_ITEMS: SearchItem[] = [
   {
     label: "Check a statement",
     description: "Test one or more statements against a paper's exact passages.",
-    to: "/statements",
+    to: "/dashboard?mode=statement",
     keywords: [
       "statement",
       "claim",

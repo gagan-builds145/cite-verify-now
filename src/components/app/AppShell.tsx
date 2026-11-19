@@ -1,4 +1,5 @@
 import { Brand, LogoMark } from "@/components/Brand";
+import { LogoutConfirmDialog } from "@/components/app/LogoutConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { api } from "@/convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
@@ -7,16 +8,13 @@ import {
   ArrowUpRight,
   Bell,
   Bot,
-  Compass,
   Database,
   FileBarChart,
-  FilePlus2,
   Home,
   LayoutDashboard,
   Library,
   LogOut,
   Menu,
-  MessageSquareQuote,
   Network,
   PanelLeftClose,
   PanelLeftOpen,
@@ -26,7 +24,7 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
-import { Link, NavLink, useNavigate } from "react-router";
+import { Link, NavLink } from "react-router";
 import type { LucideIcon } from "lucide-react";
 
 type NavItem = {
@@ -46,7 +44,6 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: "/", label: "Home", icon: Home },
       { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { to: "/explorer", label: "Research Explorer", icon: Compass },
       { to: "/library", label: "My Library", icon: Library },
       { to: "/graph", label: "Research Graph", icon: Network },
     ],
@@ -54,8 +51,6 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: "Verify",
     items: [
-      { to: "/analyze", label: "New Verification", icon: FilePlus2 },
-      { to: "/statements", label: "Statement Check", icon: MessageSquareQuote },
       { to: "/assistant", label: "Research Assistant", icon: Bot },
       { to: "/reports", label: "Reports & Analytics", icon: FileBarChart },
     ],
@@ -103,17 +98,11 @@ function SidebarContent({
   onClose?: () => void;
   mobile?: boolean;
 }) {
-  const { user, signOut } = useAuth();
-  const navigate = useNavigate();
+  const { user } = useAuth();
   const unread = useQuery(api.workspace.unreadCount) ?? 0;
   const admin = useQuery(api.adminData.me);
+  const [confirmLogout, setConfirmLogout] = useState(false);
   const initial = (user?.name ?? user?.email ?? "U").trim().charAt(0).toUpperCase();
-
-  const handleSignOut = async () => {
-    await signOut();
-    onNavigate?.();
-    navigate("/");
-  };
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -238,9 +227,9 @@ function SidebarContent({
               variant="ghost"
               size="icon"
               className="size-8 text-muted-foreground"
-              onClick={handleSignOut}
-              aria-label="Sign out"
-              title="Sign out"
+              onClick={() => setConfirmLogout(true)}
+              aria-label="Log out"
+              title="Log out"
             >
               <LogOut className="size-3.5" />
             </Button>
@@ -287,15 +276,21 @@ function SidebarContent({
                 variant="ghost"
                 size="sm"
                 className="h-8 gap-1.5 px-2 text-[11.5px] text-muted-foreground"
-                onClick={handleSignOut}
+                onClick={() => setConfirmLogout(true)}
               >
                 <LogOut className="size-3.5" />
-                Sign out
+                Log out
               </Button>
             </div>
           </>
         )}
       </div>
+
+      <LogoutConfirmDialog
+        open={confirmLogout}
+        onOpenChange={setConfirmLogout}
+        onBeforeNavigate={onNavigate}
+      />
     </div>
   );
 }
@@ -357,11 +352,6 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Menu className="size-5" />
           </Button>
           <Brand />
-          <div className="ml-auto flex items-center gap-1">
-            <Button asChild variant="outline" size="sm" className="h-8 rounded-full text-[11.5px]">
-              <Link to="/analyze">New</Link>
-            </Button>
-          </div>
         </header>
 
         {children}

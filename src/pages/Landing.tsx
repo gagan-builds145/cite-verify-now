@@ -231,8 +231,8 @@ export default function Landing() {
                 asChild
                 className="rounded-full bg-[#2463B5] px-5 font-semibold shadow-[0_3px_0_#194b8c] hover:bg-[#1f58a2]"
               >
-                <Link to="/analyze?demo=1">
-                  See the full workflow in the demo
+                <Link to="/dashboard">
+                  Open the verification desk
                   <ArrowRight className="ml-2 size-3.5" />
                 </Link>
               </Button>
@@ -478,8 +478,8 @@ export default function Landing() {
                   variant="brand"
                   className="h-12 rounded-full px-6 text-[13px] font-semibold"
                 >
-                  <Link to="/analyze?demo=1">
-                    Try the demo
+                  <Link to="/dashboard">
+                    Start verifying
                     <Sparkle className="ml-2 size-3.5" />
                   </Link>
                 </Button>

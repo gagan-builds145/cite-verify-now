@@ -9,16 +9,14 @@ import { ConvexReactClient } from "convex/react";
 import { MotionConfig } from "framer-motion";
 import React, { StrictMode, useEffect, lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter, Route, Routes, useLocation } from "react-router";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router";
 import "./index.css";
 
 // Lazy load route components for better code splitting
 const Landing = lazy(() => import("./pages/Landing.tsx"));
 const AuthPage = lazy(() => import("./pages/Auth.tsx"));
 const Dashboard = lazy(() => import("./pages/Dashboard.tsx"));
-const Analyze = lazy(() => import("./pages/Analyze.tsx"));
 const AnalysisWorkspace = lazy(() => import("./pages/AnalysisWorkspace.tsx"));
-const StatementCheck = lazy(() => import("./pages/StatementCheck.tsx"));
 const StatementResults = lazy(() => import("./pages/StatementResults.tsx"));
 const Explorer = lazy(() => import("./pages/Explorer.tsx"));
 const LibraryPage = lazy(() => import("./pages/Library.tsx"));
@@ -95,6 +93,14 @@ class RootErrorBoundary extends React.Component<
 
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
 
+function LegacySearchRedirect({ mode }: { mode: "paper" | "statement" }) {
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  params.delete("demo");
+  params.set("mode", mode);
+  return <Navigate to={`/dashboard?${params.toString()}`} replace />;
+}
+
 function RouteSyncer() {
   const location = useLocation();
   useEffect(() => {
@@ -141,10 +147,30 @@ createRoot(document.getElementById("root")!).render(
                 path="/signup"
                 element={<AuthPage redirectAfterAuth="/dashboard" initialMode="signup" />}
               />
-              <Route path="/analyze" element={<Analyze />} />
-              <Route path="/statements" element={<StatementCheck />} />
-              <Route path="/statements/:id" element={<StatementResults />} />
-              <Route path="/analysis/:id" element={<AnalysisWorkspace />} />
+              <Route path="/analyze" element={<LegacySearchRedirect mode="paper" />} />
+              <Route path="/statements" element={<LegacySearchRedirect mode="statement" />} />
+              <Route
+                path="/statements/:id"
+                element={
+                  <RequireAuth
+                    title="Sign in to open this statement report"
+                    description="Statement evidence reports are scoped to the session that created them."
+                  >
+                    <StatementResults />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/analysis/:id"
+                element={
+                  <RequireAuth
+                    title="Sign in to open this analysis"
+                    description="Analysis sessions and their evidence chains are scoped to your account."
+                  >
+                    <AnalysisWorkspace />
+                  </RequireAuth>
+                }
+              />
               <Route
                 path="/dashboard"
                 element={

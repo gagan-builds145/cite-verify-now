@@ -198,7 +198,7 @@ export function PdfViewer({
           </p>
         </div>
         <Button asChild variant="outline" size="sm" className="rounded-full">
-          <Link to="/analyze">Upload the PDF again</Link>
+          <Link to="/dashboard">Upload the PDF again from the dashboard</Link>
         </Button>
       </div>
     );

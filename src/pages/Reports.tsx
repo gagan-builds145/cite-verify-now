@@ -406,7 +406,7 @@ export default function Reports() {
                 Complete an analysis to generate a claim-by-claim report.
               </p>
               <Button asChild className="mt-4 rounded-full" size="sm">
-                <Link to="/analyze">Upload a paper</Link>
+                <Link to="/dashboard">Upload a paper</Link>
               </Button>
             </div>
           ) : (

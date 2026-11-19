@@ -1,5 +1,6 @@
 // simple logo dropdown component that can be used to go to the landing page or sign out for the user
 
+import { LogoutConfirmDialog } from "@/components/app/LogoutConfirmDialog";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -11,20 +12,13 @@ import {
 import logo from "@/assets/logo.svg";
 import { useAuth } from "@/hooks/use-auth";
 import { Home, LogOut } from "lucide-react";
+import { useState } from "react";
 import { useNavigate } from "react-router";
 
 export function LogoDropdown() {
-  const { isAuthenticated, signOut } = useAuth();
+  const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
-
-  const handleSignOut = async () => {
-    try {
-      await signOut();
-      navigate("/");
-    } catch (error) {
-      console.error("Sign out error:", error);
-    }
-  };
+  const [confirmLogout, setConfirmLogout] = useState(false);
 
   const handleGoHome = () => {
     navigate("/");
@@ -52,15 +46,16 @@ export function LogoDropdown() {
           <>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              onClick={handleSignOut}
+              onClick={() => setConfirmLogout(true)}
               className="cursor-pointer text-destructive focus:text-destructive"
             >
               <LogOut className="mr-2 h-4 w-4" />
-              Sign Out
+              Log out
             </DropdownMenuItem>
           </>
         )}
       </DropdownMenuContent>
+      <LogoutConfirmDialog open={confirmLogout} onOpenChange={setConfirmLogout} />
     </DropdownMenu>
   );
 }

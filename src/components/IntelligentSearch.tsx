@@ -2,6 +2,7 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useAuth } from "@/hooks/use-auth";
 import { formatFileSize } from "@/lib/analysis-ui";
+import { parseStatements } from "@/lib/statement-ui";
 import type { ExtractedPdf } from "@/lib/pdf";
 import { PAPER_FILE_ACCEPT, validateResearchPaperFile } from "@/lib/paper-file";
 import { useAction, useMutation, useQuery } from "convex/react";
@@ -68,7 +69,7 @@ const MODES: {
     key: "statement",
     label: "Check a Statement",
     description: "Test a claim against a paper",
-    to: "/statements",
+    to: "/dashboard?mode=statement",
     icon: FileSearch,
   },
 ];
@@ -105,25 +106,19 @@ export function IntelligentSearch({
   initialMode = "research",
   presetQuery,
   presetKey,
-  requireAttachment = false,
-  workspacePanel,
-  onProcessingChange,
-  onAttachmentStageChange,
 }: {
   className?: string;
   idPrefix?: string;
   initialMode?: SearchMode;
   presetQuery?: string;
   presetKey?: number;
-  requireAttachment?: boolean;
-  workspacePanel?: "overview" | "claims" | "references" | "errors" | "corrections";
-  onProcessingChange?: (active: boolean) => void;
-  onAttachmentStageChange?: (stage: AttachmentStage | null) => void;
 }) {
   const navigate = useNavigate();
   const { isAuthenticated, signIn } = useAuth();
   const createAnalysis = useMutation(api.analyses.create);
   const runAnalysis = useAction(api.runAnalysis.run);
+  const createStatementCheck = useMutation(api.statements.create);
+  const runStatementCheck = useAction(api.runStatementCheck.run);
 
   const [mode, setMode] = useState<SearchMode>(initialMode);
   const [query, setQuery] = useState("");
@@ -151,14 +146,6 @@ export function IntelligentSearch({
   const completedStages =
     liveAnalysis?.stages.filter((stage) => stage.status === "complete").length ?? 0;
   const totalStages = liveAnalysis?.stages.length ?? 0;
-
-  useEffect(() => {
-    onProcessingChange?.(Boolean(busy));
-  }, [busy, onProcessingChange]);
-
-  useEffect(() => {
-    onAttachmentStageChange?.(attachment?.stage ?? null);
-  }, [attachment?.stage, onAttachmentStageChange]);
 
   useEffect(() => {
     if (presetQuery === undefined) return;
@@ -205,6 +192,7 @@ export function IntelligentSearch({
         error: null,
         analysisId: null,
       });
+      if (mode === "research") setMode("paper");
     } catch {
       const message = "The selected PDF could not be read. Try choosing the file again.";
       setInputError(message);
@@ -220,7 +208,10 @@ export function IntelligentSearch({
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const processAttachment = async (current: PaperAttachment) => {
+  const processAttachment = async (
+    current: PaperAttachment,
+    operation: "analysis" | "statement" = "analysis",
+  ) => {
     if (busyRef.current) return;
     busyRef.current = true;
     const token = tokenRef.current + 1;
@@ -259,6 +250,33 @@ export function IntelligentSearch({
 
       if (!isAuthenticated) {
         await signIn("anonymous");
+      }
+
+      if (operation === "statement") {
+        const statements = parseStatements(query);
+        if (statements.length === 0) {
+          throw new Error("Enter at least one statement of 12 characters or more.");
+        }
+        patchAttachment(token, { stage: "processing", progress: 100 });
+        const checkId = await createStatementCheck({
+          fileName: current.file.name,
+          fileSize: current.file.size,
+          pages: extracted.pages,
+          statements,
+        });
+        const { savePdfLocally } = await import("@/lib/pdf-store");
+        await savePdfLocally(checkId, current.file.name, current.bytes).catch(() => undefined);
+        const result = await runStatementCheck({ checkId });
+        if (tokenRef.current !== token) return;
+        if (result.ok === false) {
+          throw new Error(result.error ?? "The statement check could not be completed.");
+        }
+        patchAttachment(token, { stage: "done", progress: 100 });
+        toast.success("Statement check complete", {
+          description: "Opening the evidence report for this statement.",
+        });
+        navigate(`/statements/${checkId}`);
+        return;
       }
 
       let analysisId: Id<"analyses"> | null = null;
@@ -313,16 +331,28 @@ export function IntelligentSearch({
     event.preventDefault();
     if (busyRef.current) return;
 
-    if (attachment) {
+    if (mode === "statement") {
+      if (!attachment) {
+        const message = "Attach the research paper that contains the statement.";
+        setInputError(message);
+        toast.error(message);
+        fileInputRef.current?.click();
+        return;
+      }
+      if (!query.trim()) {
+        const message = "Enter at least one statement to check against this paper.";
+        setInputError(message);
+        questionInputRef.current?.focus();
+        return;
+      }
       if (attachment.stage === "done") return;
-      void processAttachment(attachment);
+      void processAttachment(attachment, "statement");
       return;
     }
 
-    if (requireAttachment && !attachment) {
-      const message = "Attach a PDF to run this paper-specific audit.";
-      setInputError(message);
-      fileInputRef.current?.click();
+    if (attachment) {
+      if (attachment.stage === "done") return;
+      void processAttachment(attachment);
       return;
     }
 
@@ -339,7 +369,9 @@ export function IntelligentSearch({
     : attachment
       ? attachment.stage === "done"
         ? "Verified"
-        : "Verify paper"
+        : mode === "statement"
+          ? "Verify statement"
+          : "Verify paper"
       : "Search";
 
   return (
@@ -506,9 +538,7 @@ export function IntelligentSearch({
                         </p>
                         {attachment.analysisId && (
                           <Link
-                            to={`/analysis/${attachment.analysisId}${
-                              workspacePanel ? `?panel=${workspacePanel}` : ""
-                            }`}
+                            to={`/analysis/${attachment.analysisId}`}
                             className="inline-flex items-center gap-1 rounded-full bg-[var(--action-bg)] px-3 py-1.5 text-[10.5px] font-semibold text-[var(--action-fg)] transition-colors hover:bg-[var(--action-bg-hover)]"
                           >
                             Open workspace
@@ -547,8 +577,12 @@ export function IntelligentSearch({
             onChange={(event) => setQuery(event.target.value)}
             placeholder={
               attachment
-                ? "Ask anything about this research paper..."
-                : "Ask anything about research papers, citations or scientific claims..."
+                ? mode === "statement"
+                  ? "Enter the statement to check against this paper..."
+                  : "Ask anything about this research paper..."
+                : mode === "statement"
+                  ? "Enter a scientific statement, then attach the paper..."
+                  : "Ask anything about research papers, citations or scientific claims..."
             }
             autoComplete="off"
             disabled={busy}
