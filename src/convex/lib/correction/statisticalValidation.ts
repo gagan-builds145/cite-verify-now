@@ -63,6 +63,32 @@ function sumTableColumn(page: PageText): CorrectionCandidate[] {
       ),
     );
   }
+
+  const header = rows[0]?.join(" ") ?? "";
+  if (/\b(?:participants?|patients?|subjects?|sample|n)\b/i.test(header)) {
+    for (const sentence of sentenceSpans(page.text)) {
+      const narrative = /\b(\d[\d,]*)\s+(participants?|patients?|subjects?)\b/i.exec(
+        sentence.text,
+      );
+      if (!narrative) continue;
+      const reported = Number(narrative[1].replace(/,/g, ""));
+      if (reported !== total) {
+        output.push(
+          candidate(
+            page,
+            "TABLE_NARRATIVE_MISMATCH",
+            sentence.text,
+            "",
+            `The narrative reports ${reported} ${narrative[2].toLowerCase()}, while the table total is ${total}. Reconcile the table and narrative before changing either value.`,
+            "MAJOR",
+            "HUMAN_APPROVAL_REQUIRED",
+            0.86,
+          ),
+        );
+        break;
+      }
+    }
+  }
   return output;
 }
 
@@ -185,22 +211,38 @@ export function findStatisticalCorrections(pages: PageText[]): CorrectionCandida
         }
       }
 
-      const decimalRange = /\b(\d+\.\d+)\s*(?:%|mg|ml|mm|cm|kg|g)\s*(?:to|–|-)\s*(\d+\.\d+)\s*(?:%|mg|ml|mm|cm|kg|g)\b/i.exec(
+      const decimalRange = /\b(\d+(?:\.\d+)?)\s*(%|mg|ml|mm|cm|kg|g|m)\s*(?:to|–|-)\s*(\d+(?:\.\d+)?)\s*(%|mg|ml|mm|cm|kg|g|m)\b/i.exec(
         sentence.text,
       );
-      if (decimalRange && Number(decimalRange[1]) > Number(decimalRange[2])) {
-        push(
-          candidate(
-            page,
-            "RANGE_ORDER",
-            sentence.text,
-            "",
-            "The reported range is reversed. Confirm the original measurement before editing.",
-            "MAJOR",
-            "HUMAN_APPROVAL_REQUIRED",
-            0.86,
-          ),
-        );
+      if (decimalRange) {
+        if (decimalRange[2].toLowerCase() !== decimalRange[4].toLowerCase()) {
+          push(
+            candidate(
+              page,
+              "UNIT_MISMATCH",
+              sentence.text,
+              "",
+              `The range mixes ${decimalRange[2]} and ${decimalRange[4]}. Do not convert or change the units without the original measurements.`,
+              "MAJOR",
+              "HUMAN_APPROVAL_REQUIRED",
+              0.94,
+            ),
+          );
+        }
+        if (Number(decimalRange[1]) > Number(decimalRange[3])) {
+          push(
+            candidate(
+              page,
+              "RANGE_ORDER",
+              sentence.text,
+              "",
+              "The reported range is reversed. Confirm the original measurement before editing.",
+              "MAJOR",
+              "HUMAN_APPROVAL_REQUIRED",
+              0.86,
+            ),
+          );
+        }
       }
     }
     output.push(...sumTableColumn(page));

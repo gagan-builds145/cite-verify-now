@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { applyAcceptedCorrections } from "./correctionApplier";
 import { correctionStats } from "./correctionAudit";
-import { validateCorrection } from "./correctionValidator";
+import {
+  correctionVersionMatches,
+  validateCorrection,
+  validateEditedText,
+} from "./correctionValidator";
 import { runCorrectionEngine } from "./engine";
 import type { ClaimInput, CorrectionDraft, ReferenceInput } from "./types";
 import type { PageText } from "../text";
@@ -36,7 +40,17 @@ const pages: PageText[] = [
       "This paragraph is duplicated in the manuscript for regression testing. It contains enough words to count as a real paragraph and it is repeated verbatim below.\n" +
       "Human participants were recruited from the clinic without consent or institutional approval.\n" +
       "Comparative performance proves universal superiority across every specialty.\n" +
+      "The treatment causes recovery in every patient in the trial.\n" +
+      "This intervention is effective for disease X.\n" +
+      "The dose ranged from 10 mg to 20 ml in the cohort.\n" +
       "| Arm | n |\n| A | 10 |\n| B | 20 |\n| Total | 40 |",
+  },
+  {
+    page: 6,
+    text:
+      "6 Results\n" +
+      "Forty participants were enrolled, and 40 participants completed the study.\n" +
+      "| Arm | participants |\n| A | 10 |\n| B | 15 |\n| Total | 30 |",
   },
 ];
 
@@ -65,6 +79,29 @@ const claims: ClaimInput[] = [
     referenceKeys: ["1"],
     citationMarkers: ["[1]"],
   },
+  {
+    claimId: "C8",
+    text: "The treatment causes recovery in every patient in the trial.",
+    page: 5,
+    section: "5 Results",
+    verdict: "SUPPORTED",
+    explanation: "The cited source reports an association, not a demonstrated causal effect.",
+    evidenceQuote: "The treatment was associated with recovery in the trial.",
+    evidenceLevel: "full_text",
+    referenceKeys: ["1"],
+    citationMarkers: ["[1]"],
+  },
+  {
+    claimId: "C10",
+    text: "This intervention is effective for disease X.",
+    page: 5,
+    section: "5 Results",
+    verdict: "INSUFFICIENT_EVIDENCE",
+    explanation: "No source passage establishes effectiveness for disease X.",
+    evidenceLevel: "unavailable",
+    referenceKeys: [],
+    citationMarkers: [],
+  },
 ];
 
 const references: ReferenceInput[] = [
@@ -91,7 +128,7 @@ const references: ReferenceInput[] = [
       venue: "MATCH",
     }),
     evidenceText:
-      "Comparative performance in a retrospective study does not establish superiority across every specialty or deployment.",
+      "Comparative performance in a retrospective study does not establish superiority across every specialty or deployment. The treatment was associated with recovery in the trial.",
   },
   {
     refKey: "2",
@@ -161,13 +198,39 @@ test("p = 0 is flagged and contradictory claims are never rewritten as the oppos
   assert.ok(contradiction);
   assert.equal(contradiction.proposedText, "");
   assert.equal(contradiction.correctionLevel, "HUMAN_APPROVAL_REQUIRED");
+  assert.equal(contradiction.pageNumber, 5);
+  assert.equal(contradiction.section, "5 Results");
+});
+
+test("overgeneralization and correlation-as-causation remain evidence-backed proposals", () => {
+  const causal = result.corrections.find((item) => item.errorType === "CORRELATION_AS_CAUSATION");
+  assert.ok(causal);
+  assert.equal(causal.correctionLevel, "EVIDENCE_BACKED_CORRECTION");
+  assert.equal(causal.applicationStatus, "NOT_APPLIED");
+  assert.match(causal.proposedText, /associated with/);
+  const unsupported = result.corrections.find((item) => item.errorType === "INSUFFICIENT_SUPPORT");
+  assert.ok(unsupported);
+  assert.equal(unsupported.proposedText, "");
+  assert.equal(unsupported.correctionLevel, "HUMAN_APPROVAL_REQUIRED");
 });
 
 test("duplicate headings, methodology gaps, table totals and citation issues are detected", () => {
   assert.ok(result.corrections.some((item) => item.errorType === "DUPLICATE_HEADING"));
   assert.ok(result.corrections.some((item) => item.errorType === "MISSING_ETHICS_STATEMENT"));
   assert.ok(result.corrections.some((item) => item.errorType === "TABLE_TOTAL_MISMATCH"));
+  assert.ok(result.corrections.some((item) => item.errorType === "TABLE_NARRATIVE_MISMATCH"));
+  assert.ok(result.corrections.some((item) => item.errorType === "UNIT_MISMATCH"));
   assert.ok(result.corrections.some((item) => item.errorCategory === "CITATION"));
+});
+
+test("an edit that drops a hedge is rejected even when the category is language", () => {
+  const unsafe = validateEditedText(
+    "Treatment may reduce the risk of recurrence.",
+    "Treatment reduces the risk of recurrence.",
+    "LANGUAGE",
+    "GRAMMAR",
+  );
+  assert.equal(unsafe.status, "FAILED");
 });
 
 test("a source-less AI suggestion cannot pass page validation", () => {
@@ -195,12 +258,121 @@ test("approved corrections apply deterministically and restore removes them", ()
   assert.equal(untouched.pages[0].text, pages[0].text);
 });
 
+test("stale correction versions are rejected before a decision can overwrite them", () => {
+  assert.equal(correctionVersionMatches(2, 2), true);
+  assert.equal(correctionVersionMatches(2, 1), false);
+  assert.equal(correctionVersionMatches(Number.NaN, Number.NaN), false);
+});
+
 test("audit statistics distinguish unresolved, pending and applied findings", () => {
   const stats = correctionStats(result.corrections);
   assert.equal(stats.total, result.corrections.length);
   assert.ok(stats.pendingApprovals > 0);
   assert.ok(stats.applied > 0);
   assert.ok(stats.unresolved > 0);
+});
+
+const citationPages: PageText[] = [
+  {
+    page: 1,
+    text: "1 Introduction\nWe compare the method with prior work [1] and a missing source [99] in this study.",
+  },
+  {
+    page: 2,
+    text:
+      "References\n" +
+      "[1] Topol, E. J. (2019). High-performance medicine. Nature Medicine, 25, 44-56. https://doi.org/10.1038/s41591-018-0300-7.\n" +
+      "[2] Topol, E. J. (2019). High-performance medicine. Nature Medicine, 25, 44-56. https://doi.org/10.1038/s41591-018-0300-7.\n" +
+      "[3] Nagendran, M., et al. (2020). Artificial intelligence versus clinicians. BMJ, 368, m689.",
+  },
+];
+
+const citationReferences: ReferenceInput[] = [
+  {
+    refKey: "1",
+    rawText:
+      "[1] Topol, E. J. (2019). High-performance medicine. Nature Medicine, 25, 44-56. https://doi.org/10.1038/s41591-018-0300-7.",
+    title: "High-performance medicine",
+    authors: ["Topol"],
+    year: 2019,
+    doi: "https://doi.org/10.1038/s41591-018-0300-7.",
+    status: "VERIFIED",
+    matchedTitle: "High-performance medicine",
+    matchedAuthors: ["Eric J. Topol"],
+    matchedYear: 2019,
+    matchedDoi: "10.1038/s41591-018-0300-7",
+    matchedVenue: "Nature Medicine",
+    retrievalLevel: "abstract",
+    identityJson: JSON.stringify({
+      doi: "MATCH",
+      title: "MATCH",
+      authors: "MATCH",
+      year: "MATCH",
+      venue: "MATCH",
+    }),
+  },
+  {
+    refKey: "2",
+    rawText:
+      "[2] Topol, E. J. (2019). High-performance medicine. Nature Medicine, 25, 44-56. https://doi.org/10.1038/s41591-018-0300-7.",
+    title: "High-performance medicine",
+    authors: ["Topol"],
+    year: 2019,
+    status: "VERIFIED",
+    matchedTitle: "High-performance medicine",
+    matchedAuthors: ["Eric J. Topol"],
+    matchedYear: 2019,
+    matchedDoi: "10.1038/s41591-018-0300-7",
+    matchedVenue: "Nature Medicine",
+    retrievalLevel: "abstract",
+    duplicateOf: "1",
+    identityJson: JSON.stringify({
+      doi: "MATCH",
+      title: "MATCH",
+      authors: "MATCH",
+      year: "MATCH",
+      venue: "MATCH",
+    }),
+  },
+  {
+    refKey: "3",
+    rawText:
+      "[3] Nagendran, M., et al. (2020). Artificial intelligence versus clinicians. BMJ, 368, m689.",
+    title: "Artificial intelligence versus clinicians",
+    authors: ["Nagendran"],
+    year: 2020,
+    doi: "10.1136/bmj.m689",
+    status: "METADATA_MISMATCH",
+    matchedTitle: "A different paper with a similar title",
+    matchedAuthors: ["Someone Else"],
+    matchedYear: 2021,
+    matchedDoi: "10.1136/bmj.m689",
+    matchedVenue: "BMJ",
+    retrievalLevel: "metadata_only",
+    identityJson: JSON.stringify({ doi: "MATCH", title: "MISMATCH" }),
+  },
+];
+
+const citationResult = runCorrectionEngine({
+  analysisId: "citation-fixture",
+  pages: citationPages,
+  claims: [],
+  references: citationReferences,
+  now: 1,
+});
+
+test("citation identity, missing, duplicate and DOI-format findings are distinguished", () => {
+  assert.ok(citationResult.corrections.some((item) => item.errorType === "MISSING_REFERENCE"));
+  assert.ok(citationResult.corrections.some((item) => item.errorType === "DUPLICATE_REFERENCE"));
+  assert.ok(citationResult.corrections.some((item) => item.errorType === "METADATA_MISMATCH"));
+  const doi = citationResult.corrections.find((item) => item.errorType === "BROKEN_DOI_FORMAT");
+  assert.ok(doi);
+  assert.equal(doi.correctionLevel, "SAFE_AUTO_FIX");
+  assert.equal(doi.applicationStatus, "APPLIED");
+  assert.equal(
+    citationResult.corrections.find((item) => item.errorType === "METADATA_MISMATCH")?.proposedText,
+    "",
+  );
 });
 
 if (failures > 0) {

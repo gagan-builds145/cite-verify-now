@@ -205,6 +205,34 @@ export async function buildCorrectedDocxBlob(
     );
   }
 
+  const outstanding = corrections.filter((row) => row.applicationStatus !== "APPLIED");
+  if (outstanding.length > 0) {
+    children.push(
+      new Paragraph({
+        text: "Outstanding corrections and unresolved issues",
+        heading: HeadingLevel.HEADING_2,
+      }),
+      new Paragraph({
+        children: [
+          new TextRun({
+            text:
+              "These suggestions were not applied to the document body. They remain part of the review record and require author action where applicable.",
+            italics: true,
+          }),
+        ],
+      }),
+    );
+    for (const row of outstanding) {
+      children.push(
+        new Paragraph({
+          text: `${row.correctionId} · p.${row.pageNumber} · ${APPROVAL_LABEL[row.approvalStatus]} · ${APPLICATION_LABEL[row.applicationStatus]} · ${row.errorType}`,
+          heading: HeadingLevel.HEADING_3,
+        }),
+        new Paragraph({ text: row.reason }),
+      );
+    }
+  }
+
   for (const page of result.pages) {
     children.push(
       new Paragraph({

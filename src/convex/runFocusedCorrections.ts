@@ -180,16 +180,17 @@ export const run = action({
         ...correction,
         correctionId: `CR-${String(existing.length + index + 1).padStart(3, "0")}`,
       }));
+    let added = 0;
     if (additions.length > 0) {
-      await ctx.runMutation(internal.analyses.addCorrections, {
+      added = (await ctx.runMutation(internal.analyses.addCorrections, {
         analysisId: args.analysisId,
         corrections: additions,
-      });
+      })) ?? 0;
     }
     return {
       ok: true,
-      added: additions.length,
-      total: existing.length + additions.length,
+      added,
+      total: existing.length + added,
       aiUsed: Boolean(aiReview?.ok),
       error: aiReview?.error,
     };

@@ -171,6 +171,10 @@ export function validateEditedText(
   return { status: "PASSED", notes };
 }
 
+export function correctionVersionMatches(currentVersion: number, expectedVersion: number): boolean {
+  return Number.isInteger(currentVersion) && Number.isInteger(expectedVersion) && currentVersion === expectedVersion;
+}
+
 export function applyCorrectionPolicy(
   level: CorrectionLevel,
   validation: CorrectionValidation,

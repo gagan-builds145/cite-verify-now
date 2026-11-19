@@ -49,7 +49,10 @@ import {
   reconcileClaimsWithReferences,
   type CurrentReferenceStatus,
 } from "./lib/reconcile";
-import { validateEditedText } from "./lib/correction/correctionValidator";
+import {
+  correctionVersionMatches,
+  validateEditedText,
+} from "./lib/correction/correctionValidator";
 
 function normalizeReferenceRow<T extends { status: string }>(row: T) {
   return { ...row, status: normalizeReferenceStatus(row.status) as CurrentReferenceStatus };
@@ -493,7 +496,7 @@ export const decideCorrection = mutation({
       .collect();
     const correction = rows.find((row) => row.correctionId === args.correctionId);
     if (!correction) throw new Error("Correction not found in this analysis.");
-    if (correction.version !== args.expectedVersion) {
+    if (!correctionVersionMatches(correction.version, args.expectedVersion)) {
       throw new Error("This correction changed since it was opened. Refresh and try again.");
     }
 
@@ -653,15 +656,41 @@ export const addCorrections = internalMutation({
       .query("analysisCorrections")
       .withIndex("by_analysis", (q) => q.eq("analysisId", args.analysisId))
       .collect();
+    const usedIds = new Set(existing.map((correction) => correction.correctionId));
+    const seenFindings = new Set(
+      existing.map((correction) =>
+        [
+          correction.errorCategory,
+          correction.errorType,
+          correction.pageNumber,
+          normalizeWhitespace(correction.originalText).slice(0, 300),
+        ].join("|"),
+      ),
+    );
+    const inserted: typeof args.corrections = [];
+    let nextNumber = existing.length + 1;
     for (const correction of args.corrections) {
+      const findingKey = [
+        correction.errorCategory,
+        correction.errorType,
+        correction.pageNumber,
+        normalizeWhitespace(correction.originalText).slice(0, 300),
+      ].join("|");
+      if (seenFindings.has(findingKey)) continue;
+      let correctionId = correction.correctionId;
+      while (usedIds.has(correctionId)) {
+        correctionId = `CR-${String(nextNumber).padStart(3, "0")}`;
+        nextNumber += 1;
+      }
       const row = {
         analysisId: args.analysisId,
         ...correction,
+        correctionId,
       };
       await ctx.db.insert("analysisCorrections", row);
       await ctx.db.insert("correctionHistory", {
         analysisId: args.analysisId,
-        correctionId: correction.correctionId,
+        correctionId,
         actorId: "system" as const,
         actorName: "CiteVerify correction engine",
         action: "DETECTED",
@@ -671,19 +700,20 @@ export const addCorrections = internalMutation({
         version: correction.version,
         createdAt: now,
       });
+      usedIds.add(correctionId);
+      seenFindings.add(findingKey);
+      inserted.push(row);
     }
     await ctx.db.patch(args.analysisId, {
-      correctionsFound: existing.length + args.corrections.length,
+      correctionsFound: existing.length + inserted.length,
       correctionsApplied: existing.filter(
         (correction) => correction.applicationStatus === "APPLIED",
-      ).length +
-        args.corrections.filter((correction) => correction.applicationStatus === "APPLIED").length,
+      ).length + inserted.filter((correction) => correction.applicationStatus === "APPLIED").length,
       correctionsPending: existing.filter(
         (correction) => correction.approvalStatus === "PENDING",
-      ).length +
-        args.corrections.filter((correction) => correction.approvalStatus === "PENDING").length,
+      ).length + inserted.filter((correction) => correction.approvalStatus === "PENDING").length,
     });
-    return args.corrections.length;
+    return inserted.length;
   },
 });
 
