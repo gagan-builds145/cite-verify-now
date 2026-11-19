@@ -1,11 +1,11 @@
 {
-  "name": "freebuff.com application",
-  "short_name": "freebuff.com",
-  "description": "freebuff.com application",
+  "name": "CiteVerify — Citation & Evidence Verification",
+  "short_name": "CiteVerify",
+  "description": "Trace claims in a research paper to their cited publications and check whether the original evidence supports them.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#000000",
+  "background_color": "#f8f5ef",
+  "theme_color": "#1F3A40",
   "icons": [
     {
       "src": "/logo.svg",

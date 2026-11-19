@@ -131,6 +131,13 @@ const schema = defineSchema(
       error: v.optional(v.string()),
     }).index("by_analysis", ["analysisId"]),
 
+    // Messages sent through the public contact form (no email is sent).
+    contactMessages: defineTable({
+      email: v.string(),
+      topic: v.string(),
+      message: v.string(),
+    }),
+
     // Extracted claims, their citation mapping and evidence verdict.
     analysisClaims: defineTable({
       analysisId: v.id("analyses"),

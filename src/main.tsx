@@ -13,6 +13,9 @@ import "./index.css";
 const Landing = lazy(() => import("./pages/Landing.tsx"));
 const AuthPage = lazy(() => import("./pages/Auth.tsx"));
 const Dashboard = lazy(() => import("./pages/Dashboard.tsx"));
+const Analyze = lazy(() => import("./pages/Analyze.tsx"));
+const AnalysisWorkspace = lazy(() => import("./pages/AnalysisWorkspace.tsx"));
+const Info = lazy(() => import("./pages/Info.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 
 // Simple loading fallback for route transitions
@@ -82,8 +85,6 @@ class RootErrorBoundary extends React.Component<
 
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
 
-
-
 function RouteSyncer() {
   const location = useLocation();
   useEffect(() => {
@@ -107,7 +108,6 @@ function RouteSyncer() {
   return null;
 }
 
-
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <RootErrorBoundary>
@@ -120,18 +120,24 @@ createRoot(document.getElementById("root")!).render(
           <Suspense fallback={<RouteLoading />}>
             <Routes>
               <Route path="/" element={<Landing />} />
-              <Route
-                path="/auth"
-                element={<AuthPage redirectAfterAuth="/dashboard" />}
-              />
+              <Route path="/auth" element={<AuthPage redirectAfterAuth="/dashboard" />} />
+              <Route path="/analyze" element={<Analyze />} />
+              <Route path="/analysis/:id" element={<AnalysisWorkspace />} />
               <Route
                 path="/dashboard"
                 element={
-                  <RequireAuth>
+                  <RequireAuth
+                    title="Sign in to open your analysis library"
+                    description="Your verification sessions and their evidence chains live here."
+                  >
                     <Dashboard />
                   </RequireAuth>
                 }
               />
+              <Route path="/privacy" element={<Info mode="privacy" />} />
+              <Route path="/about" element={<Info mode="about" />} />
+              <Route path="/terms" element={<Info mode="terms" />} />
+              <Route path="/contact" element={<Info mode="contact" />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>

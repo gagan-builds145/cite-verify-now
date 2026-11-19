@@ -1,293 +1,188 @@
-## Overview
+# CiteVerify
 
-This project uses the following tech stack:
-- Vite
-- Typescript
-- React Router v7 (all imports from `react-router` instead of `react-router-dom`)
-- React 19 (for frontend components)
-- Tailwind v4 (for styling)
-- Shadcn UI (for UI components library)
-- Lucide Icons (for icons)
-- Convex (for backend & database)
-- Convex Auth (for authentication)
-- Framer Motion (for animations)
-- Three js (for 3d models)
+**Don't just trust the citation. Verify the evidence.**
 
-All relevant files live in the 'src' directory.
+CiteVerify is an academic citation verification workspace. Upload a text-based PDF and it traces every
+evidence-bearing claim through its citation marker, its bibliography entry, the matched scholarly
+record and the retrieved evidence — then states whether that evidence supports the claim, with the
+passage it relied on.
 
-Use bun for the package manager.
+The chain is always visible:
+
+```
+CLAIM → CITATION → BIBLIOGRAPHY ENTRY → SCHOLARLY RECORD → RETRIEVED EVIDENCE → VERDICT
+```
+
+No stage is filled in with invented data. If a source cannot be located or its text cannot be
+retrieved, the result says so.
+
+---
+
+## Stack
+
+- **Frontend:** React 19, TypeScript, Vite, Tailwind CSS v4, shadcn/ui, Framer Motion, Recharts
+- **PDF:** `pdfjs-dist` for local text extraction and canvas rendering; `jsPDF` for downloadable reports
+- **Backend / database:** Convex (queries, mutations, Node actions, auth)
+- **Auth:** Convex Auth (email OTP and anonymous sessions)
+- **Scholarly metadata:** Crossref, OpenAlex, DataCite, arXiv (Semantic Scholar for abstract enrichment)
+- **AI reasoning:** OpenAI-compatible model through the platform's server-side integration gateway
+
+Nothing secret is shipped to the browser. All AI and scholarly API calls happen in Convex Node actions.
+
+---
 
 ## Setup
 
-This project is set up already and running on a cloud environment, as well as a convex development in the sandbox.
-
-## Environment Variables
-
-The project is set up with project specific CONVEX_DEPLOYMENT and VITE_CONVEX_URL environment variables on the client side.
-
-The convex server has a separate set of environment variables that are accessible by the convex backend.
-
-Currently, these variables include auth-specific keys: JWKS, JWT_PRIVATE_KEY, and SITE_URL.
-
-
-# Using Authentication (Important!)
-
-You must follow these conventions when using authentication.
-
-## Auth is already set up.
-
-All convex authentication functions are already set up. The auth currently uses email OTP and anonymous users, but can support more.
-
-The email OTP configuration is defined in `src/convex/auth/emailOtp.ts`. DO NOT MODIFY THIS FILE.
-
-Also, DO NOT MODIFY THESE AUTH FILES: `src/convex/auth.config.ts` and `src/convex/auth.ts`.
-
-## Using Convex Auth on the backend
-
-On the `src/convex/users.ts` file, you can use the `getCurrentUser` function to get the current user's data.
-
-## Using Convex Auth on the frontend
-
-The `/auth` page is already set up to use auth. Navigate to `/auth` for all log in / sign up sequences.
-
-You MUST use this hook to get user data. Never do this yourself without the hook:
-```typescript
-import { useAuth } from "@/hooks/use-auth";
-
-const { isLoading, isAuthenticated, user, signIn, signOut } = useAuth();
+```bash
+bun install
+bun convex dev          # configure/refresh the Convex deployment and generate types
+bun run dev             # start the Vite dev server
 ```
 
-## Protected Routes
+The project is normally run in the managed Freebuff environment, where the Vite dev server and
+`convex dev` already run. Do not start or restart those processes from a terminal there.
 
-The starter `/dashboard` route is protected with `RequireAuth`. Extend that page
-for the product's authenticated experience, and reuse `RequireAuth` when adding
-another protected route — do NOT hand-roll a redirect to `/auth`, since landing
-on a bare sign-in form with no explanation of what was blocked is confusing.
+### Environment variables
 
-`RequireAuth` states the block on the page the visitor asked for and sends them
-to `/auth?returnTo=<current route>` when they choose to sign in, so they come
-back to it. Pass `title` and `description` to say what the page is:
+| Variable | Where | Purpose |
+| --- | --- | --- |
+| `VITE_CONVEX_URL` | Vite env | Convex deployment URL (injected by the platform) |
+| `VLY_INTEGRATION_KEY` | Convex env | Server-side AI gateway key (never exposed to the client) |
+| `JWKS`, `JWT_PRIVATE_KEY`, `SITE_URL` | Convex env | Convex Auth configuration (already present) |
 
-```tsx
-<Route
-  path="/dashboard"
-  element={
-    <RequireAuth
-      title="Sign in to view your dashboard"
-      description="Your projects and settings live here."
-    >
-      <Dashboard />
-    </RequireAuth>
-  }
-/>
-```
+The AI gateway is optional at runtime. If `VLY_INTEGRATION_KEY` is missing or a model call fails,
+CiteVerify falls back to deterministic claim extraction and a conservative lexical comparison, adds a
+limitation to the report, and labels every affected verdict **rule-based**.
 
-Pass `redirectImmediately` for a route where bouncing straight to `/auth` really
-is better.
+---
 
-## Auth Page
+## How the analysis pipeline works
 
-The auth page is defined in `src/pages/Auth.tsx`. Send sign-in and sign-up actions
-to `/auth`.
+1. **Upload and local extraction.** The PDF is read in the browser with pdf.js. The file is stored in
+   IndexedDB for the viewer and is never uploaded to file storage.
+2. **Document metadata.** The title, authors and abstract are guessed from the first pages. Reference
+   pages are identified from a `References` / `Bibliography` / `Works Cited` heading.
+3. **Claim extraction.** An LLM selects 5–10 evidence-bearing claims (statistics, findings, outcome
+   and attribution claims). Every claim must be locatable verbatim in the PDF; otherwise it is
+   discarded. The rule-based fallback scores sentences by citation markers, statistics and finding
+   language.
+4. **Citation extraction and mapping.** Numeric (`[1]`, `[1–3]`) and author–year markers are resolved
+   against the parsed bibliography. Multi-citation parentheses are split. When no marker appears in the
+   claim, a marker in the same paragraph may be used at low mapping confidence — and is labelled
+   “inferred from paragraph”. Unresolvable markers stay unresolved.
+5. **Reference verification.** Each bibliography entry is checked by DOI (Crossref, then DataCite),
+   bibliographic search (Crossref) and title search (OpenAlex), with arXiv as a fallback. Matching uses
+   title similarity plus DOI, first-author surname, year and venue corroboration.
+6. **Evidence retrieval.** Abstracts are taken from the matched record (OpenAlex inverted index,
+   Crossref, DataCite or Semantic Scholar). Only abstracts and metadata are used — full text is never
+   assumed.
+7. **Claim–evidence comparison.** The model compares each claim with the retrieved abstract and returns
+   a verdict plus a verbatim quote. Quotes are checked against the retrieved text; non-matching quotes
+   are shortened to a real span or removed. A `SUPPORTED` verdict without a verifiable quote is
+   downgraded. Rule-based fallback can only produce `PARTIALLY_SUPPORTED`, `INSUFFICIENT_EVIDENCE` or
+   `UNVERIFIED`.
+8. **Report.** Stats, claims, references, excerpts, source links, review flags and limitations are
+   assembled in the workspace and exportable as a PDF. Extracted page text is purged from the server
+   immediately after the run.
 
-## Authorization
+### Verdicts
 
-You can perform authorization checks on the frontend and backend.
+| Verdict | Meaning |
+| --- | --- |
+| `SUPPORTED` | Evidence states the same finding at comparable scope/magnitude |
+| `PARTIALLY_SUPPORTED` | Evidence supports part of the claim, or a weaker/narrower version |
+| `CONTRADICTED` | Evidence states a materially conflicting result |
+| `INSUFFICIENT_EVIDENCE` | Evidence was retrieved but does not answer the claim |
+| `UNVERIFIED` | No reliable source or evidence could be retrieved |
 
-On the frontend, you can use the `useAuth` hook to get the current user's data and authentication state.
+### Reference statuses
 
-You should also be protecting queries, mutations, and actions at the base level, checking for authorization securely.
+| Status | Meaning |
+| --- | --- |
+| `VERIFIED` | DOI resolved, or title + corroborating metadata match |
+| `POSSIBLE_MATCH` | Close record, but at least one detail does not fully align |
+| `MISMATCH` | Same title/authors with conflicting year or DOI, or a DOI pointing elsewhere |
+| `UNVERIFIED` | No record above the match threshold was found |
+| `RETRIEVAL_FAILED` | Scholarly APIs were unreachable or rate-limited |
 
-## Adding a redirect after auth
+**A missing DOI or an unlocated record is never treated as proof of fabrication.** Evidence is only
+used from `VERIFIED` or `POSSIBLE_MATCH` records; a sub-threshold “closest record” is shown only as a
+candidate for inspection.
 
-The `/auth` route in `src/main.tsx` redirects to `/dashboard` by default. If the
-product's main authenticated route is different, update `redirectAfterAuth` to
-that route. A validated same-origin `returnTo` query parameter takes priority so
-users can resume the protected page they originally requested. Never leave an
-authenticated product redirecting back to the public landing page.
+---
 
-## Complete authenticated products
+## Privacy, as implemented
 
-When the requested product implies accounts, a workspace, a dashboard, or other
-signed-in functionality, the task is not complete with only a landing page and
-auth form. Build the main authenticated experience, protect its route, and verify
-that signing in reaches it.
+- The uploaded PDF is parsed locally and kept in the browser (IndexedDB). There is no server-side file
+  storage and no public file URL, so the viewer only works in the browser where the analysis started.
+- The server receives extracted page text (max 80 pages / 400,000 characters) plus file name, size and
+  page count. Extracted text is deleted from the database as soon as the pipeline finishes.
+- Derived records (claims, references, verdicts, excerpts) stay attached to the session until the user
+  deletes the session. “Delete session” also removes the local PDF.
+- When AI is configured, up to ~18,000 characters of extracted text are sent for claim selection, and
+  claim text plus retrieved abstracts are sent for comparison. The PDF itself is not sent.
+- Bibliographic queries (title/author/year or DOI) go to Crossref, OpenAlex, DataCite, arXiv and
+  Semantic Scholar. They do not receive the manuscript.
+- Every query checks ownership of the analysis; there are no public share links.
 
-# Frontend Conventions
+Scanned PDFs without a selectable text layer are rejected with an explanation. **OCR is not included**
+in this deployment.
 
-You will be using the Vite frontend with React 19, Tailwind v4, and Shadcn UI.
+---
 
-Generally, pages should be in the `src/pages` folder, and components should be in the `src/components` folder.
-
-Shadcn primitives are located in the `src/components/ui` folder and should be used by default.
-
-## Page routing
-
-Your page component should go under the `src/pages` folder.
-
-When adding a page, update the react router configuration in `src/main.tsx` to include the new route you just added.
-
-## Shad CN conventions
-
-Follow these conventions when using Shad CN components, which you should use by default.
-- Remember to use "cursor-pointer" to make the element clickable
-- For title text, use the "tracking-tight font-bold" class to make the text more readable
-- Always make apps MOBILE RESPONSIVE. This is important
-- AVOID NESTED CARDS. Try and not to nest cards, borders, components, etc. Nested cards add clutter and make the app look messy.
-- AVOID SHADOWS. Avoid adding any shadows to components. stick with a thin border without the shadow.
-- Avoid skeletons; instead, use the loader2 component to show a spinning loading state when loading data.
-
-
-## Landing Pages
-
-You must always create good-looking designer-level styles to your application. 
-- Make it well animated and fit a certain "theme", ie neo brutalist, retro, neumorphism, glass morphism, etc
-
-Use known images and emojis from online.
-
-If the user is logged in already, show the get started button to say "Dashboard" or "Profile" instead to take them there.
-
-## Responsiveness and formatting
-
-Make sure pages are wrapped in a container to prevent the width stretching out on wide screens. Always make sure they are centered aligned and not off-center.
-
-Always make sure that your designs are mobile responsive. Verify the formatting to ensure it has correct max and min widths as well as mobile responsiveness.
-
-- Always create sidebars for protected dashboard pages and navigate between pages
-- Always create navbars for landing pages
-- On these bars, the created logo should be clickable and redirect to the index page
-
-## Animating with Framer Motion
-
-You must add animations to components using Framer Motion. It is already installed and configured in the project.
-
-To use it, import the `motion` component from `framer-motion` and use it to wrap the component you want to animate.
-
-
-### Other Items to animate
-- Fade in and Fade Out
-- Slide in and Slide Out animations
-- Rendering animations
-- Button clicks and UI elements
-
-Animate for all components, including on landing page and app pages.
-
-## Three JS Graphics
-
-Your app comes with three js by default. You can use it to create 3D graphics for landing pages, games, etc.
-
-
-## Colors
-
-You can override colors in: `src/index.css`
-
-This uses the oklch color format for tailwind v4.
-
-Always use these color variable names.
-
-Make sure all ui components are set up to be mobile responsive and compatible with both light and dark mode.
-
-Set theme using `dark` or `light` variables at the parent className.
-
-## Styling and Theming
-
-When changing the theme, always change the underlying theme of the shad cn components app-wide under `src/components/ui` and the colors in the index.css file.
-
-Avoid hardcoding in colors unless necessary for a use case, and properly implement themes through the underlying shad cn ui components.
-
-When styling, ensure buttons and clickable items have pointer-click on them (don't by default).
-
-Always follow a set theme style and ensure it is tuned to the user's liking.
-
-## Toasts
-
-You should always use toasts to display results to the user, such as confirmations, results, errors, etc.
-
-Use the shad cn Sonner component as the toaster. For example:
+## Project structure
 
 ```
-import { toast } from "sonner"
-
-import { Button } from "@/components/ui/button"
-export function SonnerDemo() {
-  return (
-    <Button
-      variant="outline"
-      onClick={() =>
-        toast("Event has been created", {
-          description: "Sunday, December 03, 2023 at 9:00 AM",
-          action: {
-            label: "Undo",
-            onClick: () => console.log("Undo"),
-          },
-        })
-      }
-    >
-      Show Toast
-    </Button>
-  )
-}
+src/
+  convex/
+    schema.ts              # analyses, documents, references, claims, contact messages
+    analyses.ts            # queries, session lifecycle, internal pipeline writes
+    runAnalysis.ts         # "use node" action: orchestration + AI + scholarly APIs
+    contact.ts             # public contact form
+    lib/
+      text.ts              # deterministic parsing: metadata, references, markers, claims
+      academic.ts          # Crossref / OpenAlex / DataCite / arXiv retrieval + matching
+      ai.ts                # server-side AI calls, JSON parsing, prompt contracts
+  pages/
+    Landing.tsx            # marketing site
+    Analyze.tsx            # upload + real-time processing stages
+    AnalysisWorkspace.tsx  # split-screen viewer, overview, claims, references
+    Dashboard.tsx           # session library
+    Info.tsx               # privacy, about, terms, contact
+    Auth.tsx               # email OTP + guest sessions
+  components/app/          # viewer, claim list/detail, reference explorer, overview, badges
+  lib/
+    pdf.ts                 # extraction, highlight geometry
+    pdf-store.ts           # local PDF storage (IndexedDB)
+    report.ts              # PDF report generation
+    analysis-ui.ts         # shared verdict/status metadata
+    demo-paper.ts          # synthetic demo manuscript
 ```
 
-Remember to import { toast } from "sonner". Usage: `toast("Event has been created.")`
+---
 
-## Dialogs
+## Testing notes
 
-Always ensure your larger dialogs have a scroll in its content to ensure that its content fits the screen size. Make sure that the content is not cut off from the screen.
+- `bunx convex dev --once && bunx tsc -b --noEmit` must pass (the platform also runs this).
+- The pipeline was run end to end on the generated demo manuscript against the live scholarly APIs:
+  - Crossref/DataCite DOI resolution verified the real Singhal, Lewis, Ji and Vaswani references and
+    retrieved abstracts.
+  - The deliberately untraceable “Miller (2021)” reference was reported as not located, and its claim
+    as unverified rather than judged against an unrelated paper.
+  - The invented “18.4% accuracy” claim was marked insufficient evidence because the abstract does not
+    contain that figure.
+  - The 67.6% MedQA claim was marked supported with a verbatim abstract quote.
+  - Extracted page text was absent from the database after the run, confirming the cleanup step.
+- Not verified in an automated browser: canvas highlight alignment, the report download trigger, and
+  visual responsive behaviour. These rely on standard pdf.js/jsPDF APIs but should be spot-checked in
+  the preview.
 
-Ideally, instead of using a new page, use a Dialog instead. 
+## Limitations
 
-# Using the Convex backend
-
-You will be implementing the convex backend. Follow your knowledge of convex and the documentation to implement the backend.
-
-## The Convex Schema
-
-You must correctly follow the convex schema implementation.
-
-The schema is defined in `src/convex/schema.ts`.
-
-Do not include the `_id` and `_creationTime` fields in your queries (it is included by default for each table).
-Do not index `_creationTime` as it is indexed for you. Never have duplicate indexes.
-
-
-## Convex Actions: Using CRUD operations
-
-When running anything that involves external connections, you must use a convex action with "use node" at the top of the file.
-
-You cannot have queries or mutations in the same file as a "use node" action file. Thus, you must use pre-built queries and mutations in other files.
-
-You can also use the pre-installed internal crud functions for the database:
-
-```ts
-// in convex/users.ts
-import { crud } from "convex-helpers/server/crud";
-import schema from "./schema.ts";
-
-export const { create, read, update, destroy } = crud(schema, "users");
-
-// in some file, in an action:
-const user = await ctx.runQuery(internal.users.read, { id: userId });
-
-await ctx.runMutation(internal.users.update, {
-  id: userId,
-  patch: {
-    status: "inactive",
-  },
-});
-```
-
-
-## Common Convex Mistakes To Avoid
-
-When using convex, make sure:
-- Document IDs are referenced as `_id` field, not `id`.
-- Document ID types are referenced as `Id<"TableName">`, not `string`.
-- Document object types are referenced as `Doc<"TableName">`.
-- Keep schemaValidation to false in the schema file.
-- You must correctly type your code so that it passes the type checker.
-- You must handle null / undefined cases of your convex queries for both frontend and backend, or else it will throw an error that your data could be null or undefined.
-- Always use the `@/folder` path, with `@/convex/folder/file.ts` syntax for importing convex files.
-- This includes importing generated files like `@/convex/_generated/server`, `@/convex/_generated/api`
-- Remember to import functions like useQuery, useMutation, useAction, etc. from `convex/react`
-- NEVER have return type validators.
+- Only extractable text is analysed; figures, image-only tables and footnotes rendered as images are not.
+- Evidence is abstract/metadata only. A claim can be marked insufficient simply because the abstract
+  omits it.
+- Scholarly APIs rate-limit shared infrastructure. Lookup failures are surfaced as
+  `RETRIEVAL_FAILED`, never guessed.
+- Only the first 10 parsed references and the first 10 claims are processed per run.
+- Automated output is assistive. It is not a finding of misconduct and must be reviewed by a human.
