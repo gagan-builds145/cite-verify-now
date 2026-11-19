@@ -1,4 +1,5 @@
 import { AppShell } from "@/components/app/AppShell";
+import { IntelligentSearch } from "@/components/IntelligentSearch";
 import { VerdictBadge } from "@/components/app/Badges";
 import { EmptyStateIllustration } from "@/components/illustrations/Editorial";
 import {
@@ -217,6 +218,29 @@ export default function Dashboard() {
             </Link>
           </div>
         )}
+
+        <section
+          aria-labelledby="dashboard-search-title"
+          className="mt-6 rounded-2xl border border-border bg-card px-4 py-4 shadow-[0_12px_35px_-28px_rgba(20,35,61,0.45)] sm:px-5 sm:py-5"
+        >
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <p className="eyebrow">Start a verification</p>
+              <h2
+                id="dashboard-search-title"
+                className="mt-1.5 font-display text-[23px] leading-tight tracking-tight"
+              >
+                Search the literature or verify a paper
+              </h2>
+            </div>
+            <p className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+              One PDF per run
+            </p>
+          </div>
+          <div className="mt-3.5">
+            <IntelligentSearch idPrefix="dashboard" className="max-w-[920px]" />
+          </div>
+        </section>
 
         <div className="mt-6 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
           {[

@@ -99,7 +99,13 @@ function stageBadgeClass(stage: AttachmentStage): string {
   return "bg-secondary text-muted-foreground";
 }
 
-export function IntelligentSearch({ className = "" }: { className?: string }) {
+export function IntelligentSearch({
+  className = "max-w-[650px]",
+  idPrefix = "hero",
+}: {
+  className?: string;
+  idPrefix?: string;
+}) {
   const navigate = useNavigate();
   const { isAuthenticated, signIn } = useAuth();
   const createAnalysis = useMutation(api.analyses.create);
@@ -293,7 +299,7 @@ export function IntelligentSearch({ className = "" }: { className?: string }) {
       : "Search";
 
   return (
-    <div className={`w-full max-w-[650px] ${className}`}>
+    <div className={`w-full ${className}`}>
       <div
         className="flex flex-wrap items-center gap-1 rounded-xl border border-border/80 bg-card/75 p-1 shadow-[0_1px_0_rgba(20,35,61,0.03)] backdrop-blur"
         role="group"
@@ -483,11 +489,11 @@ export function IntelligentSearch({ className = "" }: { className?: string }) {
           <Plus className="size-5" strokeWidth={2.25} />
         </button>
         <div className="min-w-0 flex-1">
-          <label htmlFor="hero-research-search" className="sr-only">
+          <label htmlFor={`${idPrefix}-research-search`} className="sr-only">
             {activeMode.label}
           </label>
           <input
-            id="hero-research-search"
+            id={`${idPrefix}-research-search`}
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
