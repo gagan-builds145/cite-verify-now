@@ -337,6 +337,11 @@ export const run = action({
         }
       }
 
+      if (aiClaimResult.ok) {
+        limitations.push(
+          "AI claim selection reads a bounded excerpt (about 26,000 characters) of the manuscript. Pages outside that window are not scanned for claims; rule-based extraction, when used, scans all extracted pages.",
+        );
+      }
       await setStage("claims_extracted", "complete", `${drafts.length} claims selected from ${pages.length} pages`);
 
       if (drafts.length === 0) {
@@ -575,9 +580,9 @@ export const run = action({
           refRows.size - abstractCount - fullTextCount,
         )} metadata-only`,
       );
-      if (refRows.size > 0 && abstractCount === 0) {
+      if (refRows.size > 0 && abstractCount === 0 && fullTextCount === 0) {
         limitations.push(
-          "No abstracts were available from the open scholarly APIs for the checked references; evidence comparison therefore relied on titles and metadata only.",
+          "No abstracts or full text were available from the open scholarly APIs for the checked references; evidence comparison therefore relied on titles and metadata only.",
         );
       }
       limitations.push(
@@ -664,8 +669,12 @@ export const run = action({
             ? selectRelevantPassage(draft.text, primary.evidenceText)
             : primary.evidenceText;
         aiItems.push({ draft, ref: primary, passage });
+        const ruleJudgement = ruleBasedJudgement(draft.text, passage);
         verdicts.set(draft.claimId, {
-          ...ruleBasedJudgement(draft.text, passage),
+          ...ruleJudgement,
+          explanation: primary.isRetracted
+            ? `${ruleJudgement.explanation} The cited source is flagged as retracted; treat this comparison with additional caution.`
+            : ruleJudgement.explanation,
           engine: "rules",
           level: primary.retrievalLevel,
           reviewNeeded: true,
@@ -714,11 +723,16 @@ export const run = action({
             }
             verdicts.set(judgement.claimId, {
               verdict,
-              explanation,
+              explanation: target.ref.isRetracted
+                ? `${explanation} The cited source is flagged as retracted; this verdict requires additional review.`
+                : explanation,
               evidenceQuote: validQuote,
               engine: "ai",
               level,
-              reviewNeeded: verdict !== "SUPPORTED" || target.ref.status !== "VERIFIED",
+              reviewNeeded:
+                verdict !== "SUPPORTED" ||
+                target.ref.status !== "VERIFIED" ||
+                Boolean(target.ref.isRetracted),
             });
             aiVerdictCount += 1;
           }

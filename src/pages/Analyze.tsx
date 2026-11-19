@@ -545,17 +545,19 @@ export default function Analyze() {
                 <p className="text-[12.5px] font-semibold tracking-tight">What the model sees</p>
                 <p className="mt-1.5 text-[11.5px] leading-5 text-muted-foreground">
                   When AI assistance is configured, an excerpt of the extracted text is sent for claim
-                  selection, and claims plus retrieved abstracts are sent for comparison. The PDF itself
-                  is not sent. If AI is unavailable, the report says a rule-based check was used.
+                  selection, and claims plus retrieved abstracts or open-access passages are sent for
+                  comparison. The PDF itself is not sent. If AI is unavailable, the report says a
+                  rule-based check was used.
                 </p>
               </div>
 
               <div className="rounded-xl border border-border bg-card p-4">
                 <p className="text-[12.5px] font-semibold tracking-tight">Search coverage</p>
                 <p className="mt-1.5 text-[11.5px] leading-5 text-muted-foreground">
-                  References are checked against Crossref and OpenAlex. Abstracts may come from
-                  Semantic Scholar. Absence from these indexes is reported as “not located”, never as
-                  proof of fabrication.
+                  References are checked against Crossref, OpenAlex and DataCite, with arXiv and
+                  Semantic Scholar enrichment. Open-access full text comes from Europe PMC when
+                  available; otherwise abstracts or metadata are used. Absence from these indexes is
+                  reported as “not located”, never as proof of fabrication.
                 </p>
               </div>
 

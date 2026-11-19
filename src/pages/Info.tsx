@@ -119,6 +119,10 @@ function PrivacyContent() {
             matched publication metadata, retrieved abstracts, verdicts and rationales.
           </li>
           <li>A session identity from the authentication system (an anonymous session is created automatically).</li>
+          <li>
+            Research-library records you choose to save (paper metadata, tags, personal notes,
+            collections), human review decisions, and assistant messages for an analysis.
+          </li>
         </ul>
         <p>
           Extracted page text is stored only while the analysis runs and is deleted immediately
@@ -128,16 +132,26 @@ function PrivacyContent() {
 
       <Section title="Third-party services that receive content">
         <p>
-          <span className="font-medium text-foreground">Scholarly metadata APIs.</span> Crossref and
-          OpenAlex receive bibliographic queries built from reference titles, authors and years. They
-          do not receive your manuscript.
+          <span className="font-medium text-foreground">Scholarly metadata APIs.</span> Crossref,
+          OpenAlex, DataCite, arXiv and Semantic Scholar receive bibliographic queries built from
+          reference titles, authors, years and DOIs. Europe PMC receives a DOI or PMCID to fetch
+          eligible open-access full text. None of these services receives your manuscript.
+        </p>
+        <p>
+          <span className="font-medium text-foreground">Research Explorer and graph.</span> Search
+          terms and DOIs you enter are sent to Crossref and OpenAlex. Queries are not stored as a
+          history; only papers you explicitly save are stored in your library. The citation graph
+          sends the DOI you select to OpenAlex.
         </p>
         <p>
           <span className="font-medium text-foreground">AI model provider.</span> When AI assistance is
-          configured, up to roughly 18,000 characters of extracted page text are sent for claim
-          selection, and extracted claim text plus retrieved abstracts are sent for evidence
-          comparison. The full PDF is never sent. If AI is not configured, the application falls back
-          to transparent rule-based extraction and lexical comparison, and it says so in the report.
+          configured, up to roughly 26,000 characters of extracted page text are sent for claim
+          selection. Extracted claim text plus retrieved abstracts or selected full-text passages (up
+          to roughly 6,000 characters per item) are sent for evidence comparison. The assistant sends
+          the stored claims, verdicts and evidence excerpts for the analysis you ask about, and paper
+          summaries send only the abstract. The full PDF is never sent. If AI is not configured, the
+          application falls back to transparent rule-based extraction and lexical comparison, and it
+          says so in the report.
         </p>
         <p>
           Both call paths run server-side. The AI gateway key and any provider credentials are stored
@@ -164,7 +178,13 @@ function PrivacyContent() {
       <Section title="Real limitations">
         <p>
           Scanned documents without a selectable text layer are rejected with an explanation rather
-          than silently failing. OCR is not included in this deployment.
+          than silently failing. OCR is not included in this deployment, so scanned PDFs cannot be
+          audited here.
+        </p>
+        <p>
+          Full text is retrieved only from Europe PMC&apos;s open-access subset. Other sources are
+          assessed from abstracts or metadata, and every claim states its evidence level. No publisher
+          paywall is bypassed.
         </p>
         <p>
           Deleting a session removes the associated claims, references and locally stored PDF from this
@@ -208,9 +228,10 @@ function AboutContent() {
           located, the reference is labelled “not located” — not “fake”.
         </p>
         <p>
-          Evidence comparison uses the abstract or metadata that open scholarly APIs return. If only
-          metadata exists, the claim is not marked supported. If AI reasoning is unavailable, verdicts
-          come from a conservative lexical check and are flagged for manual review.
+          Evidence comparison uses open-access full text from Europe PMC when it is available, and
+          otherwise the abstract or metadata that open scholarly APIs return. If only metadata exists,
+          the claim is not marked supported. If AI reasoning is unavailable, verdicts come from a
+          conservative lexical check and are flagged for manual review.
         </p>
       </Section>
       <Section title="What it refuses to do">
@@ -225,7 +246,8 @@ function AboutContent() {
         <p>
           React, TypeScript and Tailwind on the frontend; Convex for the reactive backend and session
           storage; pdf.js for local extraction and rendering; jsPDF for the downloadable report;
-          Crossref, OpenAlex and Semantic Scholar for scholarly metadata.
+          Crossref, OpenAlex, DataCite, arXiv and Semantic Scholar for scholarly metadata, and Europe
+          PMC for eligible open-access full text.
         </p>
       </Section>
     </div>

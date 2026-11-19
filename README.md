@@ -2,12 +2,15 @@
 
 **Don't just trust the citation. Verify the evidence.**
 
-CiteVerify is an academic citation verification workspace. Upload a text-based PDF and it traces every
-evidence-bearing claim through its citation marker, its bibliography entry, the matched scholarly
-record and the retrieved evidence — then states whether that evidence supports the claim, with the
-passage it relied on.
+CiteVerify is an academic research and citation-verification workspace. It combines discovery, a
+saved research library, citation graphs and an evidence-grounded assistant around one core workflow:
 
-The chain is always visible:
+```
+DISCOVER → UPLOAD → EXTRACT CLAIMS → MAP CITATIONS → MATCH REFERENCES
+→ RETRIEVE EVIDENCE → VERIFY → HUMAN REVIEW → REPORT
+```
+
+The traceability chain is always visible:
 
 ```
 CLAIM → CITATION → BIBLIOGRAPHY ENTRY → SCHOLARLY RECORD → RETRIEVED EVIDENCE → VERDICT
@@ -21,13 +24,14 @@ retrieved, the result says so.
 ## Stack
 
 - **Frontend:** React 19, TypeScript, Vite, Tailwind CSS v4, shadcn/ui, Framer Motion, Recharts
-- **PDF:** `pdfjs-dist` for local text extraction and canvas rendering; `jsPDF` for downloadable reports
+- **PDF:** `pdfjs-dist` for local text extraction and canvas rendering; `jsPDF` for reports
 - **Backend / database:** Convex (queries, mutations, Node actions, auth)
 - **Auth:** Convex Auth (email OTP and anonymous sessions)
-- **Scholarly metadata:** Crossref, OpenAlex, DataCite, arXiv (Semantic Scholar for abstract enrichment)
-- **AI reasoning:** OpenAI-compatible model through the platform's server-side integration gateway
+- **Scholarly metadata:** Crossref, OpenAlex, DataCite, arXiv, Semantic Scholar
+- **Open-access full text:** Europe PMC REST API (`fullTextXML`, open-access subset only)
+- **AI reasoning:** OpenAI-compatible model through the platform's server-side gateway
 
-Nothing secret is shipped to the browser. All AI and scholarly API calls happen in Convex Node actions.
+All AI and scholarly API calls run in Convex Node actions. No secret reaches the browser bundle.
 
 ---
 
@@ -39,51 +43,96 @@ bun convex dev          # configure/refresh the Convex deployment and generate t
 bun run dev             # start the Vite dev server
 ```
 
-The project is normally run in the managed Freebuff environment, where the Vite dev server and
-`convex dev` already run. Do not start or restart those processes from a terminal there.
+The project normally runs in the managed Freebuff environment, where Vite and `convex dev` already
+run. Do not start or restart those managed processes from a terminal there. Use:
+
+```bash
+bunx convex dev --once
+bunx tsc -b --noEmit
+```
 
 ### Environment variables
 
 | Variable | Where | Purpose |
 | --- | --- | --- |
 | `VITE_CONVEX_URL` | Vite env | Convex deployment URL (injected by the platform) |
-| `VLY_INTEGRATION_KEY` | Convex env | Server-side AI gateway key (never exposed to the client) |
-| `JWKS`, `JWT_PRIVATE_KEY`, `SITE_URL` | Convex env | Convex Auth configuration (already present) |
+| `VLY_INTEGRATION_KEY` | Convex env | Server-side AI gateway key |
+| `JWKS`, `JWT_PRIVATE_KEY`, `SITE_URL` | Convex env | Convex Auth configuration |
+| `MAX_CLAIMS` | Convex env (optional) | Claim-processing limit, default 24, max 80 |
+| `MAX_REFERENCES` | Convex env (optional) | Reference-processing limit, default 24, max 80 |
+| `FULLTEXT_RETRIEVAL` | Convex env (optional) | Set to `off` to disable Europe PMC full text |
+| `OPENALEX_LOOKUP` | Convex env (optional) | Set to `off` to disable OpenAlex |
+| `OPENALEX_MAILTO` | Convex env (optional) | Polite-pool email for OpenAlex requests |
 
-The AI gateway is optional at runtime. If `VLY_INTEGRATION_KEY` is missing or a model call fails,
-CiteVerify falls back to deterministic claim extraction and a conservative lexical comparison, adds a
-limitation to the report, and labels every affected verdict **rule-based**.
+AI is optional at runtime. If `VLY_INTEGRATION_KEY` is missing or a model call fails, CiteVerify uses
+deterministic claim extraction and a conservative lexical comparison, records the limitation, and
+labels affected verdicts **rule-based**. The AI assistant falls back to a retrieval-only answer built
+from stored claims.
+
+---
+
+## What is implemented
+
+### Core verification
+- Local PDF extraction, private session handling, IndexedDB PDF storage, claim highlighting.
+- Claim extraction with verbatim location checks; configurable claim/reference limits.
+- Numeric and author-year citation parsing, multi-citation resolution, paragraph-inferred mapping at
+  reduced confidence, unresolved-citation reporting.
+- Bibliography parsing, duplicate-reference detection, section detection for each claim.
+- Reference verification across Crossref / OpenAlex / DataCite / arXiv, with Semantic Scholar abstract
+  enrichment. Five statuses: `VERIFIED`, `POSSIBLE_MATCH`, `MISMATCH`, `UNVERIFIED`,
+  `RETRIEVAL_FAILED`.
+- Open-access full-text retrieval from Europe PMC, with claim-specific passage selection; abstracts and
+  metadata remain explicit fallbacks.
+- Retraction flags from OpenAlex (`is_retracted`) with the source record and a warning that a
+  retraction does not automatically falsify citing claims.
+- Five verdicts with grounded explanations, verbatim quote validation, evidence level and review flags.
+- Split-screen PDF viewer, claim explorer, reference explorer and candidate inspection.
+- Human review: approve, reject or override a verdict with a note, reviewer identity and timestamp. The
+  original AI verdict and full review history are preserved.
+- PDF, CSV (claims and references) and JSON reports; portfolio CSV. Reports include evidence levels,
+  review status, retraction warnings, skipped-reference counts and limitations.
+
+### Research productivity
+- **Research Explorer:** live Crossref/OpenAlex search by keywords, title, author or DOI; year filters,
+  sort by relevance/date, open-access filter, pagination, AI abstract summary, save, and graph links.
+- **My Library:** saved papers, collections, tags, personal notes, search, and citations in APA, MLA,
+  IEEE, Chicago, BibTeX and RIS, plus whole-library BibTeX/RIS export.
+- **Research Graph:** real OpenAlex citation graph with centre/paper, references, citing works and
+  related works; edge types are distinguished and semantic relatedness is explicitly not support.
+- **AI Research Assistant:** per-analysis chat grounded only in stored claims/evidence; claim-id
+  citations are validated before a reply is stored; retrieval-only fallback.
+- **Dashboard / Reports:** portfolio stats, verdict and reference-status charts, session history,
+  activity feed, notifications and real paper leads drawn from verified cited sources.
+- **Notifications & Settings:** report notifications, mark-read controls, profile name, theme, and a
+  full account-data deletion action that also clears local PDFs.
 
 ---
 
 ## How the analysis pipeline works
 
-1. **Upload and local extraction.** The PDF is read in the browser with pdf.js. The file is stored in
-   IndexedDB for the viewer and is never uploaded to file storage.
-2. **Document metadata.** The title, authors and abstract are guessed from the first pages. Reference
-   pages are identified from a `References` / `Bibliography` / `Works Cited` heading.
-3. **Claim extraction.** An LLM selects 5–10 evidence-bearing claims (statistics, findings, outcome
-   and attribution claims). Every claim must be locatable verbatim in the PDF; otherwise it is
-   discarded. The rule-based fallback scores sentences by citation markers, statistics and finding
+1. **Upload and local extraction.** The PDF is read with pdf.js. The file stays in IndexedDB and is
+   never uploaded to file storage.
+2. **Metadata and bibliography.** Title, authors and abstract are inferred; the bibliography is found
+   from a References/Bibliography/Works Cited heading. Entries are parsed and duplicates marked.
+3. **Claim extraction.** The model selects up to the configured limit of evidence-bearing claims. Every
+   claim must be locatable in the extracted text; otherwise it is discarded. Sections are detected
+   heuristically. The rule-based fallback scores sentences by citation markers, statistics and finding
    language.
-4. **Citation extraction and mapping.** Numeric (`[1]`, `[1–3]`) and author–year markers are resolved
-   against the parsed bibliography. Multi-citation parentheses are split. When no marker appears in the
-   claim, a marker in the same paragraph may be used at low mapping confidence — and is labelled
-   “inferred from paragraph”. Unresolvable markers stay unresolved.
-5. **Reference verification.** Each bibliography entry is checked by DOI (Crossref, then DataCite),
-   bibliographic search (Crossref) and title search (OpenAlex), with arXiv as a fallback. Matching uses
-   title similarity plus DOI, first-author surname, year and venue corroboration.
-6. **Evidence retrieval.** Abstracts are taken from the matched record (OpenAlex inverted index,
-   Crossref, DataCite or Semantic Scholar). Only abstracts and metadata are used — full text is never
-   assumed.
-7. **Claim–evidence comparison.** The model compares each claim with the retrieved abstract and returns
-   a verdict plus a verbatim quote. Quotes are checked against the retrieved text; non-matching quotes
-   are shortened to a real span or removed. A `SUPPORTED` verdict without a verifiable quote is
-   downgraded. Rule-based fallback can only produce `PARTIALLY_SUPPORTED`, `INSUFFICIENT_EVIDENCE` or
-   `UNVERIFIED`.
-8. **Report.** Stats, claims, references, excerpts, source links, review flags and limitations are
-   assembled in the workspace and exportable as a PDF. Extracted page text is purged from the server
-   immediately after the run.
+4. **Citation mapping.** Numeric (`[1]`, `[1–3]`) and author-year markers are resolved against the
+   bibliography. Multi-citations are split. Context-only inferences are labelled and down-weighted.
+5. **Reference verification.** Each entry is checked by DOI (Crossref → DataCite), bibliographic search
+   (Crossref) and title search (OpenAlex), with arXiv when indexes do not produce a credible match.
+   The run stops retrying an API after it is rate-limited, so one outage does not exhaust the action.
+6. **Evidence retrieval.** For usable records, Europe PMC is asked for eligible open-access full text.
+   Relevant paragraphs are selected per claim. Otherwise the abstract is used; if only metadata is
+   available, the evidence level says so and verification is not presented as completed.
+7. **Comparison.** The model compares claim and retrieved passage, returning a verdict, explanation and
+   a verbatim quote. Quotes are checked against the passage; unmatched quotes are shortened to a real
+   span or removed. A `SUPPORTED` verdict without a verifiable quote is downgraded. Rule-based fallback
+   can only produce `PARTIALLY_SUPPORTED`, `INSUFFICIENT_EVIDENCE` or `UNVERIFIED`.
+8. **Report.** Claims, references, reviews, retractions and limitations are assembled; text is purged
+   from the server immediately after the run.
 
 ### Verdicts
 
@@ -105,28 +154,30 @@ limitation to the report, and labels every affected verdict **rule-based**.
 | `UNVERIFIED` | No record above the match threshold was found |
 | `RETRIEVAL_FAILED` | Scholarly APIs were unreachable or rate-limited |
 
-**A missing DOI or an unlocated record is never treated as proof of fabrication.** Evidence is only
-used from `VERIFIED` or `POSSIBLE_MATCH` records; a sub-threshold “closest record” is shown only as a
-candidate for inspection.
+A missing DOI or an unlocated record is **never** treated as proof of fabrication. Evidence is used
+only from `VERIFIED` or `POSSIBLE_MATCH` records. A sub-threshold record is shown only as a candidate.
 
 ---
 
 ## Privacy, as implemented
 
-- The uploaded PDF is parsed locally and kept in the browser (IndexedDB). There is no server-side file
-  storage and no public file URL, so the viewer only works in the browser where the analysis started.
-- The server receives extracted page text (max 80 pages / 400,000 characters) plus file name, size and
-  page count. Extracted text is deleted from the database as soon as the pipeline finishes.
-- Derived records (claims, references, verdicts, excerpts) stay attached to the session until the user
-  deletes the session. “Delete session” also removes the local PDF.
-- When AI is configured, up to ~18,000 characters of extracted text are sent for claim selection, and
-  claim text plus retrieved abstracts are sent for comparison. The PDF itself is not sent.
-- Bibliographic queries (title/author/year or DOI) go to Crossref, OpenAlex, DataCite, arXiv and
-  Semantic Scholar. They do not receive the manuscript.
-- Every query checks ownership of the analysis; there are no public share links.
+- The PDF is parsed locally and kept in IndexedDB. There is no server-side file, object store, CDN or
+  public URL. The viewer works only in the browser where the analysis started.
+- The server receives extracted text (max 80 pages / 400,000 characters) plus file name, size and page
+  count. Extracted text is deleted as soon as the pipeline finishes.
+- Derived records (claims, references, evidence excerpts, reviews, assistant messages) remain attached
+  to the session until deleted. “Delete session” also removes the local PDF; Settings can delete all
+  data and clear local PDFs.
+- AI receives up to ~26,000 characters of extracted text for claim selection and claim text plus
+  retrieved abstracts/passages (up to ~6,000 characters per item) for comparison. The PDF is not sent.
+- Bibliographic queries go to Crossref, OpenAlex, DataCite, arXiv, Semantic Scholar and Europe PMC
+  (DOI/PMCID for eligible full text). They do not receive the manuscript.
+- Explorer search terms/DOIs are sent to Crossref/OpenAlex; only saved papers are persisted. Graph
+  lookups send the selected DOI to OpenAlex.
+- Every user-owned query checks ownership. There are no public share links. Saved papers, notes,
+  reviews and chats are isolated to the authenticated session.
 
-Scanned PDFs without a selectable text layer are rejected with an explanation. **OCR is not included**
-in this deployment.
+Scanned PDFs without a selectable text layer are rejected with an explanation. **OCR is not included.**
 
 ---
 
@@ -135,27 +186,44 @@ in this deployment.
 ```
 src/
   convex/
-    schema.ts              # analyses, documents, references, claims, contact messages
-    analyses.ts            # queries, session lifecycle, internal pipeline writes
-    runAnalysis.ts         # "use node" action: orchestration + AI + scholarly APIs
-    contact.ts             # public contact form
+    schema.ts              # analyses, documents, references, claims, reviews, savedPapers,
+                           # collections, assistantMessages, notifications, activity, contact
+    analyses.ts            # queries, session lifecycle, review writes, internal pipeline writes
+    runAnalysis.ts         # "use node" orchestrator: claims, references, full text, AI, verdicts
+    assistant.ts           # "use node" grounded assistant action
+    assistantData.ts       # assistant message storage
+    explorer.ts            # "use node" discovery, AI summary and graph actions
+    library.ts             # saved papers + collections
+    workspace.ts           # notifications + activity
+    users.ts               # profile and full data deletion
     lib/
-      text.ts              # deterministic parsing: metadata, references, markers, claims
-      academic.ts          # Crossref / OpenAlex / DataCite / arXiv retrieval + matching
-      ai.ts                # server-side AI calls, JSON parsing, prompt contracts
+      text.ts              # metadata, references, markers, sections, duplicates, heuristic claims
+      academic.ts          # scholarly retrieval, matching, retraction flags, Europe PMC full text
+      search.ts            # Crossref/OpenAlex discovery
+      graph.ts             # OpenAlex citation network
+      ai.ts                # AI calls, prompts, quote/verdict types, summaries, assistant
   pages/
     Landing.tsx            # marketing site
-    Analyze.tsx            # upload + real-time processing stages
+    Analyze.tsx            # upload + processing stages
     AnalysisWorkspace.tsx  # split-screen viewer, overview, claims, references
-    Dashboard.tsx           # session library
+    Dashboard.tsx          # portfolio analytics, sessions, activity, notifications
+    Explorer.tsx           # academic search
+    Library.tsx            # saved papers, collections, notes, citations
+    ResearchGraph.tsx      # citation graph
+    Assistant.tsx          # grounded research assistant
+    Reports.tsx            # analytics + PDF/CSV/JSON exports
+    Notifications.tsx
+    Settings.tsx
     Info.tsx               # privacy, about, terms, contact
-    Auth.tsx               # email OTP + guest sessions
+    Auth.tsx
   components/app/          # viewer, claim list/detail, reference explorer, overview, badges
   lib/
-    pdf.ts                 # extraction, highlight geometry
-    pdf-store.ts           # local PDF storage (IndexedDB)
-    report.ts              # PDF report generation
-    analysis-ui.ts         # shared verdict/status metadata
+    pdf.ts                 # extraction, bounded highlight geometry
+    pdf-store.ts           # IndexedDB storage
+    report.ts              # PDF report builder
+    export.ts              # CSV/JSON builders
+    citation.ts            # APA/MLA/IEEE/Chicago/BibTeX/RIS
+    analysis-ui.ts         # shared verdict/status/review metadata
     demo-paper.ts          # synthetic demo manuscript
 ```
 
@@ -163,26 +231,45 @@ src/
 
 ## Testing notes
 
-- `bunx convex dev --once && bunx tsc -b --noEmit` must pass (the platform also runs this).
-- The pipeline was run end to end on the generated demo manuscript against the live scholarly APIs:
-  - Crossref/DataCite DOI resolution verified the real Singhal, Lewis, Ji and Vaswani references and
-    retrieved abstracts.
-  - The deliberately untraceable “Miller (2021)” reference was reported as not located, and its claim
-    as unverified rather than judged against an unrelated paper.
-  - The invented “18.4% accuracy” claim was marked insufficient evidence because the abstract does not
-    contain that figure.
-  - The 67.6% MedQA claim was marked supported with a verbatim abstract quote.
-  - Extracted page text was absent from the database after the run, confirming the cleanup step.
-- Not verified in an automated browser: canvas highlight alignment, the report download trigger, and
-  visual responsive behaviour. These rely on standard pdf.js/jsPDF APIs but should be spot-checked in
-  the preview.
+- `bunx convex dev --once && bunx tsc -b --noEmit` pass.
+- Live adapter checks performed outside Convex:
+  - Research search returned 20 real records for “retrieval augmented generation” (Crossref + OpenAlex).
+  - Citation graph for `10.1038/s41586-020-2649-2` returned a centre, 12 references, 10 citing works and
+    6 related works from OpenAlex.
+  - Europe PMC full text resolved `10.1371/journal.pmed.0020124` to `PMC1182327` and returned 27k
+    characters, producing evidence level `full_text`.
+  - OpenAlex marked the Wakefield 1998 Lancet paper as retracted, and the verification returned the
+    retraction note and record URL.
+  - Section detection returned `Results`; duplicate-reference detection linked the second DOI to the
+    first entry.
+  - PDF report generation with a human approval, full-text evidence and a retracted reference produced
+    a valid PDF.
+- Previous end-to-end demo run: 5 references, 4 claims; the 67.6% MedQA claim was supported with a
+  verbatim abstract quote, the invented 18.4% figure was insufficient evidence, the untraceable Miller
+  (2021) reference was unverified, and extracted text was absent from the database afterwards.
+- **Not visually verified in this environment:** canvas highlight alignment, responsive layouts, dialog
+  interactions and the browser download trigger. These should be spot-checked in the preview.
+- `bun run build` completes successfully.
+- `bun run lint` still exits non-zero on eight pre-existing template errors: five
+  `react-hooks/set-state-in-effect` findings in `PdfViewer.tsx`, one in the shadcn carousel, one in
+  `use-mobile.ts`, and one purity finding in the shadcn sidebar. No errors remain in the files added or
+  changed for this work.
 
 ## Limitations
 
-- Only extractable text is analysed; figures, image-only tables and footnotes rendered as images are not.
-- Evidence is abstract/metadata only. A claim can be marked insufficient simply because the abstract
-  omits it.
-- Scholarly APIs rate-limit shared infrastructure. Lookup failures are surfaced as
-  `RETRIEVAL_FAILED`, never guessed.
-- Only the first 10 parsed references and the first 10 claims are processed per run.
+- Only extractable text is analysed; figures, image-only tables and image footnotes are not. OCR is not
+  included.
+- Full text is limited to Europe PMC's open-access subset. Other sources are abstract- or metadata-only,
+  and every claim displays its evidence level.
+- Retraction checking uses OpenAlex `is_retracted`. Corrections, withdrawals and expressions of concern
+  are not separately classified yet.
+- Only one PDF is analysed per session; multi-document comparison is not implemented.
+- Claim limits and reference limits are configurable safety limits, not silent truncation: the report
+  records skipped references and states when the claim cap was reached.
+- Citation context is stored and shown, but supporting/contrasting/mentioning is represented by the
+  evidence verdict rather than a separate context label.
+- PDF annotations/highlights beyond claim locations, research alerts, topic clustering and collaborative
+  team workspaces are not implemented.
+- Confidence is not presented as a calibrated probability. Use evidence level, retrieval status and
+  human review instead.
 - Automated output is assistive. It is not a finding of misconduct and must be reviewed by a human.

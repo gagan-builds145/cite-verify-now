@@ -106,14 +106,6 @@ export function buildVerificationReport(
     y += options.gap ?? 6;
   };
 
-  const label = (text: string, color: [number, number, number], indent = 0) => {
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(8);
-    doc.setTextColor(...color);
-    doc.text(text.toUpperCase(), MARGIN + indent, y);
-    y += 12;
-  };
-
   /* Header */
   doc.setFont("times", "bold");
   doc.setFontSize(22);

@@ -273,13 +273,22 @@ type EuropePmcSearch = {
   };
 };
 
+function normalizePmcid(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  const digits = value
+    .replace(/^https?:\/\/www\.ncbi\.nlm\.nih\.gov\/pmc\/articles\//i, "")
+    .replace(/^PMC/i, "")
+    .trim();
+  return /^\d+$/.test(digits) ? `PMC${digits}` : undefined;
+}
+
 async function europePmcFullText(
   doi: string | undefined,
   pmcidHint?: string,
 ): Promise<{ text: string; url: string; source: string } | null> {
   if (process.env.FULLTEXT_RETRIEVAL === "off") return null;
   if (Date.now() < europePmcCooldownUntil) return null;
-  let pmcid = pmcidHint;
+  let pmcid = normalizePmcid(pmcidHint);
   if (!pmcid && doi) {
     const search = await getJson(
       `https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=${encodeURIComponent(
@@ -287,23 +296,31 @@ async function europePmcFullText(
       )}&format=json&resultType=lite&pageSize=1`,
     );
     if (!search.ok) {
+      if (process.env.DEBUG_FULLTEXT) console.log("[epmc] search failed");
       europePmcCooldownUntil = Date.now() + 120_000;
       return null;
     }
     const hit = (search.data as EuropePmcSearch)?.resultList?.result?.[0];
-    if (!hit?.pmcid) return null;
-    pmcid = hit.pmcid;
+    if (!hit?.pmcid) {
+      if (process.env.DEBUG_FULLTEXT) console.log("[epmc] no pmcid");
+      return null;
+    }
+    pmcid = normalizePmcid(hit.pmcid);
+    if (!pmcid) return null;
+    if (process.env.DEBUG_FULLTEXT) console.log("[epmc] pmcid", pmcid);
   }
   if (!pmcid) return null;
   const full = await getText(
     `https://www.ebi.ac.uk/europepmc/webservices/rest/${encodeURIComponent(pmcid)}/fullTextXML`,
   );
   if (!full.ok) {
+    if (process.env.DEBUG_FULLTEXT) console.log("[epmc] full text failed");
     europePmcCooldownUntil = Date.now() + 120_000;
     return null;
   }
   // The endpoint returns XML even on some error paths; require a body element.
   const xml = full.text ?? "";
+  if (process.env.DEBUG_FULLTEXT) console.log("[epmc] xml chars", xml.length, "body", /<body[\s>]/i.test(xml));
   if (!xml || !/<body[\s>]/i.test(xml)) return null;
   const body = /<body[\s>][\s\S]*?<\/body>/i.exec(xml)?.[0] ?? xml;
   const cleaned = body
@@ -317,7 +334,7 @@ async function europePmcFullText(
   if (text.length < 500) return null;
   return {
     text,
-    url: `https://europepmc.org/article/PMC/${pmcid.replace(/^PMC/i, "")}`,
+    url: `https://europepmc.org/article/${pmcid}`,
     source: "Europe PMC open-access full text",
   };
 }

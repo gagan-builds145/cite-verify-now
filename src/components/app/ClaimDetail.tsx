@@ -4,7 +4,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import {
-  REFERENCE_STATUS_META,
   RETRIEVAL_LABEL,
   REVIEW_STATUS_LABEL,
   VERDICT_META,

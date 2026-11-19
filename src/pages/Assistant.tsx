@@ -45,7 +45,9 @@ export default function Assistant() {
   const ask = useAction(api.assistant.ask);
   const clear = useMutation(api.assistantData.clear);
 
-  const [selectedId, setSelectedId] = useState<Id<"analyses"> | null>(null);
+  const [selectedId, setSelectedId] = useState<Id<"analyses"> | null>(
+    (searchParams.get("analysis") as Id<"analyses"> | null) ?? null,
+  );
   const [question, setQuestion] = useState("");
   const [sending, setSending] = useState(false);
   const [engine, setEngine] = useState<"ai" | "retrieval" | null>(null);
@@ -55,34 +57,30 @@ export default function Assistant() {
     (analysis) => analysis.status === "ready" && (analysis.summary?.claims ?? 0) > 0,
   );
 
-  useEffect(() => {
-    const fromUrl = searchParams.get("analysis");
-    if (fromUrl && ready.some((analysis) => analysis._id === fromUrl)) {
-      setSelectedId(fromUrl as Id<"analyses">);
-      return;
-    }
-    if (!selectedId && ready.length > 0) setSelectedId(ready[0]._id);
-  }, [ready, searchParams, selectedId]);
+  const effectiveId =
+    selectedId && ready.some((analysis) => analysis._id === selectedId)
+      ? selectedId
+      : ready[0]?._id ?? null;
 
   const messages = useQuery(
     api.assistantData.messages,
-    selectedId ? { analysisId: selectedId } : "skip",
+    effectiveId ? { analysisId: effectiveId } : "skip",
   );
 
-  const selected = ready.find((analysis) => analysis._id === selectedId) ?? null;
+  const selected = ready.find((analysis) => analysis._id === effectiveId) ?? null;
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages?.length, sending]);
 
   const handleAsk = async (promptText?: string) => {
-    if (!selectedId) return;
+    if (!effectiveId) return;
     const text = (promptText ?? question).trim();
     if (text.length < 3) return;
     setSending(true);
     setQuestion("");
     try {
-      const result = await ask({ analysisId: selectedId, question: text });
+      const result = await ask({ analysisId: effectiveId, question: text });
       if (!result.ok) {
         toast.error(result.error);
         setQuestion(text);
@@ -99,9 +97,9 @@ export default function Assistant() {
   };
 
   const handleClear = async () => {
-    if (!selectedId) return;
+    if (!effectiveId) return;
     try {
-      await clear({ analysisId: selectedId });
+      await clear({ analysisId: effectiveId });
       toast("Conversation cleared");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not clear the conversation.");
@@ -150,7 +148,7 @@ export default function Assistant() {
                 Analysis
               </span>
               <Select
-                value={selectedId ?? undefined}
+                value={effectiveId ?? undefined}
                 onValueChange={(value) => {
                   setSelectedId(value as Id<"analyses">);
                   setEngine(null);
@@ -167,7 +165,7 @@ export default function Assistant() {
                   ))}
                 </SelectContent>
               </Select>
-              {selectedId && messages && messages.length > 0 && (
+              {effectiveId && messages && messages.length > 0 && (
                 <Button variant="ghost" size="sm" className="h-7 text-[10.5px]" onClick={() => void handleClear()}>
                   <Eraser className="mr-1 size-3" />
                   Clear
@@ -330,9 +328,9 @@ export default function Assistant() {
                     passage.
                   </p>
                 </div>
-                {selectedId && (
+                {effectiveId && (
                   <Button asChild variant="outline" size="sm" className="w-full rounded-full">
-                    <Link to={`/analysis/${selectedId}`}>
+                    <Link to={`/analysis/${effectiveId}`}>
                       Open full report
                       <ArrowUpRight className="ml-1 size-3.5" />
                     </Link>

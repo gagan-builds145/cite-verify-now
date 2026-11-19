@@ -141,17 +141,7 @@ createRoot(document.getElementById("root")!).render(
                   </RequireAuth>
                 }
               />
-              <Route
-                path="/explorer"
-                element={
-                  <RequireAuth
-                    title="Sign in to search scholarly indexes"
-                    description="Explore real records from Crossref and OpenAlex and save them to your library."
-                  >
-                    <Explorer />
-                  </RequireAuth>
-                }
-              />
+              <Route path="/explorer" element={<Explorer />} />
               <Route
                 path="/library"
                 element={

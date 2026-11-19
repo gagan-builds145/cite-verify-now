@@ -43,7 +43,7 @@ import {
   Loader2,
   Trash2,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { toast } from "sonner";
 
@@ -77,27 +77,19 @@ export default function AnalysisWorkspace() {
     [reviewsRaw],
   );
 
-  const [panel, setPanel] = useState<Panel>("overview");
+  const panelParam = searchParams.get("panel");
+  const initialPanel: Panel =
+    panelParam === "claims" || panelParam === "references" || panelParam === "overview"
+      ? panelParam
+      : "overview";
+  const [panel, setPanel] = useState<Panel>(initialPanel);
   const [mobileView, setMobileView] = useState<MobileView>("results");
-  const [selectedClaimId, setSelectedClaimId] = useState<string | null>(null);
+  const [selectedClaimId, setSelectedClaimId] = useState<string | null>(
+    searchParams.get("claim"),
+  );
   const [focusRequest, setFocusRequest] = useState<{ page: number; token: number } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
-
-  useEffect(() => {
-    const panelParam = searchParams.get("panel");
-    if (panelParam === "claims" || panelParam === "references" || panelParam === "overview") {
-      setPanel(panelParam);
-    }
-    const claimParam = searchParams.get("claim");
-    if (claimParam) {
-      setPanel("claims");
-      setSelectedClaimId(claimParam);
-      setMobileView("results");
-    }
-    // Deep links are read once when the workspace opens.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const selectedClaim = claims.find((claim) => claim.claimId === selectedClaimId) ?? null;
 
@@ -410,6 +402,7 @@ export default function AnalysisWorkspace() {
           {panel === "claims" &&
             (selectedClaim ? (
               <ClaimDetail
+                key={selectedClaim.claimId}
                 analysisId={analysisId}
                 claim={selectedClaim}
                 claims={claims}

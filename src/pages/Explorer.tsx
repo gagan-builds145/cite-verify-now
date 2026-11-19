@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { api } from "@/convex/_generated/api";
+import { useAuth } from "@/hooks/use-auth";
 import { useAction, useMutation, useQuery } from "convex/react";
 import {
   ArrowRight,
@@ -26,7 +27,7 @@ import {
   Sparkles,
   TriangleAlert,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 
@@ -64,6 +65,7 @@ const EXAMPLES = [
 
 export default function Explorer() {
   const navigate = useNavigate();
+  const { isLoading: authLoading, isAuthenticated, signIn } = useAuth();
   const search = useAction(api.explorer.search);
   const savePaper = useMutation(api.library.save);
   const summarize = useAction(api.explorer.summarize);
@@ -90,6 +92,15 @@ export default function Explorer() {
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [summarizing, setSummarizing] = useState(false);
   const [savedKeys, setSavedKeys] = useState<Set<string>>(new Set());
+  const sessionRequested = useRef(false);
+
+  // Exploration is open to guests; a private anonymous session is created so
+  // saving works without sending anyone through an account wall first.
+  useEffect(() => {
+    if (sessionRequested.current || authLoading || isAuthenticated) return;
+    sessionRequested.current = true;
+    void signIn("anonymous").catch(() => undefined);
+  }, [authLoading, isAuthenticated, signIn]);
 
   const savedDois = useMemo(() => {
     const set = new Set<string>();
@@ -115,6 +126,14 @@ export default function Explorer() {
     setError(null);
     setSummary(null);
     setSummaryError(null);
+    if (!isAuthenticated) {
+      try {
+        await signIn("anonymous");
+      } catch {
+        setError("A private session could not be created. Reload the page and try again.");
+        return;
+      }
+    }
     if (nextPage === 1) {
       setLoading(true);
       setPapers([]);

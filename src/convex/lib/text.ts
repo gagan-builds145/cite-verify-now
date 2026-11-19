@@ -124,7 +124,7 @@ export function guessAuthors(pages: PageText[]): string[] {
 
 export function guessAbstract(pages: PageText[]): string | undefined {
   const joined = pages.slice(0, 2).map((p) => p.text).join("\n");
-  const match = /(?:^|\n)\s*abstract\b[\s:.\-]*\n?([\s\S]{120,3200})/i.exec(joined);
+  const match = /(?:^|\n)\s*abstract\b[\s:.-]*\n?([\s\S]{120,3200})/i.exec(joined);
   if (!match) return undefined;
   const body = match[1].split(/\n\s*(?:keywords?|key words|1\.?\s+introduction|introduction)\b/i)[0];
   const cleaned = normalizeWhitespace(body);
@@ -187,8 +187,8 @@ function looksLikeNumberedStart(line: string): boolean {
 
 function looksLikeAuthorStart(line: string): boolean {
   if (!/[A-ZÀ-Ý]/.test(line)) return false;
-  const apa = /^[A-ZÀ-Ý][A-Za-zÀ-ÿ'’\-]+,\s*(?:[A-Z]\.|[A-Z][a-z]+)/;
-  const ieee = /^[A-Z]\.\s*(?:[A-Z]\.\s*)*[A-ZÀ-Ý][A-Za-zÀ-ÿ'’\-]+/;
+  const apa = /^[A-ZÀ-Ý][A-Za-zÀ-ÿ'’-]+,\s*(?:[A-Z]\.|[A-Z][a-z]+)/;
+  const ieee = /^[A-Z]\.\s*(?:[A-Z]\.\s*)*[A-ZÀ-Ý][A-Za-zÀ-ÿ'’-]+/;
   return apa.test(line) || ieee.test(line);
 }
 
@@ -396,7 +396,7 @@ export function findCitationMarkers(text: string): string[] {
   const parenthetical = /\(([^()]{2,160}?(?:19|20)\d{2}[a-z]?[^()]{0,60})\)/g;
   while ((match = parenthetical.exec(text)) !== null) markers.add(match[0]);
 
-  const narrative = /\b([A-ZÀ-Ý][A-Za-zÀ-ÿ'’\-]+(?:\s+(?:et\s+al\.|and|&)\s+[A-ZÀ-Ý][A-Za-zÀ-ÿ'’\-]+)?)\s*\((?:19|20)\d{2}[a-z]?\)/g;
+  const narrative = /\b([A-ZÀ-Ý][A-Za-zÀ-ÿ'’-]+(?:\s+(?:et\s+al\.|and|&)\s+[A-ZÀ-Ý][A-Za-zÀ-ÿ'’-]+)?)\s*\((?:19|20)\d{2}[a-z]?\)/g;
   while ((match = narrative.exec(text)) !== null) markers.add(match[0]);
 
   return Array.from(markers).slice(0, 8);
@@ -440,7 +440,7 @@ export function markersToReferenceKeys(
     for (const part of parts) {
       const yearMatch = part.match(/((?:19|20)\d{2})/);
       const year = yearMatch ? Number(yearMatch[1]) : undefined;
-      const surnameMatch = part.trim().match(/^([A-ZÀ-Ý][A-Za-zÀ-ÿ'’\-]+)/);
+      const surnameMatch = part.trim().match(/^([A-ZÀ-Ý][A-Za-zÀ-ÿ'’-]+)/);
       const surname = surnameMatch ? surnameMatch[1] : undefined;
       if (!surname) {
         ambiguous = true;

@@ -437,7 +437,7 @@ export default function Landing() {
             </p>
             <ul className="mt-6 space-y-3">
               {[
-                "Retrieval status is always explicit: abstract, metadata only, or unavailable.",
+                "Retrieval status is always explicit: full text, abstract, metadata only, or unavailable.",
                 "Quotes come from the retrieved text; the interface never invents an excerpt.",
                 "Confidence is not fabricated — unresolved cases are marked unverified.",
               ].map((item) => (
@@ -585,9 +585,9 @@ export default function Landing() {
                 </div>
               ))}
               <div className="border-t border-border bg-secondary/40 px-5 py-3 text-[11px] leading-5 text-muted-foreground">
-                When AI reasoning is enabled, extracted claim text and retrieved abstracts are sent to
-                the configured model provider through our server-side gateway. This is disclosed in the
-                workspace and on the privacy page.
+                When AI reasoning is enabled, extracted claim text and retrieved abstracts or
+                open-access passages are sent to the configured model provider through our server-side
+                gateway. This is disclosed in the workspace and on the privacy page.
               </div>
             </div>
           </Reveal>

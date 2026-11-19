@@ -99,7 +99,7 @@ export const list = query({
       .query("analyses")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .order("desc")
-      .take(20);
+      .take(50);
 
     return await Promise.all(
       analyses.map(async (analysis) => {

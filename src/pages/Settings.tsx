@@ -18,7 +18,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { clearLocalPdfs } from "@/lib/pdf-store";
 import { useMutation, useQuery } from "convex/react";
 import { ArrowUpRight, Loader2, ShieldCheck, Trash2, UserRound } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 
@@ -29,14 +29,11 @@ export default function Settings() {
   const { signOut } = useAuth();
   const navigate = useNavigate();
 
-  const [name, setName] = useState("");
+  const [nameDraft, setNameDraft] = useState<string | null>(null);
+  const name = nameDraft ?? profile?.name ?? "";
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
-
-  useEffect(() => {
-    if (profile?.name) setName(profile.name);
-  }, [profile?.name]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -87,7 +84,7 @@ export default function Settings() {
               <Label className="eyebrow">Display name used on reviews</Label>
               <Input
                 value={name}
-                onChange={(event) => setName(event.target.value)}
+                onChange={(event) => setNameDraft(event.target.value)}
                 placeholder="Reviewer name"
                 className="mt-1.5 h-9 text-[12px]"
               />
