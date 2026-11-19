@@ -1,6 +1,5 @@
 import { Brand } from "@/components/Brand";
 import { FooterDoodle } from "@/components/illustrations/Editorial";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { AnimatePresence, motion } from "framer-motion";
@@ -12,8 +11,8 @@ type NavItem = { label: string; to: string; hash: string };
 
 const NAV_LINKS: NavItem[] = [
   { label: "Home", to: "/", hash: "" },
-  { label: "Features", to: "/", hash: "#features" },
   { label: "How It Works", to: "/", hash: "#how-it-works" },
+  { label: "Features", to: "/", hash: "#features" },
   { label: "Statement Check", to: "/statements", hash: "" },
   { label: "Explore", to: "/explorer", hash: "" },
   { label: "About", to: "/about", hash: "" },
@@ -73,7 +72,6 @@ export function SiteHeader({ transparent = false }: { transparent?: boolean }) {
         </nav>
 
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-          <ThemeToggle />
           {isAuthenticated ? (
             <Button
               asChild
@@ -209,7 +207,7 @@ export function SiteFooter() {
           <FooterColumn
             title="Product"
             links={[
-              { label: "Upload a paper", to: "/analyze" },
+              { label: "Analyze a paper", to: "/analyze" },
               { label: "Statement check", to: "/statements" },
               { label: "Research explorer", to: "/explorer" },
               { label: "My library", to: "/library" },

@@ -1,6 +1,5 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
@@ -57,6 +56,7 @@
 }
 
 :root {
+  color-scheme: light;
   --radius: 0.9rem;
   --background: #fbfaf7;
   --foreground: #14233d;
@@ -102,65 +102,12 @@
   --verdict-insufficient-soft: #f1f2f4;
   --verdict-unverified-soft: #eef4fc;
 
-  /* Primary action tokens. The dark-mode pair is a light ink block with dark
-     text so the CTA never disappears into the midnight canvas. */
+  /* Primary action tokens for the single light palette. */
   --action-bg: #14233d;
   --action-bg-hover: #1c304d;
   --action-fg: #fbfaf7;
   --action-border: #14233d;
   --action-shadow: #0b1729;
-}
-
-.dark {
-  --background: #0e1929;
-  --foreground: #f4f1e9;
-  --card: #16243a;
-  --card-foreground: #f4f1e9;
-  --popover: #16243a;
-  --popover-foreground: #f4f1e9;
-  --primary: #8cbdf2;
-  --primary-foreground: #0e1929;
-  --secondary: #1d2d45;
-  --secondary-foreground: #e7edf6;
-  --muted: #1a2940;
-  --muted-foreground: #a7b4c6;
-  --accent: #1c3557;
-  --accent-foreground: #dfeeff;
-  --destructive: #e08a84;
-  --border: rgb(244 241 233 / 12%);
-  --input: rgb(244 241 233 / 16%);
-  --ring: #8cbdf2;
-  --chart-1: #7ec9a5;
-  --chart-2: #e5bd6d;
-  --chart-3: #e08a84;
-  --chart-4: #9aa6b7;
-  --chart-5: #8cbdf2;
-  --sidebar: #111e31;
-  --sidebar-foreground: #f4f1e9;
-  --sidebar-primary: #8cbdf2;
-  --sidebar-primary-foreground: #0e1929;
-  --sidebar-accent: #1c3557;
-  --sidebar-accent-foreground: #dfeeff;
-  --sidebar-border: rgb(244 241 233 / 10%);
-  --sidebar-ring: #8cbdf2;
-
-  --ink: #8cbdf2;
-  --verdict-supported: #7ec9a5;
-  --verdict-partial: #e5bd6d;
-  --verdict-contradicted: #e08a84;
-  --verdict-insufficient: #a7b4c6;
-  --verdict-unverified: #8cbdf2;
-  --verdict-supported-soft: #1b3a2d;
-  --verdict-partial-soft: #3b321c;
-  --verdict-contradicted-soft: #3d2424;
-  --verdict-insufficient-soft: #26303d;
-  --verdict-unverified-soft: #1c3557;
-
-  --action-bg: #8cbdf2;
-  --action-bg-hover: #a9d0f8;
-  --action-fg: #0b1729;
-  --action-border: #b9dcff;
-  --action-shadow: #476b91;
 }
 
 @layer base {
@@ -174,6 +121,7 @@
     scroll-margin-top: 5rem;
   }
   body {
+    color-scheme: light;
     @apply bg-background text-foreground font-sans antialiased;
     font-optical-sizing: auto;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";

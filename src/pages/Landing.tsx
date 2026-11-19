@@ -1,4 +1,3 @@
-import { HowItWorksVideo } from "@/components/HowItWorksVideo";
 import { IntelligentSearch } from "@/components/IntelligentSearch";
 import { SiteFooter, SiteHeader } from "@/components/SiteChrome";
 import {
@@ -72,12 +71,6 @@ const STEPS: {
   note: string;
 }[] = [
   {
-    kind: "upload",
-    title: "Upload Research Paper",
-    body: "Upload your research paper and let CiteVerify extract claims, identify citations and organize the evidence.",
-    note: "PDF stays local",
-  },
-  {
     kind: "extract",
     title: "Extract Claims and Citations",
     body: "Automatically identify scientific claims and connect them to their corresponding citations and bibliography entries.",
@@ -109,14 +102,17 @@ export default function Landing() {
   const location = useLocation();
 
   useEffect(() => {
-    if (!location.hash) return;
+    if (!location.hash) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
     const target = document.getElementById(location.hash.slice(1));
     if (!target) return;
     const timer = setTimeout(() => {
       target.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 80);
     return () => clearTimeout(timer);
-  }, [location.hash]);
+  }, [location.hash, location.pathname]);
 
   return (
     <div className="min-h-screen overflow-x-clip bg-background">
@@ -126,7 +122,7 @@ export default function Landing() {
         {/* ---------------------------------------------------------- */}
         {/* Hero                                                       */}
         {/* ---------------------------------------------------------- */}
-        <section className="relative overflow-x-clip border-b border-border">
+        <section id="home" className="relative overflow-x-clip border-b border-border">
           <div className="pointer-events-none absolute inset-0 paper-dots opacity-45 [mask-image:linear-gradient(to_bottom,black,transparent_88%)]" />
           <div className="pointer-events-none absolute -left-24 top-24 size-72 rounded-[44%_56%_63%_37%/48%_42%_58%_52%] bg-accent" />
           <div className="pointer-events-none absolute -right-28 top-40 size-[26rem] rounded-[58%_42%_39%_61%/45%_57%_43%_55%] bg-[var(--verdict-partial-soft)]/50" />
@@ -188,6 +184,61 @@ export default function Landing() {
         </section>
 
         {/* ---------------------------------------------------------- */}
+        {/* How it works                                               */}
+        {/* ---------------------------------------------------------- */}
+        <section id="how-it-works" className="relative overflow-hidden border-b border-border bg-background">
+          <div className="pointer-events-none absolute inset-0 paper-dots opacity-30" />
+          <div className="relative mx-auto w-full max-w-6xl px-5 py-20 sm:px-8 lg:py-24">
+            <Reveal className="mx-auto max-w-3xl text-center">
+              <p className="eyebrow">The verification pipeline</p>
+              <h2 className="mt-5 font-display text-[clamp(2.65rem,7vw,5rem)] font-bold uppercase leading-[0.94] tracking-[-0.055em] text-foreground">
+                HOW IT WORKS
+              </h2>
+            </Reveal>
+
+            <div className="relative mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
+              <div className="pointer-events-none absolute left-[16%] right-[16%] top-[76px] hidden border-t-2 border-dashed border-[var(--ink)]/25 lg:block" />
+              {STEPS.map((step, index) => (
+                <Reveal key={step.title} delay={index * 0.07} className="relative">
+                  <article className="relative flex h-full flex-col rounded-2xl border border-border bg-card p-5 shadow-[0_10px_30px_rgba(20,35,61,0.055)] transition-shadow duration-300 hover:shadow-[0_18px_44px_rgba(20,35,61,0.09)]">
+                    <div className="flex items-center justify-between">
+                      <span className="flex size-8 items-center justify-center rounded-full border border-[var(--ink)]/20 bg-accent text-[10.5px] font-bold text-[var(--ink)]">
+                        {String(index + 1).padStart(2, "0")}
+                      </span>
+                      <span className="size-2 rounded-full border border-border bg-background" />
+                    </div>
+                    <div className="mx-auto mt-3 w-full max-w-[210px]">
+                      <StepIllustration step={step.kind} />
+                    </div>
+                    <h3 className="mt-4 text-[16px] font-semibold leading-snug tracking-[-0.015em] text-foreground">
+                      {step.title}
+                    </h3>
+                    <p className="mt-2.5 flex-1 text-[12.5px] leading-[1.7] text-muted-foreground">
+                      {step.body}
+                    </p>
+                    <p className="mt-5 border-t border-border pt-3 text-[9.5px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+                      {step.note}
+                    </p>
+                  </article>
+                </Reveal>
+              ))}
+            </div>
+
+            <div className="mt-9 flex justify-center">
+              <Button
+                asChild
+                className="rounded-full bg-[#2463B5] px-5 font-semibold shadow-[0_3px_0_#194b8c] hover:bg-[#1f58a2]"
+              >
+                <Link to="/analyze?demo=1">
+                  See the full workflow in the demo
+                  <ArrowRight className="ml-2 size-3.5" />
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </section>
+
+        {/* ---------------------------------------------------------- */}
         {/* Features                                                   */}
         {/* ---------------------------------------------------------- */}
         <section id="features" className="border-b border-border bg-card">
@@ -226,87 +277,23 @@ export default function Landing() {
         </section>
 
         {/* ---------------------------------------------------------- */}
-        {/* How it works                                               */}
-        {/* ---------------------------------------------------------- */}
-        <section id="how-it-works" className="relative overflow-hidden border-b border-border bg-background">
-          <div className="pointer-events-none absolute inset-0 paper-dots opacity-30" />
-          <div className="relative mx-auto w-full max-w-6xl px-5 py-20 sm:px-8 lg:py-24">
-            <Reveal className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
-              <div className="max-w-2xl">
-                <p className="eyebrow">How it works</p>
-                <h2 className="mt-4 font-display text-[clamp(2rem,3.6vw,2.8rem)] leading-[1.08] tracking-[-0.035em]">
-                  Four steps from a PDF to
-                  <span className="italic text-[var(--ink)]"> defensible evidence.</span>
-                </h2>
-              </div>
-              <p className="max-w-sm text-[12.5px] leading-6 text-muted-foreground md:text-right">
-                Each stage is visible while it runs and leaves an auditable trace in the finished
-                workspace.
-              </p>
-            </Reveal>
-
-            <HowItWorksVideo />
-
-            <div className="relative mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="pointer-events-none absolute left-[12%] right-[12%] top-[84px] hidden border-t-2 border-dashed border-[var(--ink)]/25 lg:block" />
-              {STEPS.map((step, index) => (
-                <Reveal key={step.title} delay={index * 0.06} className="relative">
-                  <article className="relative flex h-full flex-col rounded-2xl border border-border bg-card p-4 shadow-[0_1px_0_rgba(20,35,61,0.04)]">
-                    <div className="flex items-center justify-between">
-                      <span className="flex size-7 items-center justify-center rounded-full border border-[var(--ink)]/20 bg-accent text-[10px] font-bold text-[var(--ink)]">
-                        {String(index + 1).padStart(2, "0")}
-                      </span>
-                      <span className="size-2 rounded-full border border-border bg-background" />
-                    </div>
-                    <div className="mx-auto mt-1 w-full max-w-[180px]">
-                      <StepIllustration step={step.kind} />
-                    </div>
-                    <h3 className="mt-1 text-[14px] font-semibold leading-snug tracking-[-0.01em]">
-                      {step.title}
-                    </h3>
-                    <p className="mt-2 flex-1 text-[12px] leading-[1.65] text-muted-foreground">
-                      {step.body}
-                    </p>
-                    <p className="mt-4 border-t border-border pt-3 text-[9px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
-                      {step.note}
-                    </p>
-                  </article>
-                </Reveal>
-              ))}
-            </div>
-
-            <div className="mt-8 flex justify-center">
-              <Button
-                asChild
-                className="rounded-full bg-[#2463B5] px-5 font-semibold shadow-[0_3px_0_#194b8c] hover:bg-[#1f58a2]"
-              >
-                <Link to="/analyze?demo=1">
-                  See the full workflow in the demo
-                  <ArrowRight className="ml-2 size-3.5" />
-                </Link>
-              </Button>
-            </div>
-          </div>
-        </section>
-
-        {/* ---------------------------------------------------------- */}
         {/* Chain of custody                                           */}
         {/* ---------------------------------------------------------- */}
-        <section className="bg-[#14233D] text-[#FBFAF7]">
+        <section className="border-b border-border bg-secondary/40">
           <div className="mx-auto grid w-full max-w-6xl gap-10 px-5 py-16 sm:px-8 lg:grid-cols-[0.78fr_1.22fr] lg:items-center lg:py-20">
             <Reveal>
-              <p className="text-[10.5px] font-semibold uppercase tracking-[0.18em] text-[#A9C8EC]">
+              <p className="eyebrow">
                 Chain of custody
               </p>
               <h2 className="mt-4 font-display text-[clamp(1.9rem,3.2vw,2.55rem)] leading-[1.1] tracking-[-0.03em]">
                 Every verdict carries
-                <span className="italic text-[#A9C8EC]"> its receipt.</span>
+                <span className="italic text-[var(--ink)]"> its receipt.</span>
               </h2>
-              <p className="mt-4 max-w-md text-[13.5px] leading-7 text-[#FBFAF7]/65">
+              <p className="mt-4 max-w-md text-[13.5px] leading-7 text-muted-foreground">
                 Explore the exact source passages behind each verdict and understand why a claim was
                 supported, contradicted or left unresolved.
               </p>
-              <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-white/20 px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.1em] text-[#FBFAF7]/65">
+              <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
                 <Link2 className="size-3" />
                 claim → citation → publication → evidence
               </div>
@@ -319,15 +306,15 @@ export default function Landing() {
                   delay={index * 0.05}
                   className={index === CHAIN.length - 1 ? "sm:col-span-2" : ""}
                 >
-                  <div className="flex h-full items-start gap-3 rounded-xl border border-white/10 bg-card/[0.045] px-4 py-3.5">
-                    <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full border border-white/20 text-[9px] font-semibold text-[#A9C8EC]">
+                  <div className="flex h-full items-start gap-3 rounded-xl border border-border bg-card px-4 py-3.5">
+                    <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full border border-[var(--ink)]/20 bg-accent text-[9px] font-semibold text-[var(--ink)]">
                       {String(index + 1).padStart(2, "0")}
                     </span>
                     <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[#FBFAF7]/85">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-foreground/85">
                         {node.label}
                       </p>
-                      <p className="mt-1 text-[11.5px] leading-5 text-[#FBFAF7]/50">{node.value}</p>
+                      <p className="mt-1 text-[11.5px] leading-5 text-muted-foreground">{node.value}</p>
                     </div>
                   </div>
                 </Reveal>

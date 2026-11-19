@@ -996,7 +996,7 @@ export default function AdminModels() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <pre className="max-h-72 overflow-auto whitespace-pre-wrap rounded-lg bg-[#101826] p-3 font-mono text-[10px] leading-4 text-[#d7e2ef]">
+              <pre className="max-h-72 overflow-auto whitespace-pre-wrap rounded-lg border border-border bg-muted p-3 font-mono text-[10px] leading-4 text-foreground/85">
                 {job?.log || "No log output yet."}
               </pre>
             </CardContent>

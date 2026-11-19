@@ -1,5 +1,4 @@
 import { BrandWordmark, LogoMark } from "@/components/Brand";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -440,21 +439,21 @@ function Auth({ redirectAfterAuth, initialMode = "signin" }: AuthProps = {}) {
 
   return (
     <div className="min-h-dvh bg-background lg:grid lg:grid-cols-[1.05fr_1fr]">
-      <aside className="relative hidden flex-col justify-between overflow-hidden bg-[#0f1f36] p-12 text-[#f8f3e7] lg:flex">
-        <div className="pointer-events-none absolute inset-0 paper-grid opacity-20" />
-        <div className="pointer-events-none absolute -bottom-24 -right-20 size-80 rounded-full border border-white/10" />
+      <aside className="relative hidden flex-col justify-between overflow-hidden border-r border-border bg-secondary/45 p-12 text-foreground lg:flex">
+        <div className="pointer-events-none absolute inset-0 paper-grid opacity-40" />
+        <div className="pointer-events-none absolute -bottom-24 -right-20 size-80 rounded-full border border-border" />
         <div className="relative flex items-center gap-2.5">
           <LogoMark className="size-9" />
-          <BrandWordmark className="text-[22px] text-[#f8f3e7]" />
+          <BrandWordmark className="text-[22px]" />
         </div>
 
         <div className="relative max-w-md">
-          <p className="font-mono text-[10.5px] uppercase tracking-[0.2em] text-[#f8f3e7]/55">
+          <p className="font-mono text-[10.5px] uppercase tracking-[0.2em] text-muted-foreground">
             Research integrity workspace
           </p>
           <h1 className="mt-4 font-display text-[3.1rem] leading-[1.02] tracking-tight">
             A citation is a promise.
-            <span className="italic text-[#8cbdf2]"> Verify it.</span>
+            <span className="italic text-[var(--ink)]"> Verify it.</span>
           </h1>
           <div className="mt-8 space-y-3">
             {[
@@ -463,16 +462,16 @@ function Auth({ redirectAfterAuth, initialMode = "signin" }: AuthProps = {}) {
               "Evidence compared against what the source actually says",
             ].map((line, index) => (
               <div key={line} className="flex items-start gap-3">
-                <span className="mt-0.5 font-mono text-[10px] text-[#f8f3e7]/40">
+                <span className="mt-0.5 font-mono text-[10px] text-muted-foreground/70">
                   0{index + 1}
                 </span>
-                <p className="text-[13px] leading-6 text-[#f8f3e7]/70">{line}</p>
+                <p className="text-[13px] leading-6 text-muted-foreground">{line}</p>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="relative flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-[#f8f3e7]/50">
+        <div className="relative flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-muted-foreground/80">
           <Lock className="size-3.5" />
           PDFs stay in the browser · sessions are deletable
         </div>
@@ -485,7 +484,6 @@ function Auth({ redirectAfterAuth, initialMode = "signin" }: AuthProps = {}) {
             <BrandWordmark className="text-[21px]" />
           </Link>
           <div className="flex items-center gap-2">
-            <ThemeToggle />
             <Button asChild variant="ghost" size="sm" className="rounded-full text-[12px]">
               <Link to="/">Back to site</Link>
             </Button>

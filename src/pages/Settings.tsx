@@ -1,5 +1,4 @@
 import { AppShell } from "@/components/app/AppShell";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -70,7 +69,7 @@ export default function Settings() {
           <p className="eyebrow">Account</p>
           <h1 className="mt-2.5 font-display text-4xl leading-none tracking-tight">Settings</h1>
           <p className="mt-2 text-[13px] leading-6 text-muted-foreground">
-            Profile, appearance and the data controls for this session.
+            Profile and data controls for this session.
           </p>
         </div>
 
@@ -96,21 +95,6 @@ export default function Settings() {
               {saving ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : null}
               Save profile
             </Button>
-          </div>
-        </section>
-
-        <section className="mt-4 rounded-xl border border-border bg-card">
-          <div className="border-b border-border px-4 py-3">
-            <h2 className="text-[12.5px] font-semibold tracking-tight">Appearance</h2>
-          </div>
-          <div className="flex items-center justify-between gap-4 px-4 py-4">
-            <div>
-              <p className="text-[12px] font-medium">Theme</p>
-              <p className="mt-0.5 text-[11px] text-muted-foreground">
-                Light or dark. Stored in this browser only.
-              </p>
-            </div>
-            <ThemeToggle />
           </div>
         </section>
 

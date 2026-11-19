@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="light">
 
 <head>
   <meta charset="UTF-8" />
@@ -7,9 +7,8 @@
   <link rel="apple-touch-icon" href="/logo.svg" />
   <link rel="manifest" href="/manifest.webmanifest" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="color-scheme" content="light dark" />
-  <meta name="theme-color" content="#fbfaf7" media="(prefers-color-scheme: light)" />
-  <meta name="theme-color" content="#0e1929" media="(prefers-color-scheme: dark)" />
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#fbfaf7" />
   <meta
     name="description"
     content="CiteVerify traces every claim in a research paper to its cited publication, checks that the reference exists, and tests whether the original evidence supports the claim."
@@ -22,19 +21,9 @@
   />
   <title>CiteVerify — Verify the evidence, not just the citation</title>
   <style>
-    html { background: #fbfaf7; }
-    html.dark { background: #0e1929; }
+    html { background: #fbfaf7; color-scheme: light; }
     body { margin: 0; }
   </style>
-  <script>
-    try {
-      var stored = localStorage.getItem("citeverify-theme");
-      var dark = stored
-        ? stored === "dark"
-        : window.matchMedia("(prefers-color-scheme: dark)").matches;
-      document.documentElement.classList.toggle("dark", dark);
-    } catch (error) {}
-  </script>
 </head>
 
 

@@ -323,7 +323,7 @@ export function PdfViewer({
       <div ref={scrollRef} className="relative flex-1 overflow-auto bg-secondary/50">
         <div ref={surfaceRef} className="min-h-full px-4 py-5">
           <div
-            className="relative mx-auto bg-white ring-1 ring-black/10 dark:ring-white/15"
+            className="relative mx-auto bg-white ring-1 ring-black/10"
             style={{ width: pageSize.width, height: status === "ready" ? pageSize.height : undefined }}
           >
             {status === "loading" && (

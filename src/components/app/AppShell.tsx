@@ -1,5 +1,4 @@
 import { Brand } from "@/components/Brand";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { api } from "@/convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
@@ -157,8 +156,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               </Link>
             )}
           </div>
-          <div className="mt-2 flex items-center justify-between">
-            <ThemeToggle />
+          <div className="mt-2 flex items-center justify-end">
             <Button
               variant="ghost"
               size="sm"
@@ -183,7 +181,6 @@ export function AppShell({ children }: { children: ReactNode }) {
         <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-border bg-background/90 px-4 backdrop-blur-md lg:hidden">
           <Brand />
           <div className="flex items-center gap-1">
-            <ThemeToggle />
             <Button asChild variant="outline" size="sm" className="h-8 rounded-full text-[11.5px]">
               <Link to="/analyze">New</Link>
             </Button>
