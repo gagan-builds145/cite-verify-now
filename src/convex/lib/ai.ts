@@ -78,14 +78,15 @@ Return strict JSON only.`;
 export async function extractClaimsWithAI(
   pages: { page: number; text: string }[],
   referenceSectionStart?: number,
+  maxClaims = 24,
 ): Promise<{ claims: ExtractedClaim[]; ok: boolean; error?: string }> {
   const usable = pages.filter((page) => !referenceSectionStart || page.page < referenceSectionStart);
-  let budget = 18000;
+  let budget = 26000;
   const blocks: string[] = [];
   for (const page of usable) {
     const text = page.text.replace(/\s+/g, " ").trim();
     if (!text) continue;
-    const allowed = Math.min(text.length, 2600, budget);
+    const allowed = Math.min(text.length, 3000, budget);
     if (allowed < 200) break;
     blocks.push(`--- PAGE ${page.page} ---\n${text.slice(0, allowed)}`);
     budget -= allowed;
@@ -94,14 +95,14 @@ export async function extractClaimsWithAI(
 
   const content = await complete(
     CLAIM_SYSTEM,
-    `Select between 5 and 10 claims. For each claim return:
+    `Select up to ${maxClaims} of the most evidence-bearing claims across the pages (fewer if the paper has fewer). For each claim return:
 {"text": "exact verbatim sentence(s)", "page": <page number from the markers>, "citationMarkers": ["[3]"], "context": "one neighbouring sentence copied verbatim", "confidence": 0.0-1.0}
 Cite markers exactly as written in the text (e.g. "[3]", "(Smith et al., 2021)", "Smith (2019)"). Use [] when there is no citation.
 confidence is your extraction confidence, not the claim's truth.
 Return JSON: {"claims": [ ... ]}
 
 ${blocks.join("\n\n")}`,
-    2600,
+    4200,
   );
   if (!content) return { claims: [], ok: false, error: "The language model did not return a response." };
   const parsed = parseJson<{ claims?: ExtractedClaim[] }>(content);
@@ -157,7 +158,7 @@ export type EvidenceItem = {
   citation: string;
   sourceTitle: string;
   evidence: string;
-  evidenceLevel: "abstract" | "metadata_only";
+  evidenceLevel: "full_text" | "abstract" | "metadata_only";
 };
 
 export type EvidenceJudgement = {
@@ -169,7 +170,8 @@ export type EvidenceJudgement = {
 
 const EVIDENCE_SYSTEM = `You are a scientific claim–evidence auditor.
 For each item you receive one claim from a manuscript and the retrievable evidence from the cited publication
-(usually just the abstract, sometimes only metadata). Decide whether that evidence supports the claim.
+(an open-access full-text passage when available, otherwise just the abstract, sometimes only metadata).
+Decide whether that evidence supports the claim.
 
 Strict rules:
 - Use ONLY the supplied evidence text. Never use outside knowledge about the paper.
@@ -183,6 +185,66 @@ Strict rules:
 - explanation: max 55 words, concrete, names what matches or is missing.
 Return strict JSON only.`;
 
+export type AssistantCitation = { claimId: string; referenceKey?: string };
+
+/**
+ * Answers a question using only the claims, verdicts and evidence already stored
+ * for one analysis. The caller validates every returned claim id.
+ */
+export async function askResearchAssistant(
+  question: string,
+  context: string,
+): Promise<{ answer: string; citations: AssistantCitation[]; ok: boolean; error?: string }> {
+  if (!aiConfigured()) {
+    return { answer: "", citations: [], ok: false, error: "AI assistance is not configured." };
+  }
+  const content = await complete(
+    `You are CiteVerify's research assistant. Answer questions about one manuscript using ONLY the supplied evidence record.
+Rules:
+- Every factual statement must be traceable to a supplied claim id; put those ids in "citations".
+- If the record does not contain the answer, say that plainly and suggest what would need to be checked.
+- Never invent references, DOIs, statistics or page numbers.
+- Distinguish the manuscript's claims from what the cited sources actually say.
+- Mention when a verdict is UNVERIFIED or INSUFFICIENT_EVIDENCE rather than treating it as support.
+- Keep the answer under 220 words unless a comparison genuinely needs more.
+Return strict JSON: {"answer": "...", "citations": [{"claim_id": "C1"}]}`,
+    `QUESTION:\n${question.slice(0, 1200)}\n\nEVIDENCE RECORD:\n${context.slice(0, 16000)}`,
+    1300,
+  );
+  if (!content) return { answer: "", citations: [], ok: false, error: "The language model did not respond." };
+  const parsed = parseJson<{ answer?: string; citations?: { claim_id?: string }[] }>(content);
+  if (!parsed || typeof parsed.answer !== "string" || parsed.answer.trim().length === 0) {
+    return { answer: "", citations: [], ok: false, error: "The assistant response could not be parsed." };
+  }
+  return {
+    answer: parsed.answer.trim().slice(0, 4000),
+    citations: (parsed.citations ?? [])
+      .filter((item) => item && typeof item.claim_id === "string")
+      .map((item) => ({ claimId: item.claim_id as string }))
+      .slice(0, 12),
+    ok: true,
+  };
+}
+
+/** Summarises only the supplied abstract; never the paper's full content. */
+export async function summarizeAbstract(
+  title: string,
+  abstract: string,
+): Promise<{ summary: string; ok: boolean; error?: string }> {
+  if (!aiConfigured()) {
+    return { summary: "", ok: false, error: "AI summaries are not configured in this deployment." };
+  }
+  const content = await complete(
+    `You summarise academic abstracts for researchers. Use ONLY the supplied abstract.
+Return 3-5 short plain-text lines: the question, the method, the main finding, and one limitation.
+Never add facts, numbers or citations that are not in the abstract. Do not use markdown headings.`,
+    `TITLE: ${title.slice(0, 300)}\n\nABSTRACT:\n${abstract.slice(0, 4000)}`,
+    500,
+  );
+  if (!content) return { summary: "", ok: false, error: "The language model did not respond." };
+  return { summary: content.trim().slice(0, 2000), ok: true };
+}
+
 export async function judgeEvidenceWithAI(
   items: EvidenceItem[],
 ): Promise<{ judgements: EvidenceJudgement[]; ok: boolean; error?: string }> {
@@ -192,7 +254,7 @@ export async function judgeEvidenceWithAI(
     citation: item.citation,
     cited_source: item.sourceTitle,
     evidence_level: item.evidenceLevel,
-    evidence: item.evidence.slice(0, 2400),
+    evidence: item.evidence.slice(0, 6000),
   }));
 
   const content = await complete(

@@ -20,6 +20,7 @@ import {
 import {
   referenceStatusValidator,
   retrievalLevelValidator,
+  reviewDecisionValidator,
   stageStatusValidator,
   verdictValidator,
 } from "./schema";
@@ -107,9 +108,9 @@ export const list = query({
           .withIndex("by_analysis", (q) => q.eq("analysisId", analysis._id))
           .collect();
         const referenceRows = await ctx.db
-          .query("analysisReferences")
-          .withIndex("by_analysis", (q) => q.eq("analysisId", analysis._id))
-          .collect();
+                .query("analysisReferences")
+      .withIndex("by_analysis", (q) => q.eq("analysisId", analysis._id))
+      .collect();
         return {
           ...analysis,
           summary: {
@@ -119,16 +120,109 @@ export const list = query({
             contradicted: claimRows.filter((c) => c.verdict === "CONTRADICTED").length,
             insufficient: claimRows.filter((c) => c.verdict === "INSUFFICIENT_EVIDENCE").length,
             unverified: claimRows.filter((c) => c.verdict === "UNVERIFIED").length,
+            reviewNeeded: claimRows.filter((c) => c.reviewNeeded).length,
+            reviewed: claimRows.filter((c) => c.reviewStatus).length,
+            claimsWithCitation: claimRows.filter((c) => c.referenceKeys.length > 0).length,
             references: referenceRows.length,
             refsVerified: referenceRows.filter((r) => r.status === "VERIFIED").length,
             refsPossible: referenceRows.filter((r) => r.status === "POSSIBLE_MATCH").length,
             refsMismatch: referenceRows.filter((r) => r.status === "MISMATCH").length,
             refsUnverified: referenceRows.filter((r) => r.status === "UNVERIFIED").length,
             refsFailed: referenceRows.filter((r) => r.status === "RETRIEVAL_FAILED").length,
+            refsFullText: referenceRows.filter((r) => r.retrievalLevel === "full_text").length,
+            refsAbstract: referenceRows.filter((r) => r.retrievalLevel === "abstract").length,
+            refsRetracted: referenceRows.filter((r) => r.isRetracted).length,
           },
         };
       }),
     );
+  },
+});
+
+/** Everything a client needs to export one analysis as CSV, JSON or PDF. */
+export const bundle = query({
+  args: { analysisId: v.id("analyses") },
+  handler: async (ctx, args) => {
+    const analysis = await assertOwner(ctx, args.analysisId);
+    if (!analysis) return null;
+    const claims = await ctx.db
+      .query("analysisClaims")
+      .withIndex("by_analysis", (q) => q.eq("analysisId", args.analysisId))
+      .collect();
+    const references = await ctx.db
+      .query("analysisReferences")
+      .withIndex("by_analysis", (q) => q.eq("analysisId", args.analysisId))
+      .collect();
+    const reviewRows = await ctx.db
+      .query("reviews")
+      .withIndex("by_analysis", (q) => q.eq("analysisId", args.analysisId))
+      .collect();
+    return {
+      analysis,
+      claims: claims.sort((a, b) => a.sortIndex - b.sortIndex),
+      references,
+      reviews: reviewRows.sort((a, b) => b.createdAt - a.createdAt),
+    };
+  },
+});
+
+/** Real paper leads drawn from publications actually cited by this session. */
+export const recommendations = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await requireUser(ctx);
+    if (!userId) return [];
+    const analyses = await ctx.db
+      .query("analyses")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .order("desc")
+      .take(10);
+    const seen = new Set<string>();
+    const output: {
+      title: string;
+      authors: string[];
+      year?: number;
+      doi?: string;
+      url?: string;
+      venue?: string;
+    }[] = [];
+    for (const analysis of analyses) {
+      const refs = await ctx.db
+        .query("analysisReferences")
+        .withIndex("by_analysis", (q) => q.eq("analysisId", analysis._id))
+        .collect();
+      for (const ref of refs) {
+        const title = ref.matchedTitle ?? ref.title;
+        if (!title) continue;
+        const key = (ref.matchedDoi ?? title).toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        if (ref.status !== "VERIFIED" && ref.status !== "POSSIBLE_MATCH") continue;
+        output.push({
+          title,
+          authors: ref.matchedAuthors.length > 0 ? ref.matchedAuthors : ref.authors,
+          year: ref.matchedYear ?? ref.year,
+          doi: ref.matchedDoi ?? ref.doi,
+          url: ref.sourceUrl,
+          venue: ref.matchedVenue,
+        });
+        if (output.length >= 6) return output;
+      }
+    }
+    return output;
+  },
+});
+
+export const reviews = query({
+  args: { analysisId: v.id("analyses") },
+  handler: async (ctx, args) => {
+    const analysis = await assertOwner(ctx, args.analysisId);
+    if (!analysis) return [];
+    const rows = await ctx.db
+      .query("reviews")
+      .withIndex("by_analysis", (q) => q.eq("analysisId", args.analysisId))
+      .collect();
+    return rows.sort((a, b) => b.createdAt - a.createdAt);
   },
 });
 
@@ -210,7 +304,76 @@ export const create = mutation({
       charCount: total,
     });
 
+    await ctx.db.insert("activity", {
+      userId,
+      kind: "analysis_started",
+      message: `Started verification of “${normalizeWhitespace(args.title ?? guessTitle(capped)).slice(0, 120)}”`,
+      analysisId,
+      createdAt: Date.now(),
+    });
+
     return analysisId;
+  },
+});
+
+/** Record a human review decision without overwriting the AI verdict. */
+export const reviewClaim = mutation({
+  args: {
+    analysisId: v.id("analyses"),
+    claimId: v.string(),
+    decision: reviewDecisionValidator,
+    finalVerdict: v.optional(verdictValidator),
+    note: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const analysis = await assertOwner(ctx, args.analysisId);
+    if (!analysis) throw new Error("Analysis not found in this session.");
+    const userId = await requireUser(ctx);
+    if (!userId) throw new Error("A session is required to review a claim.");
+    const claims = await ctx.db
+      .query("analysisClaims")
+      .withIndex("by_analysis", (q) => q.eq("analysisId", args.analysisId))
+      .collect();
+    const claim = claims.find((row) => row.claimId === args.claimId);
+    if (!claim) throw new Error("Claim not found in this analysis.");
+
+    const profile = await ctx.db.get(userId);
+    const reviewerName = profile?.name?.trim() || profile?.email || "Reviewer";
+    const finalVerdict = args.decision === "approved" ? claim.verdict : args.finalVerdict ?? claim.verdict;
+    const createdAt = Date.now();
+
+    await ctx.db.insert("reviews", {
+      analysisId: args.analysisId,
+      claimId: args.claimId,
+      reviewerId: userId,
+      reviewerName,
+      decision: args.decision,
+      originalVerdict: claim.verdict,
+      finalVerdict,
+      note: args.note?.trim().slice(0, 1200),
+      createdAt,
+    });
+
+    await ctx.db.patch(claim._id, {
+      reviewStatus: args.decision,
+      reviewVerdict: finalVerdict,
+      reviewNote: args.note?.trim().slice(0, 1200),
+      reviewerName,
+      reviewedAt: createdAt,
+    });
+
+    const reviewedClaims = claims.filter((row) => row.claimId === args.claimId || row.reviewStatus);
+    await ctx.db.patch(args.analysisId, { reviewComplete: reviewedClaims.length });
+
+    await ctx.db.insert("activity", {
+      userId,
+      kind: "review_recorded",
+      message: `Reviewed ${args.claimId} as ${finalVerdict.replace(/_/g, " ").toLowerCase()}`,
+      analysisId: args.analysisId,
+      createdAt,
+    });
+
+    return { finalVerdict };
   },
 });
 
@@ -270,6 +433,9 @@ export const complete = internalMutation({
     analysisId: v.id("analyses"),
     engine: v.union(v.literal("ai"), v.literal("rules")),
     limitations: v.array(v.string()),
+    claimsSkipped: v.optional(v.number()),
+    referencesFound: v.optional(v.number()),
+    referencesSkipped: v.optional(v.number()),
     error: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -279,7 +445,25 @@ export const complete = internalMutation({
       status: "ready",
       engine: args.engine,
       limitations: args.limitations,
+      claimsSkipped: args.claimsSkipped,
+      referencesFound: args.referencesFound,
+      referencesSkipped: args.referencesSkipped,
       completedAt: Date.now(),
+    });
+    await ctx.db.insert("notifications", {
+      userId: analysis.userId,
+      kind: "analysis_ready",
+      title: "Verification report ready",
+      body: `“${analysis.title}” finished with ${args.referencesFound ?? 0} parsed reference(s).`,
+      analysisId: args.analysisId,
+      createdAt: Date.now(),
+    });
+    await ctx.db.insert("activity", {
+      userId: analysis.userId,
+      kind: "analysis_completed",
+      message: `Completed verification of “${analysis.title}”`,
+      analysisId: args.analysisId,
+      createdAt: Date.now(),
     });
     return null;
   },
@@ -327,6 +511,12 @@ export const addReference = internalMutation({
     evidenceSource: v.optional(v.string()),
     candidatesJson: v.string(),
     error: v.optional(v.string()),
+    duplicateOf: v.optional(v.string()),
+    isRetracted: v.optional(v.boolean()),
+    retractionNote: v.optional(v.string()),
+    retractionUrl: v.optional(v.string()),
+    fullTextUrl: v.optional(v.string()),
+    fullTextSource: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const analysis = await ctx.db.get(args.analysisId);
@@ -370,11 +560,44 @@ export const addClaim = internalMutation({
     verdictEngine: v.union(v.literal("ai"), v.literal("rules")),
     reviewNeeded: v.boolean(),
     sortIndex: v.number(),
+    section: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const analysis = await ctx.db.get(args.analysisId);
     if (!analysis) return null;
     return await ctx.db.insert("analysisClaims", args);
+  },
+});
+
+/* ------------------------------------------------------------------ */
+/* Action helpers (runs with the caller's auth)                       */
+/* ------------------------------------------------------------------ */
+
+export const currentUserId = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    return await getAuthUserId(ctx);
+  },
+});
+
+export const bundleForAction = internalQuery({
+  args: { analysisId: v.id("analyses"), userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const analysis = await ctx.db.get(args.analysisId);
+    if (!analysis || analysis.userId !== args.userId) return null;
+    const claims = await ctx.db
+      .query("analysisClaims")
+      .withIndex("by_analysis", (q) => q.eq("analysisId", args.analysisId))
+      .collect();
+    const references = await ctx.db
+      .query("analysisReferences")
+      .withIndex("by_analysis", (q) => q.eq("analysisId", args.analysisId))
+      .collect();
+    return {
+      analysis,
+      claims: claims.sort((a, b) => a.sortIndex - b.sortIndex),
+      references,
+    };
   },
 });
 

@@ -20,7 +20,7 @@ export type ReferenceStatus =
   | "UNVERIFIED"
   | "RETRIEVAL_FAILED";
 
-export type RetrievalLevel = "abstract" | "metadata_only" | "unavailable";
+export type RetrievalLevel = "full_text" | "abstract" | "metadata_only" | "unavailable";
 
 export type ScholarlyRecord = {
   source: "Crossref" | "OpenAlex" | "DataCite" | "arXiv" | "Semantic Scholar";
@@ -34,6 +34,10 @@ export type ScholarlyRecord = {
   type?: string;
   matchScore?: number;
   matchDetail?: string;
+  isRetracted?: boolean;
+  oaUrl?: string;
+  pmcid?: string;
+  citationCount?: number;
 };
 
 export type ReferenceVerification = {
@@ -44,12 +48,21 @@ export type ReferenceVerification = {
   candidates: ScholarlyRecord[];
   retrievalLevel: RetrievalLevel;
   error?: string;
+  fullText?: { text: string; url?: string; source: string };
+  retraction?: { note: string; url?: string };
 };
 
 type FetchResult = { ok: boolean; data?: unknown };
 
 const TIMEOUT_MS = 9000;
 const USER_AGENT = "CiteVerify/1.0 (academic citation verification tool)";
+
+// Shared per-run circuit breakers. Without these, a rate-limited API would be
+// retried for every reference in the bibliography, which can exhaust the action
+// timeout and delay the report.
+let openAlexCooldownUntil = 0;
+let semanticScholarCooldownUntil = 0;
+let europePmcCooldownUntil = 0;
 
 async function getJson(url: string, attempt = 0): Promise<FetchResult> {
   const controller = new AbortController();
@@ -72,6 +85,34 @@ async function getJson(url: string, attempt = 0): Promise<FetchResult> {
     if (attempt < 2) {
       await new Promise((resolve) => setTimeout(resolve, 600 * (attempt + 1)));
       return await getJson(url, attempt + 1);
+    }
+    return { ok: false };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function getText(url: string, attempt = 0): Promise<{ ok: boolean; text?: string }> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS + 3000);
+  try {
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: { "User-Agent": USER_AGENT, Accept: "application/xml,text/xml" },
+    });
+    if (!response.ok) {
+      const retryable = response.status === 429 || response.status >= 500;
+      if (retryable && attempt < 2) {
+        await new Promise((resolve) => setTimeout(resolve, 700 * (attempt + 1)));
+        return await getText(url, attempt + 1);
+      }
+      return { ok: false };
+    }
+    return { ok: true, text: await response.text() };
+  } catch {
+    if (attempt < 2) {
+      await new Promise((resolve) => setTimeout(resolve, 600 * (attempt + 1)));
+      return await getText(url, attempt + 1);
     }
     return { ok: false };
   } finally {
@@ -159,8 +200,16 @@ type OpenAlexWork = {
   publication_year?: number;
   type?: string;
   authorships?: { author?: { display_name?: string } }[];
-  primary_location?: { source?: { display_name?: string }; landing_page_url?: string };
+  primary_location?: {
+    source?: { display_name?: string };
+    landing_page_url?: string;
+    pdf_url?: string;
+  };
+  best_oa_location?: { pdf_url?: string; landing_page_url?: string };
   abstract_inverted_index?: Record<string, number[]>;
+  is_retracted?: boolean;
+  ids?: { pmcid?: string };
+  cited_by_count?: number;
 };
 
 function reconstructAbstract(index?: Record<string, number[]>): string | undefined {
@@ -191,6 +240,85 @@ function mapOpenAlex(work: OpenAlexWork): ScholarlyRecord | null {
     url: doi ? `https://doi.org/${doi}` : work.id,
     abstract: reconstructAbstract(work.abstract_inverted_index),
     type: work.type,
+    isRetracted: work.is_retracted === true,
+    oaUrl: work.best_oa_location?.pdf_url ?? work.primary_location?.pdf_url,
+    pmcid: work.ids?.pmcid?.replace(/^https?:\/\/www\.ncbi\.nlm\.nih\.gov\/pmc\/articles\//i, ""),
+    citationCount: work.cited_by_count,
+  };
+}
+
+async function openAlexByDoi(doi: string): Promise<ScholarlyRecord | null> {
+  if (process.env.OPENALEX_LOOKUP === "off") return null;
+  if (Date.now() < openAlexCooldownUntil) return null;
+  const mailto = process.env.OPENALEX_MAILTO ? `&mailto=${encodeURIComponent(process.env.OPENALEX_MAILTO)}` : "";
+  const result = await getJson(
+    `https://api.openalex.org/works/https://doi.org/${encodeURIComponent(doi)}?${mailto}`,
+  );
+  if (!result.ok) return null;
+  return mapOpenAlex(result.data as OpenAlexWork);
+}
+
+/* ------------------------------------------------------------------ */
+/* Europe PMC — open-access full text for biomedical literature        */
+/* ------------------------------------------------------------------ */
+
+type EuropePmcSearch = {
+  resultList?: {
+    result?: {
+      pmcid?: string;
+      isOpenAccess?: string;
+      inEPMC?: string;
+      title?: string;
+    }[];
+  };
+};
+
+async function europePmcFullText(
+  doi: string | undefined,
+  pmcidHint?: string,
+): Promise<{ text: string; url: string; source: string } | null> {
+  if (process.env.FULLTEXT_RETRIEVAL === "off") return null;
+  if (Date.now() < europePmcCooldownUntil) return null;
+  let pmcid = pmcidHint;
+  if (!pmcid && doi) {
+    const search = await getJson(
+      `https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=${encodeURIComponent(
+        `DOI:"${doi}"`,
+      )}&format=json&resultType=lite&pageSize=1`,
+    );
+    if (!search.ok) {
+      europePmcCooldownUntil = Date.now() + 120_000;
+      return null;
+    }
+    const hit = (search.data as EuropePmcSearch)?.resultList?.result?.[0];
+    if (!hit?.pmcid) return null;
+    pmcid = hit.pmcid;
+  }
+  if (!pmcid) return null;
+  const full = await getText(
+    `https://www.ebi.ac.uk/europepmc/webservices/rest/${encodeURIComponent(pmcid)}/fullTextXML`,
+  );
+  if (!full.ok) {
+    europePmcCooldownUntil = Date.now() + 120_000;
+    return null;
+  }
+  // The endpoint returns XML even on some error paths; require a body element.
+  const xml = full.text ?? "";
+  if (!xml || !/<body[\s>]/i.test(xml)) return null;
+  const body = /<body[\s>][\s\S]*?<\/body>/i.exec(xml)?.[0] ?? xml;
+  const cleaned = body
+    .replace(/<ref-list[\s\S]*?<\/ref-list>/gi, " ")
+    .replace(/<table-wrap[\s\S]*?<\/table-wrap>/gi, " ")
+    .replace(/<\/?(?:p|title|sec|abstract|fig|caption|label|article-title)\b[^>]*>/gi, "\n")
+    .replace(/<[^>]+>/g, " ");
+  const text = decodeXml(cleaned)
+    .replace(/\n{3,}/g, "\n\n")
+    .slice(0, 60_000);
+  if (text.length < 500) return null;
+  return {
+    text,
+    url: `https://europepmc.org/article/PMC/${pmcid.replace(/^PMC/i, "")}`,
+    source: "Europe PMC open-access full text",
   };
 }
 
@@ -310,9 +438,13 @@ async function arxivSearch(query: string): Promise<ScholarlyRecord[]> {
 }
 
 async function openAlexSearch(query: string): Promise<{ records: ScholarlyRecord[]; failed: boolean }> {
+  if (Date.now() < openAlexCooldownUntil) return { records: [], failed: false };
   const url = `https://api.openalex.org/works?search=${encodeURIComponent(query)}&per-page=5`;
   const result = await getJson(url);
-  if (!result.ok) return { records: [], failed: true };
+  if (!result.ok) {
+    openAlexCooldownUntil = Date.now() + 120_000;
+    return { records: [], failed: true };
+  }
   const works = (result.data as { results?: OpenAlexWork[] })?.results ?? [];
   return {
     records: works.map(mapOpenAlex).filter((item): item is ScholarlyRecord => item !== null),
@@ -335,11 +467,15 @@ type SemanticPaper = {
 };
 
 async function semanticScholarByDoi(doi: string): Promise<ScholarlyRecord | null> {
+  if (Date.now() < semanticScholarCooldownUntil) return null;
   const url = `https://api.semanticscholar.org/graph/v1/paper/DOI:${encodeURIComponent(
     doi,
   )}?fields=title,abstract,year,venue,url,authors,externalIds`;
   const result = await getJson(url);
-  if (!result.ok) return null;
+  if (!result.ok) {
+    semanticScholarCooldownUntil = Date.now() + 180_000;
+    return null;
+  }
   const paper = result.data as SemanticPaper | undefined;
   if (!paper?.title) return null;
   return {
@@ -538,11 +674,49 @@ export async function verifyReference(ref: ParsedReference): Promise<ReferenceVe
     }
   }
 
+  const retraction = usable
+    ? (() => {
+        const flagged = shortlist.find((record) => record.isRetracted);
+        if (flagged) {
+          return {
+            note: "OpenAlex marks this publication as retracted.",
+            url: flagged.url,
+          };
+        }
+        return undefined;
+      })()
+    : undefined;
+
+  let fullText: { text: string; url?: string; source: string } | null = null;
+  if (usable && evidenceRecord) {
+    fullText = await europePmcFullText(evidenceRecord.doi ?? ref.doi, evidenceRecord.pmcid);
+    if (fullText) matchNotes.push("Open-access full text retrieved from Europe PMC.");
+  }
+
+  // A direct DOI record from OpenAlex carries retraction and OA flags that the
+  // search shortlist may miss. Best-effort only; absence is never treated as proof.
+  let retractionFromDoi: { note: string; url?: string } | undefined;
+  if (usable && ref.doi) {
+    const direct = await openAlexByDoi(ref.doi);
+    if (direct?.isRetracted) {
+      retractionFromDoi = {
+        note: "OpenAlex marks this publication as retracted.",
+        url: direct.url ?? `https://api.openalex.org/works/https://doi.org/${ref.doi}`,
+      };
+    }
+    if (evidenceRecord && !evidenceRecord.abstract && direct?.abstract) {
+      evidenceRecord = { ...evidenceRecord, abstract: direct.abstract };
+      matchNotes.push("Abstract retrieved from OpenAlex.");
+    }
+  }
+
   const retrievalLevel: RetrievalLevel = !usable
     ? "unavailable"
-    : evidenceRecord?.abstract
-      ? "abstract"
-      : "metadata_only";
+    : fullText
+      ? "full_text"
+      : evidenceRecord?.abstract
+        ? "abstract"
+        : "metadata_only";
 
   return {
     status,
@@ -553,9 +727,37 @@ export async function verifyReference(ref: ParsedReference): Promise<ReferenceVe
     best: usable || status === "MISMATCH" ? evidenceRecord ?? best : undefined,
     candidates: shortlist,
     retrievalLevel,
+    fullText: fullText ?? undefined,
+    retraction: retractionFromDoi ?? retraction,
     error:
       apiFailed && status !== "VERIFIED"
         ? "Some scholarly APIs did not respond; match may be incomplete."
         : undefined,
   };
+}
+
+/**
+ * Picks the paragraphs of a retrieved full text that overlap the claim most, so
+ * the evidence auditor sees relevant passages instead of the paper's opening.
+ */
+export function selectRelevantPassage(claim: string, fullText: string): string {
+  const paragraphs = fullText
+    .split(/\n\s*\n+/)
+    .map((paragraph) => normalizeWhitespace(paragraph))
+    .filter((paragraph) => paragraph.length > 80);
+  if (paragraphs.length === 0) return fullText.slice(0, 4000);
+  const claimTokens = new Set(
+    normalizeForMatch(claim)
+      .split(" ")
+      .filter((token) => token.length > 3),
+  );
+  const scored = paragraphs.map((paragraph, index) => {
+    const tokens = normalizeForMatch(paragraph).split(" ");
+    let shared = 0;
+    for (const token of tokens) if (claimTokens.has(token)) shared += 1;
+    return { paragraph, index, score: shared / Math.max(12, claimTokens.size) };
+  });
+  scored.sort((a, b) => b.score - a.score);
+  const picked = scored.slice(0, 3).sort((a, b) => a.index - b.index);
+  return picked.map((entry) => entry.paragraph).join("\n\n").slice(0, 7000);
 }

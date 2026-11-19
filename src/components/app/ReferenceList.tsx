@@ -16,7 +16,7 @@ import {
   type ReferenceRecord,
   type ReferenceStatus,
 } from "@/lib/analysis-ui";
-import { ArrowUpRight, ExternalLink, Search } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, ExternalLink, Network, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { ReferenceStatusBadge, RetrievalBadge } from "./Badges";
 
@@ -103,6 +103,17 @@ export function ReferenceList({
                     <p className="mt-1.5 line-clamp-2 text-[12.5px] leading-6 text-foreground/90">
                       {reference.matchedTitle ?? reference.title ?? reference.rawText}
                     </p>
+                    {reference.isRetracted && (
+                      <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-[var(--verdict-contradicted-soft)] px-2 py-0.5 text-[9px] font-medium text-[var(--verdict-contradicted)]">
+                        <AlertTriangle className="size-2.5" />
+                        Retracted source
+                      </span>
+                    )}
+                    {reference.duplicateOf && (
+                      <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[9px] text-muted-foreground">
+                        Duplicate of [{reference.duplicateOf}]
+                      </span>
+                    )}
                     <p className="mt-1 line-clamp-1 text-[11px] leading-5 text-muted-foreground">
                       {reference.rawText}
                     </p>
@@ -146,6 +157,40 @@ export function ReferenceList({
               </DialogHeader>
 
               <div className="space-y-5">
+                {selected.isRetracted && (
+                  <div className="flex items-start gap-2 rounded-lg border border-[var(--verdict-contradicted)]/30 bg-[var(--verdict-contradicted-soft)] px-3 py-2.5">
+                    <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-[var(--verdict-contradicted)]" />
+                    <div>
+                      <p className="text-[11.5px] font-medium text-[var(--verdict-contradicted)]">
+                        Retraction flag
+                      </p>
+                      <p className="mt-0.5 text-[11px] leading-5 text-foreground/80">
+                        {selected.retractionNote ?? "OpenAlex marks this publication as retracted."}{" "}
+                        A retraction does not by itself disprove every claim that cites the work, but it
+                        must be reviewed.
+                      </p>
+                      {selected.retractionUrl && (
+                        <a
+                          href={selected.retractionUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-1 inline-flex items-center gap-1 text-[10.5px] text-primary hover:underline"
+                        >
+                          Open record
+                          <ArrowUpRight className="size-3" />
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {selected.duplicateOf && (
+                  <p className="rounded-lg border border-border bg-secondary/40 px-3 py-2 text-[11px] leading-5 text-muted-foreground">
+                    This entry repeats reference [{selected.duplicateOf}]. It was not queried again, so it
+                    shares that record's result.
+                  </p>
+                )}
+
                 <div>
                   <p className="eyebrow">Reference as written</p>
                   <p className="mt-2 rounded-lg border border-border bg-secondary/40 p-3 text-[12px] leading-6">
@@ -182,14 +227,36 @@ export function ReferenceList({
                         <MetaRow label="Metadata match" value={`${Math.round(selected.matchScore * 100)}%`} />
                       )}
                     </dl>
-                    {selected.sourceUrl && (
-                      <Button asChild variant="outline" size="sm" className="mt-3 h-7 rounded-full text-[11px]">
-                        <a href={selected.sourceUrl} target="_blank" rel="noreferrer">
-                          Open publication
-                          <ExternalLink className="ml-1.5 size-3" />
-                        </a>
-                      </Button>
-                    )}
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {selected.sourceUrl && (
+                        <Button asChild variant="outline" size="sm" className="h-7 rounded-full text-[11px]">
+                          <a href={selected.sourceUrl} target="_blank" rel="noreferrer">
+                            Open publication
+                            <ExternalLink className="ml-1.5 size-3" />
+                          </a>
+                        </Button>
+                      )}
+                      {(selected.matchedDoi ?? selected.doi) && (
+                        <Button asChild variant="outline" size="sm" className="h-7 rounded-full text-[11px]">
+                          <a
+                            href={`/graph?doi=${encodeURIComponent(
+                              selected.matchedDoi ?? selected.doi ?? "",
+                            )}`}
+                          >
+                            Citation graph
+                            <Network className="ml-1.5 size-3" />
+                          </a>
+                        </Button>
+                      )}
+                      {selected.fullTextUrl && (
+                        <Button asChild variant="ghost" size="sm" className="h-7 rounded-full text-[11px]">
+                          <a href={selected.fullTextUrl} target="_blank" rel="noreferrer">
+                            Full text
+                            <ExternalLink className="ml-1.5 size-3" />
+                          </a>
+                        </Button>
+                      )}
+                    </div>
                   </div>
 
                   <div>
@@ -217,6 +284,11 @@ export function ReferenceList({
                 {selected.evidenceText && (
                   <div>
                     <p className="eyebrow">Retrieved text ({RETRIEVAL_LABEL[selected.retrievalLevel]})</p>
+                    {selected.fullTextSource && (
+                      <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.05em] text-[var(--verdict-supported)]">
+                        {selected.fullTextSource}
+                      </p>
+                    )}
                     <p className="mt-2 border-l-2 border-border pl-3 text-[12px] leading-6 text-muted-foreground">
                       {selected.evidenceText.slice(0, 1400)}
                       {selected.evidenceText.length > 1400 ? "…" : ""}

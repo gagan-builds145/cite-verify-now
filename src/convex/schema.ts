@@ -41,9 +41,16 @@ export const verdictValidator = v.union(
 );
 
 export const retrievalLevelValidator = v.union(
+  v.literal("full_text"),
   v.literal("abstract"),
   v.literal("metadata_only"),
   v.literal("unavailable"),
+);
+
+export const reviewDecisionValidator = v.union(
+  v.literal("approved"),
+  v.literal("rejected"),
+  v.literal("overridden"),
 );
 
 const schema = defineSchema(
@@ -88,6 +95,10 @@ const schema = defineSchema(
       engine: v.union(v.literal("ai"), v.literal("rules")),
       limitations: v.array(v.string()),
       isDemo: v.boolean(),
+      claimsSkipped: v.optional(v.number()),
+      referencesFound: v.optional(v.number()),
+      referencesSkipped: v.optional(v.number()),
+      reviewComplete: v.optional(v.number()),
       completedAt: v.optional(v.number()),
     }).index("by_user", ["userId"]),
 
@@ -129,6 +140,12 @@ const schema = defineSchema(
       evidenceSource: v.optional(v.string()),
       candidatesJson: v.string(),
       error: v.optional(v.string()),
+      duplicateOf: v.optional(v.string()),
+      isRetracted: v.optional(v.boolean()),
+      retractionNote: v.optional(v.string()),
+      retractionUrl: v.optional(v.string()),
+      fullTextUrl: v.optional(v.string()),
+      fullTextSource: v.optional(v.string()),
     }).index("by_analysis", ["analysisId"]),
 
     // Messages sent through the public contact form (no email is sent).
@@ -157,7 +174,82 @@ const schema = defineSchema(
       verdictEngine: v.union(v.literal("ai"), v.literal("rules")),
       reviewNeeded: v.boolean(),
       sortIndex: v.number(),
+      section: v.optional(v.string()),
+      reviewStatus: v.optional(reviewDecisionValidator),
+      reviewVerdict: v.optional(verdictValidator),
+      reviewNote: v.optional(v.string()),
+      reviewerName: v.optional(v.string()),
+      reviewedAt: v.optional(v.number()),
     }).index("by_analysis", ["analysisId"]),
+
+    // Human review decisions. Every decision is append-only so the original AI
+    // verdict and the full review history remain inspectable.
+    reviews: defineTable({
+      analysisId: v.id("analyses"),
+      claimId: v.string(),
+      reviewerId: v.id("users"),
+      reviewerName: v.string(),
+      decision: reviewDecisionValidator,
+      originalVerdict: verdictValidator,
+      finalVerdict: verdictValidator,
+      note: v.optional(v.string()),
+      createdAt: v.number(),
+    }).index("by_analysis", ["analysisId"]),
+
+    // Discovered papers saved from the explorer, graph or a report.
+    savedPapers: defineTable({
+      userId: v.id("users"),
+      title: v.string(),
+      authors: v.array(v.string()),
+      year: v.optional(v.number()),
+      doi: v.optional(v.string()),
+      venue: v.optional(v.string()),
+      abstract: v.optional(v.string()),
+      source: v.string(),
+      url: v.optional(v.string()),
+      tags: v.array(v.string()),
+      notes: v.optional(v.string()),
+      collectionId: v.optional(v.id("collections")),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_user", ["userId"])
+      .index("by_user_doi", ["userId", "doi"]),
+
+    collections: defineTable({
+      userId: v.id("users"),
+      name: v.string(),
+      color: v.string(),
+      createdAt: v.number(),
+    }).index("by_user", ["userId"]),
+
+    // Chat turns for the evidence-grounded research assistant.
+    assistantMessages: defineTable({
+      analysisId: v.id("analyses"),
+      userId: v.id("users"),
+      role: v.union(v.literal("user"), v.literal("assistant")),
+      content: v.string(),
+      citationsJson: v.string(),
+      createdAt: v.number(),
+    }).index("by_analysis", ["analysisId"]),
+
+    notifications: defineTable({
+      userId: v.id("users"),
+      kind: v.string(),
+      title: v.string(),
+      body: v.string(),
+      analysisId: v.optional(v.id("analyses")),
+      readAt: v.optional(v.number()),
+      createdAt: v.number(),
+    }).index("by_user", ["userId"]),
+
+    activity: defineTable({
+      userId: v.id("users"),
+      kind: v.string(),
+      message: v.string(),
+      analysisId: v.optional(v.id("analyses")),
+      createdAt: v.number(),
+    }).index("by_user", ["userId"]),
   },
   {
     schemaValidation: false,

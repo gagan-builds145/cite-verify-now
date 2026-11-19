@@ -10,6 +10,7 @@ import { Link } from "react-router";
 const NAV_LINKS = [
   { label: "Product", to: "/", hash: "#capabilities" },
   { label: "How It Works", to: "/", hash: "#how-it-works" },
+  { label: "Explore", to: "/explorer", hash: "" },
   { label: "Privacy", to: "/privacy", hash: "" },
   { label: "About", to: "/about", hash: "" },
 ];
@@ -104,7 +105,7 @@ export function SiteFooter() {
               record it came from.
             </p>
             <p className="mt-4 font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground/80">
-              Crossref · OpenAlex · Semantic Scholar
+              Crossref · OpenAlex · Europe PMC · DataCite · arXiv
             </p>
           </div>
 
@@ -112,8 +113,10 @@ export function SiteFooter() {
             title="Product"
             links={[
               { label: "Upload a paper", to: "/analyze" },
+              { label: "Research explorer", to: "/explorer" },
+              { label: "My library", to: "/library" },
+              { label: "Citation graph", to: "/graph" },
               { label: "Analysis dashboard", to: "/dashboard" },
-              { label: "How it works", to: "/#how-it-works" },
             ]}
           />
           <FooterColumn

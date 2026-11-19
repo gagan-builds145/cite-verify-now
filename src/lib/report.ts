@@ -47,6 +47,9 @@ export function buildVerificationReport(
   const verdictCounts = countVerdicts(claims);
   const referenceCounts = countReferenceStatuses(references);
   const reviewClaims = claims.filter((claim) => claim.reviewNeeded);
+  const reviewedClaims = claims.filter((claim) => claim.reviewStatus);
+  const retracted = references.filter((reference) => reference.isRetracted);
+  const fullTextCount = references.filter((reference) => reference.retrievalLevel === "full_text").length;
 
   const footer = () => {
     doc.setFont("helvetica", "normal");
@@ -150,6 +153,9 @@ export function buildVerificationReport(
     ["Unverified", String(verdictCounts.UNVERIFIED)],
     ["References parsed", String(references.length)],
     ["References verified", String(referenceCounts.VERIFIED)],
+    ["Full text retrieved", String(fullTextCount)],
+    ["Retracted sources", String(retracted.length)],
+    ["Claims human-reviewed", `${reviewedClaims.length}/${claims.length}`],
     ["Possible matches", String(referenceCounts.POSSIBLE_MATCH)],
     ["Mismatched", String(referenceCounts.MISMATCH)],
     ["Not located", String(referenceCounts.UNVERIFIED)],
@@ -184,7 +190,11 @@ export function buildVerificationReport(
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
     doc.setTextColor(120, 124, 132);
-    doc.text(`${claim.claimId}  ·  p.${claim.page}`, MARGIN, y);
+    doc.text(
+      `${claim.claimId}  ·  p.${claim.page}${claim.section ? `  ·  ${claim.section}` : ""}`,
+      MARGIN,
+      y,
+    );
     doc.setTextColor(...VERDICT_RGB[claim.verdict]);
     doc.text(verdictLabel.toUpperCase(), MARGIN + contentWidth, y, { align: "right" });
     y += 14;
@@ -217,6 +227,16 @@ export function buildVerificationReport(
     }
     if (claim.reviewNeeded) {
       body("Flagged for manual review.", { size: 8, color: [164, 110, 18], gap: 2 });
+    }
+    if (claim.reviewStatus) {
+      body(
+        `Human review: ${claim.reviewStatus.toUpperCase()} by ${claim.reviewerName ?? "reviewer"} — ${
+          claim.reviewStatus === "rejected"
+            ? "AI verdict rejected; no replacement verdict selected"
+            : VERDICT_META[claim.reviewVerdict ?? claim.verdict].label
+        }${claim.reviewNote ? ` — ${claim.reviewNote}` : ""}`,
+        { size: 8, color: [40, 90, 70], gap: 2 },
+      );
     }
     y += 6;
     ensure(2);
@@ -256,6 +276,24 @@ export function buildVerificationReport(
       if (meta) body(meta, { size: 8, color: [110, 115, 125], gap: 2 });
       if (reference.sourceUrl) body(reference.sourceUrl, { size: 7.5, color: [90, 110, 150], gap: 2 });
     }
+    if (reference.isRetracted) {
+      body(
+        `RETRACTED SOURCE: ${reference.retractionNote ?? "flagged by OpenAlex"}${
+          reference.retractionUrl ? ` — ${reference.retractionUrl}` : ""
+        }`,
+        { size: 7.5, color: [176, 48, 42], gap: 2 },
+      );
+    }
+    if (reference.duplicateOf) {
+      body(`Duplicate of reference [${reference.duplicateOf}].`, {
+        size: 7.5,
+        color: [120, 124, 132],
+        gap: 2,
+      });
+    }
+    if (reference.fullTextUrl) {
+      body(`Full text: ${reference.fullTextUrl}`, { size: 7.5, color: [90, 110, 150], gap: 2 });
+    }
     if (reference.matchNotes.length > 0) {
       body(reference.matchNotes.join(" · "), { size: 7.5, color: [120, 124, 132], gap: 2 });
     }
@@ -280,11 +318,38 @@ export function buildVerificationReport(
   }
   y += 8;
 
+  /* Retraction and reliability summary */
+  if (retracted.length > 0) {
+    heading("Retraction and reliability warnings");
+    retracted.forEach((reference) => {
+      body(
+        `[${reference.refKey}] ${reference.matchedTitle ?? reference.title ?? reference.rawText} — ${
+          reference.retractionNote ?? "flagged as retracted"
+        }`,
+        { size: 8.5, color: [176, 48, 42], gap: 3 },
+      );
+    });
+    body(
+      "A retraction warning does not by itself establish that every claim citing the work is false. Review the affected claims individually.",
+      { size: 8, color: [95, 100, 110], gap: 6 },
+    );
+  }
+
   /* Limitations */
   heading("Limitations of this automated analysis");
   analysis.limitations.forEach((limitation) => {
     body(`• ${limitation}`, { size: 8.5, color: [80, 85, 95], gap: 3 });
   });
+  if ((analysis.referencesSkipped ?? 0) > 0) {
+    body(
+      `• ${analysis.referencesSkipped} bibliography entries were beyond the configured reference-processing limit and were not checked.`,
+      { size: 8.5, color: [164, 110, 18], gap: 3 },
+    );
+  }
+  body(
+    "• Verdicts are not calibrated probabilities. No numeric confidence score is presented as a probability; use the evidence level, retrieval status and human review status instead.",
+    { size: 8.5, color: [80, 85, 95], gap: 3 },
+  );
 
   footer();
   return doc;

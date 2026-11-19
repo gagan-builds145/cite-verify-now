@@ -267,10 +267,10 @@ export function extractReferenceAuthors(raw: string): string[] {
     .slice(0, 10);
 }
 
-export function parseReferences(sectionText: string): ParsedReference[] {
+export function parseReferences(sectionText: string, max = 60): ParsedReference[] {
   const { entries, numbered } = splitEntries(sectionText);
   const parsed: ParsedReference[] = [];
-  entries.slice(0, 30).forEach((raw, index) => {
+  entries.slice(0, max).forEach((raw, index) => {
     const rawText = normalizeWhitespace(raw);
     if (rawText.length < 25) return;
     const doiMatch = rawText.match(/\b10\.\d{4,9}\/[^\s"<>,;]+/i);
@@ -305,6 +305,82 @@ export function parseReferences(sectionText: string): ParsedReference[] {
     seen.set(ref.refKey, count + 1);
     return count === 0 ? ref : { ...ref, refKey: `${ref.refKey}-${count + 1}` };
   });
+}
+
+/* ------------------------------------------------------------------ */
+/* Section detection and duplicate references                         */
+/* ------------------------------------------------------------------ */
+
+const SECTION_NAMES: [RegExp, string][] = [
+  [/^abstract$/i, "Abstract"],
+  [/^introduction$/i, "Introduction"],
+  [/^background$/i, "Background"],
+  [/^related work$/i, "Related work"],
+  [/^literature review$/i, "Literature review"],
+  [/^materials? and methods?$/i, "Methods"],
+  [/^methods?$/i, "Methods"],
+  [/^methodology$/i, "Methodology"],
+  [/^study design$/i, "Study design"],
+  [/^participants$/i, "Participants"],
+  [/^results?$/i, "Results"],
+  [/^findings$/i, "Findings"],
+  [/^discussion$/i, "Discussion"],
+  [/^conclusions?$/i, "Conclusion"],
+  [/^limitations?$/i, "Limitations"],
+  [/^implications?$/i, "Implications"],
+  [/^future work$/i, "Future work"],
+  [/^references$/i, "References"],
+];
+
+function sectionName(line: string): string | undefined {
+  const cleaned = line
+    .replace(/^\d+(?:\.\d+)*\.?\s+/, "")
+    .replace(/[:.]+$/, "")
+    .trim();
+  if (!cleaned || cleaned.length > 48) return undefined;
+  for (const [pattern, name] of SECTION_NAMES) if (pattern.test(cleaned)) return name;
+  return undefined;
+}
+
+/** Best-effort section label for a claim inside one page's text. */
+export function detectSection(pageText: string, claimText: string): string | undefined {
+  const lines = pageText.split(/\n+/);
+  const needle = normalizeForMatch(claimText).slice(0, 70);
+  let offset = 0;
+  let claimOffset = -1;
+  let current: string | undefined;
+  let found: string | undefined;
+  for (const line of lines) {
+    const name = sectionName(line);
+    if (name) current = name;
+    if (claimOffset === -1) {
+      const normalizedLine = normalizeForMatch(line);
+      if (needle.length > 20 && (normalizedLine.includes(needle.slice(0, 40)) || needle.includes(normalizedLine.slice(0, 40)))) {
+        claimOffset = offset;
+        found = current;
+      }
+    }
+    offset += line.length + 1;
+  }
+  return found ?? current;
+}
+
+/** Marks later bibliography entries that repeat an earlier DOI or title. */
+export function findDuplicateReferences(refs: ParsedReference[]): Map<string, string> {
+  const seen = new Map<string, string>();
+  const duplicates = new Map<string, string>();
+  for (const ref of refs) {
+    const canonical = ref.doi
+      ? `doi:${normalizeForMatch(ref.doi)}`
+      : ref.title
+        ? `title:${normalizeForMatch(ref.title)}`
+        : "";
+    if (!canonical) continue;
+    const original = seen.get(canonical);
+    if (original) duplicates.set(ref.refKey, original);
+    else seen.set(canonical, ref.refKey);
+  }
+  return duplicates;
 }
 
 /* ------------------------------------------------------------------ */

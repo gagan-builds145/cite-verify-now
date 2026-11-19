@@ -1,20 +1,59 @@
 import { Brand } from "@/components/Brand";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
+import { api } from "@/convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
-import { ArrowUpRight, FilePlus2, LayoutGrid, LogOut, ShieldCheck } from "lucide-react";
+import { useQuery } from "convex/react";
+import {
+  ArrowUpRight,
+  Bell,
+  Bot,
+  Compass,
+  FileBarChart,
+  FilePlus2,
+  LayoutDashboard,
+  Library,
+  LogOut,
+  Network,
+  Settings,
+  ShieldCheck,
+} from "lucide-react";
 import type { ReactNode } from "react";
 import { Link, NavLink, useNavigate } from "react-router";
 
-const NAV = [
-  { to: "/analyze", label: "New analysis", icon: FilePlus2 },
-  { to: "/dashboard", label: "Analyses", icon: LayoutGrid },
-  { to: "/privacy", label: "Privacy", icon: ShieldCheck },
+const NAV_GROUPS = [
+  {
+    label: "Research",
+    items: [
+      { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { to: "/explorer", label: "Research Explorer", icon: Compass },
+      { to: "/library", label: "My Library", icon: Library },
+      { to: "/graph", label: "Research Graph", icon: Network },
+    ],
+  },
+  {
+    label: "Verify",
+    items: [
+      { to: "/analyze", label: "Upload & Analyze", icon: FilePlus2 },
+      { to: "/assistant", label: "Research Assistant", icon: Bot },
+      { to: "/reports", label: "Reports & Analytics", icon: FileBarChart },
+    ],
+  },
+  {
+    label: "Account",
+    items: [
+      { to: "/notifications", label: "Notifications", icon: Bell },
+      { to: "/settings", label: "Settings", icon: Settings },
+    ],
+  },
 ];
+
+const FLAT_NAV = NAV_GROUPS.flatMap((group) => group.items);
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const unread = useQuery(api.workspace.unreadCount) ?? 0;
 
   const handleSignOut = async () => {
     await signOut();
@@ -22,31 +61,42 @@ export function AppShell({ children }: { children: ReactNode }) {
   };
 
   return (
-    <div className="min-h-dvh bg-background lg:grid lg:grid-cols-[236px_1fr]">
-      <aside className="sticky top-0 hidden h-dvh flex-col border-r border-border bg-sidebar lg:flex">
+    <div className="min-h-dvh bg-background lg:grid lg:grid-cols-[244px_1fr]">
+      <aside className="sticky top-0 hidden h-dvh flex-col overflow-y-auto border-r border-border bg-sidebar lg:flex">
         <div className="px-5 py-5">
           <Brand />
         </div>
 
-        <nav className="flex-1 space-y-1 px-3">
-          <p className="px-2 pb-2 font-mono text-[9.5px] uppercase tracking-[0.14em] text-muted-foreground">
-            Workspace
-          </p>
-          {NAV.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) =>
-                `flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium transition-colors ${
-                  isActive
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                    : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground"
-                }`
-              }
-            >
-              <item.icon className="size-4" />
-              {item.label}
-            </NavLink>
+        <nav className="flex-1 space-y-5 px-3 pb-4">
+          {NAV_GROUPS.map((group) => (
+            <div key={group.label}>
+              <p className="px-2 pb-1.5 font-mono text-[9px] uppercase tracking-[0.16em] text-muted-foreground/80">
+                {group.label}
+              </p>
+              <div className="space-y-0.5">
+                {group.items.map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    className={({ isActive }) =>
+                      `group flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[12.5px] font-medium transition-colors ${
+                        isActive
+                          ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                          : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground"
+                      }`
+                    }
+                  >
+                    <item.icon className="size-4 shrink-0" />
+                    <span className="flex-1">{item.label}</span>
+                    {item.to === "/notifications" && unread > 0 && (
+                      <span className="rounded-full bg-primary px-1.5 py-0.5 font-mono text-[9px] text-primary-foreground">
+                        {unread}
+                      </span>
+                    )}
+                  </NavLink>
+                ))}
+              </div>
+            </div>
           ))}
         </nav>
 
@@ -80,6 +130,13 @@ export function AppShell({ children }: { children: ReactNode }) {
               Sign out
             </Button>
           </div>
+          <Link
+            to="/privacy"
+            className="mt-1 inline-flex items-center gap-1.5 px-2 text-[10px] text-muted-foreground hover:text-foreground"
+          >
+            <ShieldCheck className="size-3" />
+            Data handling
+          </Link>
         </div>
       </aside>
 
@@ -95,8 +152,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         </header>
 
         <div className="border-b border-border lg:hidden">
-          <nav className="flex gap-1 overflow-x-auto px-3 py-2">
-            {NAV.map((item) => (
+          <nav className="no-scrollbar flex gap-1 overflow-x-auto px-3 py-2">
+            {FLAT_NAV.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}

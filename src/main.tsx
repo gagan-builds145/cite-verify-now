@@ -15,6 +15,13 @@ const AuthPage = lazy(() => import("./pages/Auth.tsx"));
 const Dashboard = lazy(() => import("./pages/Dashboard.tsx"));
 const Analyze = lazy(() => import("./pages/Analyze.tsx"));
 const AnalysisWorkspace = lazy(() => import("./pages/AnalysisWorkspace.tsx"));
+const Explorer = lazy(() => import("./pages/Explorer.tsx"));
+const LibraryPage = lazy(() => import("./pages/Library.tsx"));
+const ResearchGraph = lazy(() => import("./pages/ResearchGraph.tsx"));
+const Assistant = lazy(() => import("./pages/Assistant.tsx"));
+const Reports = lazy(() => import("./pages/Reports.tsx"));
+const Notifications = lazy(() => import("./pages/Notifications.tsx"));
+const Settings = lazy(() => import("./pages/Settings.tsx"));
 const Info = lazy(() => import("./pages/Info.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 
@@ -127,10 +134,87 @@ createRoot(document.getElementById("root")!).render(
                 path="/dashboard"
                 element={
                   <RequireAuth
-                    title="Sign in to open your analysis library"
-                    description="Your verification sessions and their evidence chains live here."
+                    title="Sign in to open your research desk"
+                    description="Your verification sessions, saved papers and evidence chains live here."
                   >
                     <Dashboard />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/explorer"
+                element={
+                  <RequireAuth
+                    title="Sign in to search scholarly indexes"
+                    description="Explore real records from Crossref and OpenAlex and save them to your library."
+                  >
+                    <Explorer />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/library"
+                element={
+                  <RequireAuth
+                    title="Sign in to open your library"
+                    description="Saved papers, notes, collections and citation exports live here."
+                  >
+                    <LibraryPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/graph"
+                element={
+                  <RequireAuth
+                    title="Sign in to explore citation graphs"
+                    description="Build a real citation network from OpenAlex metadata."
+                  >
+                    <ResearchGraph />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/assistant"
+                element={
+                  <RequireAuth
+                    title="Sign in to ask the research assistant"
+                    description="The assistant answers only from evidence already stored in your analyses."
+                  >
+                    <Assistant />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/reports"
+                element={
+                  <RequireAuth
+                    title="Sign in to open reports and analytics"
+                    description="Download claim-level reports and portfolio verification metrics."
+                  >
+                    <Reports />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/notifications"
+                element={
+                  <RequireAuth
+                    title="Sign in to see notifications"
+                    description="Report and verification updates appear here."
+                  >
+                    <Notifications />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/settings"
+                element={
+                  <RequireAuth
+                    title="Sign in to manage settings"
+                    description="Profile, appearance and data controls are scoped to your session."
+                  >
+                    <Settings />
                   </RequireAuth>
                 }
               />

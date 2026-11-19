@@ -12,11 +12,18 @@ import {
   type ExtractedClaim,
   type Verdict,
 } from "./lib/ai";
-import { verifyReference, type ReferenceVerification, type RetrievalLevel } from "./lib/academic";
 import {
+  selectRelevantPassage,
+  verifyReference,
+  type ReferenceVerification,
+  type RetrievalLevel,
+} from "./lib/academic";
+import {
+  detectSection,
   extractHeuristicClaims,
   extractNumbers,
   findCitationMarkers,
+  findDuplicateReferences,
   findReferencesSection,
   markersToReferenceKeys,
   normalizeWhitespace,
@@ -27,8 +34,13 @@ import {
   type ParsedReference,
 } from "./lib/text";
 
-const MAX_CLAIMS = 10;
-const MAX_REFERENCES = 10;
+function configuredLimit(name: string, fallback: number): number {
+  const raw = Number(process.env[name]);
+  return Number.isFinite(raw) && raw > 0 ? Math.min(80, Math.floor(raw)) : fallback;
+}
+
+const MAX_CLAIMS = configuredLimit("MAX_CLAIMS", 24);
+const MAX_REFERENCES = configuredLimit("MAX_REFERENCES", 24);
 const VERDICT_BATCH = 4;
 
 function searchable(value: string): string {
@@ -170,19 +182,27 @@ type RefRow = {
   sourceUrl?: string;
   retrievalLevel: RetrievalLevel;
   evidenceText?: string;
+  evidenceSource?: string;
+  duplicateOf?: string;
+  isRetracted?: boolean;
+  retractionNote?: string;
+  retractionUrl?: string;
+  fullTextUrl?: string;
+  fullTextSource?: string;
 };
 
 type ClaimDraft = {
   claimId: string;
   text: string;
   page: number;
-  context: string;
-  citationMarkers: string[];
-  referenceKeys: string[];
-  mappingConfidence: number;
-  mappingNote?: string;
-  confidence?: number;
-  sortIndex: number;
+      context: string;
+    section?: string;
+    citationMarkers: string[];
+    referenceKeys: string[];
+    mappingConfidence: number;
+    mappingNote?: string;
+    confidence?: number;
+    sortIndex: number;
 };
 
 type VerdictDraft = {
@@ -231,8 +251,9 @@ export const run = action({
         );
       }
       const parsedReferences: ParsedReference[] = referenceSection
-        ? parseReferences(referenceSection.text)
+        ? parseReferences(referenceSection.text, Math.max(MAX_REFERENCES, 60))
         : [];
+      const duplicateRefs = findDuplicateReferences(parsedReferences);
       if (referenceSection && parsedReferences.length === 0) {
         limitations.push("A bibliography was found but individual entries could not be separated reliably.");
       }
@@ -247,7 +268,7 @@ export const run = action({
         error: "AI is not configured.",
       };
       if (aiConfigured()) {
-        aiClaimResult = await extractClaimsWithAI(claimPages);
+        aiClaimResult = await extractClaimsWithAI(claimPages, undefined, MAX_CLAIMS);
       } else {
         limitations.push(
           "AI claim extraction is not configured in this deployment, so rule-based extraction was used.",
@@ -275,6 +296,7 @@ export const run = action({
               claim.context && searchable(located.text).includes(searchable(claim.context).slice(0, 80))
                 ? claim.context
                 : contextFor(located, claim.text),
+            section: detectSection(located.text, claim.text),
             citationMarkers: markers,
             referenceKeys: [],
             mappingConfidence: 0,
@@ -295,6 +317,10 @@ export const run = action({
             text: claim.text,
             page: claim.page,
             context: claim.context,
+            section: detectSection(
+              claimPages.find((page) => page.page === claim.page)?.text ?? "",
+              claim.text,
+            ),
             citationMarkers: claim.markers,
             referenceKeys: [],
             mappingConfidence: 0,
@@ -361,14 +387,65 @@ export const run = action({
       );
 
       /* -------------------- 5. reference verification -------------------- */
-      await setStage("references_searched", "active", "Searching Crossref and OpenAlex");
+      await setStage(
+        "references_searched",
+        "active",
+        "Searching Crossref, OpenAlex, DataCite and Europe PMC",
+      );
       const refRows = new Map<string, RefRow>();
       const targets = parsedReferences.slice(0, MAX_REFERENCES);
       let verifiedCount = 0;
       let failureCount = 0;
+      let retractedCount = 0;
 
       for (let index = 0; index < targets.length; index += 1) {
         const ref = targets[index];
+        const duplicateOf = duplicateRefs.get(ref.refKey);
+        const original = duplicateOf ? refRows.get(duplicateOf) : undefined;
+        if (duplicateOf && original) {
+          const duplicateRow: RefRow = {
+            ...original,
+            refKey: ref.refKey,
+            rawText: ref.rawText,
+            title: ref.title,
+            authors: ref.authors,
+            year: ref.year,
+            doi: ref.doi,
+            duplicateOf,
+          };
+          refRows.set(ref.refKey, duplicateRow);
+          await ctx.runMutation(internal.analyses.addReference, {
+            analysisId,
+            refKey: duplicateRow.refKey,
+            rawText: duplicateRow.rawText,
+            title: duplicateRow.title,
+            authors: duplicateRow.authors,
+            year: duplicateRow.year,
+            doi: duplicateRow.doi,
+            status: duplicateRow.status,
+            matchScore: duplicateRow.matchScore,
+            matchNotes: [`Duplicate of reference ${duplicateOf}; not queried again.`],
+            matchedTitle: duplicateRow.matchedTitle,
+            matchedAuthors: duplicateRow.matchedAuthors,
+            matchedYear: duplicateRow.matchedYear,
+            matchedDoi: duplicateRow.matchedDoi,
+            matchedVenue: duplicateRow.matchedVenue,
+            sourceName: duplicateRow.sourceName,
+            sourceUrl: duplicateRow.sourceUrl,
+            retrievalLevel: duplicateRow.retrievalLevel,
+            evidenceText: duplicateRow.evidenceText,
+            evidenceSource: duplicateRow.evidenceSource,
+            candidatesJson: "[]",
+            duplicateOf,
+            isRetracted: duplicateRow.isRetracted,
+            retractionNote: duplicateRow.retractionNote,
+            retractionUrl: duplicateRow.retractionUrl,
+            fullTextUrl: duplicateRow.fullTextUrl,
+            fullTextSource: duplicateRow.fullTextSource,
+          });
+          continue;
+        }
+
         let verification: ReferenceVerification;
         try {
           verification = await verifyReference(ref);
@@ -401,11 +478,24 @@ export const run = action({
           sourceUrl: best?.url,
           retrievalLevel: verification.retrievalLevel,
           evidenceText:
-            verification.retrievalLevel === "unavailable" ? undefined : best?.abstract,
+            verification.retrievalLevel === "unavailable"
+              ? undefined
+              : verification.fullText?.text ?? best?.abstract,
+          evidenceSource: verification.fullText
+            ? verification.fullText.source
+            : verification.retrievalLevel !== "unavailable" && best?.abstract
+              ? `${best.source} abstract`
+              : undefined,
+          isRetracted: Boolean(verification.retraction),
+          retractionNote: verification.retraction?.note,
+          retractionUrl: verification.retraction?.url,
+          fullTextUrl: verification.fullText?.url,
+          fullTextSource: verification.fullText?.source,
         };
         refRows.set(ref.refKey, row);
         if (verification.status === "VERIFIED" || verification.status === "POSSIBLE_MATCH") verifiedCount += 1;
         if (verification.status === "RETRIEVAL_FAILED") failureCount += 1;
+        if (verification.retraction) retractedCount += 1;
 
         await ctx.runMutation(internal.analyses.addReference, {
           analysisId,
@@ -427,12 +517,14 @@ export const run = action({
           sourceUrl: row.sourceUrl,
           retrievalLevel: row.retrievalLevel,
           evidenceText: row.evidenceText,
-          evidenceSource:
-            verification.retrievalLevel !== "unavailable" && best?.abstract
-              ? `${best.source} abstract`
-              : undefined,
+          evidenceSource: row.evidenceSource,
           candidatesJson: JSON.stringify(verification.candidates),
           error: verification.error,
+          isRetracted: row.isRetracted,
+          retractionNote: row.retractionNote,
+          retractionUrl: row.retractionUrl,
+          fullTextUrl: row.fullTextUrl,
+          fullTextSource: row.fullTextSource,
         });
 
         await setStage(
@@ -444,7 +536,12 @@ export const run = action({
 
       if (parsedReferences.length > MAX_REFERENCES) {
         limitations.push(
-          `Only the first ${MAX_REFERENCES} bibliography entries were checked (${parsedReferences.length} found).`,
+          `${parsedReferences.length - MAX_REFERENCES} bibliography entries beyond the first ${MAX_REFERENCES} were not checked in this run. The report records their absence instead of silently dropping them.`,
+        );
+      }
+      if (retractedCount > 0) {
+        limitations.push(
+          `${retractedCount} cited publication(s) are flagged as retracted by OpenAlex. A retraction does not automatically falsify every claim that cites the work.`,
         );
       }
       if (failureCount > 0) {
@@ -467,12 +564,15 @@ export const run = action({
       /* -------------------- 6. source retrieval -------------------- */
       await setStage("sources_retrieved", "active", "Collecting abstracts and metadata from open sources");
       const abstractCount = Array.from(refRows.values()).filter((row) => row.retrievalLevel === "abstract").length;
+      const fullTextCount = Array.from(refRows.values()).filter(
+        (row) => row.retrievalLevel === "full_text",
+      ).length;
       await setStage(
         "sources_retrieved",
         "complete",
-        `${abstractCount} abstract(s) retrieved · ${Math.max(
+        `${fullTextCount} full text · ${abstractCount} abstract(s) · ${Math.max(
           0,
-          refRows.size - abstractCount,
+          refRows.size - abstractCount - fullTextCount,
         )} metadata-only`,
       );
       if (refRows.size > 0 && abstractCount === 0) {
@@ -481,14 +581,14 @@ export const run = action({
         );
       }
       limitations.push(
-        "Full-text retrieval is not performed. Evidence is limited to abstracts and metadata published by Crossref, OpenAlex and Semantic Scholar.",
+        "Full text is retrieved only from Europe PMC's open-access subset. Other references are assessed from abstracts or metadata, and the evidence level is shown for every claim.",
       );
 
       /* -------------------- 7. evidence analysis -------------------- */
       await setStage("evidence_analyzed", "active", "Comparing each claim against retrieved evidence");
 
       const verdicts = new Map<string, VerdictDraft>();
-      const aiItems: { draft: ClaimDraft; ref: RefRow }[] = [];
+      const aiItems: { draft: ClaimDraft; ref: RefRow; passage: string }[] = [];
 
       for (const draft of drafts) {
         const refs = draft.referenceKeys
@@ -501,7 +601,7 @@ export const run = action({
               draft.referenceKeys.length > 0
                 ? `The linked bibliography entry (${draft.referenceKeys.join(
                     ", ",
-                  )}) was not verified because only the first ${MAX_REFERENCES} references are checked per run.`
+                  )}) was not verified because the bibliography was longer than the ${MAX_REFERENCES}-reference processing limit for this run.`
                 : draft.citationMarkers.length === 0
                   ? "No citation marker accompanies this claim, so there is no cited source to check."
                   : `The citation marker ${draft.citationMarkers.join(
@@ -559,9 +659,13 @@ export const run = action({
           continue;
         }
 
-        aiItems.push({ draft, ref: primary });
+        const passage =
+          primary.retrievalLevel === "full_text" && primary.evidenceText
+            ? selectRelevantPassage(draft.text, primary.evidenceText)
+            : primary.evidenceText;
+        aiItems.push({ draft, ref: primary, passage });
         verdicts.set(draft.claimId, {
-          ...ruleBasedJudgement(draft.text, primary.evidenceText),
+          ...ruleBasedJudgement(draft.text, passage),
           engine: "rules",
           level: primary.retrievalLevel,
           reviewNeeded: true,
@@ -573,13 +677,18 @@ export const run = action({
       if (aiItems.length > 0 && aiConfigured()) {
         for (let start = 0; start < aiItems.length; start += VERDICT_BATCH) {
           const batch = aiItems.slice(start, start + VERDICT_BATCH);
-          const items: EvidenceItem[] = batch.map(({ draft, ref }) => ({
+          const items: EvidenceItem[] = batch.map(({ draft, ref, passage }) => ({
             claimId: draft.claimId,
             claimText: draft.text,
             citation: draft.citationMarkers.join(", "),
             sourceTitle: ref.matchedTitle ?? ref.title ?? "Unknown source",
-            evidence: ref.evidenceText ?? "",
-            evidenceLevel: "abstract",
+            evidence: passage,
+            evidenceLevel:
+              ref.retrievalLevel === "full_text"
+                ? "full_text"
+                : ref.retrievalLevel === "metadata_only"
+                  ? "metadata_only"
+                  : "abstract",
           }));
           const result = await judgeEvidenceWithAI(items);
           if (!result.ok) {
@@ -589,7 +698,7 @@ export const run = action({
           for (const judgement of result.judgements) {
             const target = batch.find((entry) => entry.draft.claimId === judgement.claimId);
             if (!target) continue;
-            const validQuote = sanitizeQuote(judgement.evidenceQuote, target.ref.evidenceText ?? "");
+            const validQuote = sanitizeQuote(judgement.evidenceQuote, target.passage ?? "");
             const level = target.ref.retrievalLevel;
             let verdict = judgement.verdict;
             let explanation = judgement.explanation;
@@ -618,6 +727,11 @@ export const run = action({
         aiEvidenceFailed = true;
       }
 
+      if (drafts.length >= MAX_CLAIMS) {
+        limitations.push(
+          `Claim selection reached the ${MAX_CLAIMS}-claim processing limit. Increase MAX_CLAIMS if the manuscript needs a deeper pass; unselected text is not represented as audited.`,
+        );
+      }
       if (aiEvidenceFailed && aiItems.length > 0) {
         limitations.push(
           "AI evidence reasoning failed for some claims. Those verdicts come from a conservative lexical check and are flagged for manual review.",
@@ -654,6 +768,7 @@ export const run = action({
           verdictEngine: verdict?.engine ?? "rules",
           reviewNeeded: verdict?.reviewNeeded ?? true,
           sortIndex: draft.sortIndex,
+          section: draft.section,
         });
       }
 
@@ -667,6 +782,8 @@ export const run = action({
         analysisId,
         engine: aiVerdictCount > 0 ? "ai" : "rules",
         limitations,
+        referencesFound: parsedReferences.length,
+        referencesSkipped: Math.max(0, parsedReferences.length - targets.length),
       });
       await ctx.runMutation(internal.analyses.purgeDocument, { analysisId });
       await setStage("report_ready", "complete", `${supported} supported · ${drafts.length} claims assessed`);

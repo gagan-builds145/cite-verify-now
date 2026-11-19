@@ -23,8 +23,10 @@ import {
   type AnalysisRecord,
   type ClaimRecord,
   type ReferenceRecord,
+  type ReviewRecord,
   countVerdicts,
 } from "@/lib/analysis-ui";
+import { buildClaimsCsv, buildJsonExport, buildReferencesCsv, downloadText, safeFileName } from "@/lib/export";
 import { deletePdfLocally } from "@/lib/pdf-store";
 import { downloadVerificationReport } from "@/lib/report";
 import { useMutation, useQuery } from "convex/react";
@@ -32,14 +34,17 @@ import { motion } from "framer-motion";
 import {
   AlertTriangle,
   ArrowLeft,
+  Bot,
   Download,
+  FileJson,
   FilePlus2,
+  FileSpreadsheet,
   LayoutDashboard,
   Loader2,
   Trash2,
 } from "lucide-react";
-import { useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { toast } from "sonner";
 
 type Panel = "overview" | "claims" | "references";
@@ -49,6 +54,7 @@ export default function AnalysisWorkspace() {
   const { id } = useParams<{ id: string }>();
   const analysisId = (id ?? "") as Id<"analyses">;
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const idIsValid = Boolean(id && /^[A-Za-z0-9]{16,64}$/.test(id));
 
   const analysisRaw = useQuery(api.analyses.get, idIsValid ? { analysisId } : "skip");
@@ -57,6 +63,7 @@ export default function AnalysisWorkspace() {
     api.analyses.references,
     idIsValid ? { analysisId } : "skip",
   );
+  const reviewsRaw = useQuery(api.analyses.reviews, idIsValid ? { analysisId } : "skip");
   const removeAnalysis = useMutation(api.analyses.remove);
 
   const analysis = analysisRaw as unknown as AnalysisRecord | null | undefined;
@@ -65,6 +72,10 @@ export default function AnalysisWorkspace() {
     () => (referencesRaw ?? []) as unknown as ReferenceRecord[],
     [referencesRaw],
   );
+  const reviews = useMemo(
+    () => (reviewsRaw ?? []) as unknown as ReviewRecord[],
+    [reviewsRaw],
+  );
 
   const [panel, setPanel] = useState<Panel>("overview");
   const [mobileView, setMobileView] = useState<MobileView>("results");
@@ -72,6 +83,21 @@ export default function AnalysisWorkspace() {
   const [focusRequest, setFocusRequest] = useState<{ page: number; token: number } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  useEffect(() => {
+    const panelParam = searchParams.get("panel");
+    if (panelParam === "claims" || panelParam === "references" || panelParam === "overview") {
+      setPanel(panelParam);
+    }
+    const claimParam = searchParams.get("claim");
+    if (claimParam) {
+      setPanel("claims");
+      setSelectedClaimId(claimParam);
+      setMobileView("results");
+    }
+    // Deep links are read once when the workspace opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const selectedClaim = claims.find((claim) => claim.claimId === selectedClaimId) ?? null;
 
@@ -96,6 +122,36 @@ export default function AnalysisWorkspace() {
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "The report could not be generated.");
     }
+  };
+
+  const handleCsv = () => {
+    if (!analysis) return;
+    downloadText(
+      safeFileName(analysis.title, "claims.csv"),
+      buildClaimsCsv(claims, references),
+      "text/csv",
+    );
+    toast("Claims CSV downloaded");
+  };
+
+  const handleReferencesCsv = () => {
+    if (!analysis) return;
+    downloadText(
+      safeFileName(analysis.title, "references.csv"),
+      buildReferencesCsv(references),
+      "text/csv",
+    );
+    toast("References CSV downloaded");
+  };
+
+  const handleJson = () => {
+    if (!analysis) return;
+    downloadText(
+      safeFileName(analysis.title, "report.json"),
+      buildJsonExport(analysis, claims, references, reviews),
+      "application/json",
+    );
+    toast("JSON archive downloaded");
   };
 
   const handleDelete = async () => {
@@ -257,6 +313,10 @@ export default function AnalysisWorkspace() {
         title={analysis.title}
         subtitle={`${analysis.pageCount} pages · ${claims.length} claims · ${references.length} references`}
         onReport={handleReport}
+        onCsv={handleCsv}
+        onReferencesCsv={handleReferencesCsv}
+        onJson={handleJson}
+        assistantId={id ?? undefined}
         onDelete={() => setConfirmDelete(true)}
         disabled={!claimsRaw || !referencesRaw}
       />
@@ -350,9 +410,11 @@ export default function AnalysisWorkspace() {
           {panel === "claims" &&
             (selectedClaim ? (
               <ClaimDetail
+                analysisId={analysisId}
                 claim={selectedClaim}
                 claims={claims}
                 references={references}
+                reviews={reviews.filter((review) => review.claimId === selectedClaim.claimId)}
                 onSelectClaim={handleSelectClaim}
                 onBack={() => setSelectedClaimId(null)}
                 onShowPage={handleShowPage}
@@ -397,12 +459,20 @@ function WorkspaceHeader({
   title,
   subtitle,
   onReport,
+  onCsv,
+  onReferencesCsv,
+  onJson,
+  assistantId,
   onDelete,
   disabled,
 }: {
   title: string;
   subtitle: string;
   onReport: (() => void) | undefined;
+  onCsv?: (() => void) | undefined;
+  onReferencesCsv?: (() => void) | undefined;
+  onJson?: (() => void) | undefined;
+  assistantId?: string | undefined;
   onDelete: (() => void) | undefined;
   disabled: boolean;
 }) {
@@ -438,6 +508,46 @@ function WorkspaceHeader({
           <Download className="size-3.5" />
           <span className="hidden sm:inline">Report</span>
         </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="hidden size-8 md:inline-flex"
+          aria-label="Download claims CSV"
+          title="Claims CSV"
+          onClick={onCsv}
+          disabled={!onCsv}
+        >
+          <FileSpreadsheet className="size-3.5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="hidden size-8 md:inline-flex"
+          aria-label="Download references CSV"
+          title="References CSV"
+          onClick={onReferencesCsv}
+          disabled={!onReferencesCsv}
+        >
+          <FileSpreadsheet className="size-3.5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="hidden size-8 md:inline-flex"
+          aria-label="Download JSON archive"
+          title="JSON archive"
+          onClick={onJson}
+          disabled={!onJson}
+        >
+          <FileJson className="size-3.5" />
+        </Button>
+        {assistantId && (
+          <Button variant="ghost" size="icon" className="size-8" aria-label="Ask the assistant" asChild>
+            <Link to={`/assistant?analysis=${assistantId}`}>
+              <Bot className="size-4" />
+            </Link>
+          </Button>
+        )}
         <Button
           variant="ghost"
           size="icon"

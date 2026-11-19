@@ -12,7 +12,9 @@ export type ReferenceStatus =
   | "UNVERIFIED"
   | "RETRIEVAL_FAILED";
 
-export type RetrievalLevel = "abstract" | "metadata_only" | "unavailable";
+export type RetrievalLevel = "full_text" | "abstract" | "metadata_only" | "unavailable";
+
+export type ReviewStatus = "approved" | "rejected" | "overridden";
 
 export type ClaimRecord = {
   _id: string;
@@ -31,6 +33,23 @@ export type ClaimRecord = {
   verdictEngine: "ai" | "rules";
   reviewNeeded: boolean;
   sortIndex: number;
+  section?: string;
+  reviewStatus?: ReviewStatus;
+  reviewVerdict?: Verdict;
+  reviewNote?: string;
+  reviewerName?: string;
+  reviewedAt?: number;
+};
+
+export type ReviewRecord = {
+  _id: string;
+  claimId: string;
+  reviewerName: string;
+  decision: ReviewStatus;
+  originalVerdict: Verdict;
+  finalVerdict: Verdict;
+  note?: string;
+  createdAt: number;
 };
 
 export type CandidateRecord = {
@@ -69,6 +88,12 @@ export type ReferenceRecord = {
   evidenceSource?: string;
   candidatesJson: string;
   error?: string;
+  duplicateOf?: string;
+  isRetracted?: boolean;
+  retractionNote?: string;
+  retractionUrl?: string;
+  fullTextUrl?: string;
+  fullTextSource?: string;
 };
 
 export type AnalysisSummary = {
@@ -84,6 +109,12 @@ export type AnalysisSummary = {
   refsMismatch: number;
   refsUnverified: number;
   refsFailed: number;
+  reviewNeeded: number;
+  reviewed: number;
+  claimsWithCitation: number;
+  refsFullText: number;
+  refsAbstract: number;
+  refsRetracted: number;
 };
 
 export type AnalysisRecord = {
@@ -104,6 +135,10 @@ export type AnalysisRecord = {
   engine: "ai" | "rules";
   limitations: string[];
   isDemo: boolean;
+  claimsSkipped?: number;
+  referencesFound?: number;
+  referencesSkipped?: number;
+  reviewComplete?: number;
   completedAt?: number;
   _creationTime: number;
   summary?: AnalysisSummary;
@@ -201,9 +236,16 @@ export const REFERENCE_STATUS_META: Record<
 };
 
 export const RETRIEVAL_LABEL: Record<RetrievalLevel, string> = {
+  full_text: "Full text retrieved",
   abstract: "Abstract retrieved",
   metadata_only: "Metadata only",
   unavailable: "Source unavailable",
+};
+
+export const REVIEW_STATUS_LABEL: Record<ReviewStatus, string> = {
+  approved: "Human approved",
+  rejected: "AI verdict rejected",
+  overridden: "Verdict overridden",
 };
 
 export function mappingLabel(confidence: number): string {

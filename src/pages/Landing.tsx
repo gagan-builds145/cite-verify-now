@@ -8,13 +8,17 @@ import {
   ArrowUpRight,
   BadgeCheck,
   BookOpenCheck,
+  Bot,
   Check,
+  Compass,
   Database,
   FileSearch,
   FileText,
   Fingerprint,
+  Library,
   Link2,
   Lock,
+  Network,
   Quote,
   Scale,
   ScanText,
@@ -75,7 +79,7 @@ const CHAIN = [
   { label: "CLAIM", value: "Extracted from page", detail: "Verbatim text, page number, surrounding paragraph." },
   { label: "CITATION", value: "Marker resolved", detail: "[4] or (Smith et al., 2021) matched to one bibliography entry." },
   { label: "PUBLICATION", value: "Record located", detail: "Title, authors, year and DOI from Crossref and OpenAlex." },
-  { label: "EVIDENCE", value: "Text retrieved", detail: "Abstract or metadata only — labelled exactly as such." },
+  { label: "EVIDENCE", value: "Text retrieved", detail: "Open-access full text, abstract or metadata — labelled exactly as such." },
   { label: "VERDICT", value: "Comparison made", detail: "Supported, partial, contradicted, insufficient or unverified." },
 ];
 
@@ -101,14 +105,14 @@ const STEPS = [
   {
     icon: BookOpenCheck,
     title: "Original evidence is retrieved",
-    body: "Where available, abstracts are pulled from open scholarly sources. Every panel states whether it used an abstract, metadata only, or nothing.",
-    note: "Full text is never assumed",
+    body: "Abstracts are pulled from open scholarly sources, and Europe PMC open-access full text is used when available. Every panel states full text, abstract, metadata only or unavailable.",
+    note: "Evidence level is always labelled",
   },
   {
     icon: Scale,
     title: "Claims are compared with the evidence",
     body: "The claim, cited record and retrieved passage are compared for scope, magnitude and numbers, producing a verdict with a written rationale.",
-    note: "Manual review always flagged",
+    note: "Human review recorded separately",
   },
 ];
 
@@ -328,6 +332,89 @@ export default function Landing() {
                     {step.note}
                   </p>
                 </div>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ---------------- Research workspace ---------------- */}
+      <section className="border-b border-border">
+        <div className="mx-auto w-full max-w-6xl px-5 py-20 sm:px-8">
+          <Reveal className="max-w-3xl">
+            <p className="eyebrow">Beyond the checker</p>
+            <h2 className="mt-4 font-display text-4xl leading-[1.05] tracking-tight sm:text-5xl">
+              A research desk,
+              <span className="italic text-muted-foreground"> not just a verdict.</span>
+            </h2>
+            <p className="mt-5 max-w-2xl text-[15px] leading-7 text-muted-foreground">
+              Find the paper, save it, map its citation network, ask grounded questions and record a
+              human decision — without leaving the evidence trail behind.
+            </p>
+          </Reveal>
+
+          <div className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {[
+              {
+                icon: Compass,
+                title: "Research Explorer",
+                body: "Search Crossref and OpenAlex by topic, title, author or DOI, then save the records that matter.",
+                note: "Real metadata and abstracts",
+                to: "/explorer",
+              },
+              {
+                icon: Library,
+                title: "Research Library",
+                body: "Collections, tags, reading notes and citation exports in APA, MLA, IEEE, Chicago, BibTeX and RIS.",
+                note: "No PDF hosting",
+                to: "/library",
+              },
+              {
+                icon: Network,
+                title: "Citation Graph",
+                body: "References, citing works and related papers from OpenAlex — with the link type stated on every edge.",
+                note: "Similarity is not support",
+                to: "/graph",
+              },
+              {
+                icon: Bot,
+                title: "Evidence Assistant",
+                body: "Ask about a manuscript. Answers are limited to its stored claims and evidence, and every reply cites claim ids.",
+                note: "Grounded in your report",
+                to: "/assistant",
+              },
+              {
+                icon: Scale,
+                title: "Human Review",
+                body: "Approve, reject or override an AI verdict with a note. The original assessment and the full review history stay intact.",
+                note: "AI and human kept distinct",
+                to: "/dashboard",
+              },
+              {
+                icon: ShieldCheck,
+                title: "Reliability Checks",
+                body: "Open-access full text from Europe PMC when available, retraction flags from OpenAlex, and duplicate-reference detection.",
+                note: "Every flag keeps its source",
+                to: "/reports",
+              },
+            ].map((feature, index) => (
+              <Reveal key={feature.title} delay={index * 0.04}>
+                <Link
+                  to={feature.to}
+                  className="group flex h-full flex-col rounded-xl border border-border bg-card p-5 transition-colors hover:border-primary/35"
+                >
+                  <div className="flex items-center justify-between">
+                    <feature.icon className="size-4 text-primary" />
+                    <ArrowUpRight className="size-3.5 text-muted-foreground/50 transition-colors group-hover:text-primary" />
+                  </div>
+                  <h3 className="mt-5 text-sm font-semibold tracking-tight">{feature.title}</h3>
+                  <p className="mt-2 flex-1 text-[12.5px] leading-6 text-muted-foreground">
+                    {feature.body}
+                  </p>
+                  <p className="mt-4 border-t border-border pt-3 font-mono text-[9.5px] uppercase tracking-[0.08em] text-muted-foreground/80">
+                    {feature.note}
+                  </p>
+                </Link>
               </Reveal>
             ))}
           </div>

@@ -36,10 +36,14 @@ export function OverviewPanel({
   const verdicts = countVerdicts(claims);
   const refStatuses = countReferenceStatuses(references);
   const reviewClaims = claims.filter((claim) => claim.reviewNeeded);
+  const reviewedClaims = claims.filter((claim) => claim.reviewStatus);
   const linkedClaims = claims.filter((claim) => claim.referenceKeys.length > 0).length;
+  const fullTextCount = references.filter((reference) => reference.retrievalLevel === "full_text").length;
   const abstractCount = references.filter((reference) => reference.retrievalLevel === "abstract").length;
   const metadataOnly = references.filter((reference) => reference.retrievalLevel === "metadata_only").length;
   const unavailable = references.filter((reference) => reference.retrievalLevel === "unavailable").length;
+  const retracted = references.filter((reference) => reference.isRetracted);
+  const duplicates = references.filter((reference) => reference.duplicateOf);
 
   const chartData = VERDICT_ORDER.map((verdict) => ({
     name: VERDICT_META[verdict].short,
@@ -193,13 +197,31 @@ export function OverviewPanel({
 
         <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
           <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
-            {abstractCount} abstracts · {metadataOnly} metadata only
+            {fullTextCount} full text · {abstractCount} abstracts · {metadataOnly} metadata
           </span>
           <Button variant="ghost" size="sm" className="h-7 gap-1 px-2 text-[11.5px]" onClick={onOpenReferences}>
             Inspect
             <ArrowRight className="size-3" />
           </Button>
         </div>
+
+        {(retracted.length > 0 || duplicates.length > 0) && (
+          <div className="mt-3 space-y-1.5 rounded-lg border border-border bg-secondary/40 px-3 py-2.5">
+            {retracted.length > 0 && (
+              <p className="flex items-start gap-1.5 text-[10.5px] leading-5 text-[var(--verdict-contradicted)]">
+                <Flag className="mt-0.5 size-3 shrink-0" />
+                {retracted.length} source(s) flagged as retracted. A retraction requires review but does
+                not automatically falsify every citing claim.
+              </p>
+            )}
+            {duplicates.length > 0 && (
+              <p className="text-[10.5px] leading-5 text-muted-foreground">
+                {duplicates.length} duplicate bibliography entr{duplicates.length === 1 ? "y" : "ies"}{" "}
+                detected and linked to the first occurrence.
+              </p>
+            )}
+          </div>
+        )}
       </section>
 
       <section className="border-b border-border px-4 py-5">
@@ -226,7 +248,7 @@ export function OverviewPanel({
                   <span className="flex-1 text-[11.5px] leading-5 text-foreground/85">
                     {truncate(claim.text, 108)}
                   </span>
-                  <VerdictBadge verdict={claim.verdict} withDot={false} />
+                  <VerdictBadge verdict={claim.reviewVerdict ?? claim.verdict} withDot={false} />
                 </button>
               </li>
             ))}
@@ -239,8 +261,18 @@ export function OverviewPanel({
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <EngineBadge engine={analysis.engine} />
           <span className="rounded-full border border-border px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
-            {abstractCount} abstract(s) retrieved
+            {fullTextCount} full text · {abstractCount} abstract(s)
           </span>
+          {reviewedClaims.length > 0 && (
+            <span className="rounded-full border border-border px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
+              {reviewedClaims.length} human reviewed
+            </span>
+          )}
+          {(analysis.referencesSkipped ?? 0) > 0 && (
+            <span className="rounded-full border border-border px-2 py-0.5 font-mono text-[10px] text-[var(--verdict-partial)]">
+              {analysis.referencesSkipped} references not checked
+            </span>
+          )}
           {unavailable > 0 && (
             <span className="rounded-full border border-border px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
               {unavailable} unavailable
@@ -248,9 +280,9 @@ export function OverviewPanel({
           )}
         </div>
         <p className="mt-2.5 text-[11px] leading-5 text-muted-foreground">
-          Retrieved evidence: {abstractCount > 0 ? `${abstractCount} abstract(s)` : "no abstracts"};{" "}
-          {metadataOnly} metadata-only record(s). {RETRIEVAL_LABEL.abstract} means only the abstract was
-          read — never the full paper.
+          Retrieved evidence: {fullTextCount > 0 ? `${fullTextCount} open-access full text(s)` : "no full texts"};{" "}
+          {abstractCount > 0 ? `${abstractCount} abstract(s)` : "no abstracts"}; {metadataOnly}{" "}
+          metadata-only record(s). {RETRIEVAL_LABEL.abstract} means only the abstract was read.
         </p>
 
         <div className="mt-4 rounded-lg border border-border bg-secondary/40 p-3">

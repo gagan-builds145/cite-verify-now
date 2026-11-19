@@ -56,11 +56,13 @@ export function ReferenceStatusBadge({
 
 export function RetrievalBadge({ level }: { level: RetrievalLevel }) {
   const tone =
-    level === "abstract"
+    level === "full_text"
       ? "var(--verdict-supported)"
-      : level === "metadata_only"
-        ? "var(--verdict-insufficient)"
-        : "var(--verdict-unverified)";
+      : level === "abstract"
+        ? "var(--verdict-partial)"
+        : level === "metadata_only"
+          ? "var(--verdict-insufficient)"
+          : "var(--verdict-unverified)";
   return (
     <span
       className="inline-flex items-center gap-1.5 rounded border border-border px-1.5 py-0.5 font-mono text-[9.5px] uppercase tracking-[0.06em]"
