@@ -5,6 +5,7 @@ import { formatFileSize } from "@/lib/analysis-ui";
 import type { ExtractedPdf } from "@/lib/pdf";
 import { PAPER_FILE_ACCEPT, validateResearchPaperFile } from "@/lib/paper-file";
 import { useAction, useMutation, useQuery } from "convex/react";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowRight,
   ArrowUpRight,
@@ -319,130 +320,9 @@ export function IntelligentSearch({ className = "" }: { className?: string }) {
         })}
       </div>
 
-      {attachment && (
-        <div className="mt-2.5 overflow-hidden rounded-xl border border-border bg-card shadow-[0_8px_24px_rgba(20,35,61,0.06)]">
-          <div className="flex items-start gap-2.5 px-3 py-2.5">
-            <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-secondary">
-              <FileText className="size-4 text-primary" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-[12px] font-semibold text-foreground">
-                {attachment.file.name}
-              </p>
-              <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[10px] text-muted-foreground">
-                <span>PDF</span>
-                <span className="size-0.5 rounded-full bg-current opacity-50" />
-                <span>{formatFileSize(attachment.file.size)}</span>
-                {attachment.extracted && (
-                  <>
-                    <span className="size-0.5 rounded-full bg-current opacity-50" />
-                    <span>{attachment.extracted.pages.length} pages</span>
-                  </>
-                )}
-                <span
-                  className={`ml-1 rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${stageBadgeClass(
-                    attachment.stage,
-                  )}`}
-                >
-                  {stageLabel(attachment)}
-                </span>
-              </p>
-            </div>
-            <button
-              type="button"
-              aria-label="Remove attached paper"
-              title="Remove attached paper"
-              disabled={busy}
-              onClick={removeAttachment}
-              className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              <X className="size-4" />
-            </button>
-          </div>
-
-          {(busy || attachment.stage === "failed" || attachment.stage === "done") && (
-            <div className="border-t border-border px-3 py-2.5">
-              {attachment.stage === "reading" && (
-                <div>
-                  <div className="flex items-center justify-between text-[9.5px] font-medium uppercase tracking-[0.07em] text-muted-foreground">
-                    <span className="inline-flex items-center gap-1.5">
-                      <Loader2 className="size-3 animate-spin" />
-                      Extracting text locally
-                    </span>
-                    <span>{attachment.progress}%</span>
-                  </div>
-                  <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-border">
-                    <div
-                      className="h-full rounded-full bg-primary transition-[width] duration-300"
-                      style={{ width: `${attachment.progress}%` }}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {(attachment.stage === "starting" || attachment.stage === "processing") && (
-                <div>
-                  <div className="flex items-center justify-between gap-2 text-[9.5px] font-medium uppercase tracking-[0.07em] text-muted-foreground">
-                    <span className="inline-flex items-center gap-1.5">
-                      <Loader2 className="size-3 animate-spin" />
-                      {attachment.stage === "starting"
-                        ? "Starting secure session"
-                        : (activeStage?.label ?? "Verifying claims and evidence")}
-                    </span>
-                    {totalStages > 0 && (
-                      <span>
-                        {completedStages}/{totalStages}
-                      </span>
-                    )}
-                  </div>
-                  <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-border">
-                    <div
-                      className={`h-full rounded-full bg-primary transition-[width] duration-500 ${
-                        totalStages > 0 ? "" : "animate-pulse"
-                      }`}
-                      style={{
-                        width:
-                          totalStages > 0
-                            ? `${Math.max(4, (completedStages / totalStages) * 100)}%`
-                            : "40%",
-                      }}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {attachment.stage === "failed" && (
-                <p className="flex items-start gap-1.5 text-[10.5px] leading-5 text-[var(--verdict-contradicted)]">
-                  <X className="mt-0.5 size-3 shrink-0" />
-                  {attachment.error ?? "The paper could not be processed."}
-                </p>
-              )}
-
-              {attachment.stage === "done" && (
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="inline-flex items-center gap-1.5 text-[10.5px] text-muted-foreground">
-                    <Check className="size-3.5 text-[var(--verdict-supported)]" />
-                    Backend verification finished. Review the report when you are ready.
-                  </p>
-                  {attachment.analysisId && (
-                    <Link
-                      to={`/analysis/${attachment.analysisId}`}
-                      className="inline-flex items-center gap-1 rounded-full bg-[var(--action-bg)] px-3 py-1.5 text-[10.5px] font-semibold text-[var(--action-fg)] transition-colors hover:bg-[var(--action-bg-hover)]"
-                    >
-                      Open workspace
-                      <ArrowRight className="size-3" />
-                    </Link>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
       <form
         onSubmit={submit}
-        className="mt-2.5 flex min-h-[78px] items-center gap-1.5 rounded-2xl border border-[#DCD9D0] bg-white p-2 shadow-[0_18px_45px_-24px_rgba(20,35,61,0.42)] transition-all duration-300 focus-within:border-[#2463B5]/45 focus-within:shadow-[0_22px_55px_-24px_rgba(20,35,61,0.5)] sm:min-h-[82px] sm:gap-2 sm:p-2.5"
+        className="mt-2.5 flex flex-col gap-2 rounded-2xl border border-[#DCD9D0] bg-white p-2 shadow-[0_18px_45px_-24px_rgba(20,35,61,0.42)] transition-[border-color,box-shadow] duration-300 focus-within:border-[#2463B5]/45 focus-within:shadow-[0_22px_55px_-24px_rgba(20,35,61,0.5)] sm:p-2.5"
         role="search"
       >
         <input
@@ -457,6 +337,140 @@ export function IntelligentSearch({ className = "" }: { className?: string }) {
             void handleFileChange(file);
           }}
         />
+
+        <AnimatePresence initial={false}>
+          {attachment && (
+            <motion.div
+              key="attachment"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+              className="overflow-hidden"
+            >
+              <div className="rounded-xl bg-secondary/45">
+                <div className="flex items-start gap-2.5 px-2.5 py-2">
+                  <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-white shadow-[inset_0_0_0_1px_var(--border)]">
+                    <FileText className="size-4 text-primary" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[12px] font-semibold text-foreground">
+                      {attachment.file.name}
+                    </p>
+                    <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[10px] text-muted-foreground">
+                      <span>PDF</span>
+                      <span className="size-0.5 rounded-full bg-current opacity-50" />
+                      <span>{formatFileSize(attachment.file.size)}</span>
+                      {attachment.extracted && (
+                        <>
+                          <span className="size-0.5 rounded-full bg-current opacity-50" />
+                          <span>{attachment.extracted.pages.length} pages</span>
+                        </>
+                      )}
+                      <span
+                        className={`ml-1 rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${stageBadgeClass(
+                          attachment.stage,
+                        )}`}
+                      >
+                        {stageLabel(attachment)}
+                      </span>
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    aria-label="Remove attached paper"
+                    title="Remove attached paper"
+                    disabled={busy}
+                    onClick={removeAttachment}
+                    className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-white hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <X className="size-4" />
+                  </button>
+                </div>
+
+                {(busy || attachment.stage === "failed" || attachment.stage === "done") && (
+                  <div className="border-t border-border/60 px-2.5 py-2">
+                    {attachment.stage === "reading" && (
+                      <div>
+                        <div className="flex items-center justify-between text-[9.5px] font-medium uppercase tracking-[0.07em] text-muted-foreground">
+                          <span className="inline-flex items-center gap-1.5">
+                            <Loader2 className="size-3 animate-spin" />
+                            Extracting text locally
+                          </span>
+                          <span>{attachment.progress}%</span>
+                        </div>
+                        <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-border">
+                          <div
+                            className="h-full rounded-full bg-primary transition-[width] duration-300"
+                            style={{ width: `${attachment.progress}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {(attachment.stage === "starting" || attachment.stage === "processing") && (
+                      <div>
+                        <div className="flex items-center justify-between gap-2 text-[9.5px] font-medium uppercase tracking-[0.07em] text-muted-foreground">
+                          <span className="inline-flex items-center gap-1.5">
+                            <Loader2 className="size-3 animate-spin" />
+                            {attachment.stage === "starting"
+                              ? "Starting secure session"
+                              : (activeStage?.label ?? "Verifying claims and evidence")}
+                          </span>
+                          {totalStages > 0 && (
+                            <span>
+                              {completedStages}/{totalStages}
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-border">
+                          <div
+                            className={`h-full rounded-full bg-primary transition-[width] duration-500 ${
+                              totalStages > 0 ? "" : "animate-pulse"
+                            }`}
+                            style={{
+                              width:
+                                totalStages > 0
+                                  ? `${Math.max(4, (completedStages / totalStages) * 100)}%`
+                                  : "40%",
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {attachment.stage === "failed" && (
+                      <p className="flex items-start gap-1.5 text-[10.5px] leading-5 text-[var(--verdict-contradicted)]">
+                        <X className="mt-0.5 size-3 shrink-0" />
+                        {attachment.error ?? "The paper could not be processed."}
+                      </p>
+                    )}
+
+                    {attachment.stage === "done" && (
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="inline-flex items-center gap-1.5 text-[10.5px] text-muted-foreground">
+                          <Check className="size-3.5 text-[var(--verdict-supported)]" />
+                          Backend verification finished.
+                        </p>
+                        {attachment.analysisId && (
+                          <Link
+                            to={`/analysis/${attachment.analysisId}`}
+                            className="inline-flex items-center gap-1 rounded-full bg-[var(--action-bg)] px-3 py-1.5 text-[10.5px] font-semibold text-[var(--action-fg)] transition-colors hover:bg-[var(--action-bg-hover)]"
+                          >
+                            Open workspace
+                            <ArrowRight className="size-3" />
+                          </Link>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
         <button
           type="button"
           onClick={openFilePicker}
@@ -513,6 +527,7 @@ export function IntelligentSearch({ className = "" }: { className?: string }) {
           {busy && <Loader2 className="size-3.5 animate-spin" />}
           {submitLabel}
         </button>
+        </div>
       </form>
 
       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 pl-1 text-[10.5px] text-muted-foreground">
