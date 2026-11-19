@@ -4,7 +4,7 @@ import { VERDICT_META, type ClaimRecord } from "@/lib/analysis-ui";
 import { findHighlightBoxes, openPdf, type HighlightBox, type PdfDocumentHandle } from "@/lib/pdf";
 import { loadPdfLocally } from "@/lib/pdf-store";
 import { ChevronLeft, ChevronRight, FileWarning, Loader2, Maximize2, ZoomIn, ZoomOut } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 
 type HighlightGroup = { claim: ClaimRecord; boxes: HighlightBox[] };
@@ -41,9 +41,16 @@ export function PdfViewer({
     [claims, selectedClaimId],
   );
 
+  const goToPage = useCallback((next: number) => {
+    setPage(next);
+    setPageInput(String(next));
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
-    setStatus("loading");
+    queueMicrotask(() => {
+      if (!cancelled) setStatus("loading");
+    });
     loadPdfLocally(analysisId)
       .then(async (stored) => {
         if (!stored) {
@@ -66,20 +73,15 @@ export function PdfViewer({
 
   useEffect(() => {
     if (!selectedClaim) return;
-    setPage((current) => {
-      const target = Math.min(Math.max(1, selectedClaim.page), numPages || selectedClaim.page);
-      return current === target ? current : target;
-    });
-  }, [selectedClaim, numPages]);
+    const target = Math.min(Math.max(1, selectedClaim.page), numPages || selectedClaim.page);
+    queueMicrotask(() => goToPage(target));
+  }, [selectedClaim, numPages, goToPage]);
 
   useEffect(() => {
     if (!focusRequest) return;
-    setPage(Math.min(Math.max(1, focusRequest.page), numPages || focusRequest.page));
-  }, [focusRequest, numPages]);
-
-  useEffect(() => {
-    setPageInput(String(page));
-  }, [page]);
+    const target = Math.min(Math.max(1, focusRequest.page), numPages || focusRequest.page);
+    queueMicrotask(() => goToPage(target));
+  }, [focusRequest, numPages, goToPage]);
 
   // Fit the page to the available width until the reader zooms manually. A
   // ResizeObserver handles the mobile layout, where the viewer is mounted inside
@@ -149,7 +151,9 @@ export function PdfViewer({
     if (!doc) return;
     let cancelled = false;
     const pageClaims = claims.filter((claim) => claim.page === page);
-    setHighlights([]);
+    queueMicrotask(() => {
+      if (!cancelled) setHighlights([]);
+    });
 
     (async () => {
       const pdfPage = await doc.getPage(page);
@@ -222,7 +226,7 @@ export function PdfViewer({
             className="size-7"
             aria-label="Previous page"
             disabled={page <= 1}
-            onClick={() => setPage((value) => Math.max(1, value - 1))}
+            onClick={() => goToPage(Math.max(1, page - 1))}
           >
             <ChevronLeft className="size-4" />
           </Button>
@@ -232,8 +236,11 @@ export function PdfViewer({
               onChange={(event) => setPageInput(event.target.value)}
               onBlur={() => {
                 const next = Number(pageInput);
-                if (Number.isFinite(next)) setPage(Math.min(Math.max(1, Math.round(next)), numPages || 1));
-                else setPageInput(String(page));
+                if (Number.isFinite(next)) {
+                  goToPage(Math.min(Math.max(1, Math.round(next)), numPages || 1));
+                } else {
+                  setPageInput(String(page));
+                }
               }}
               onKeyDown={(event) => {
                 if (event.key === "Enter") event.currentTarget.blur();
@@ -249,7 +256,7 @@ export function PdfViewer({
             className="size-7"
             aria-label="Next page"
             disabled={numPages > 0 && page >= numPages}
-            onClick={() => setPage((value) => Math.min(numPages || value, value + 1))}
+            onClick={() => goToPage(Math.min(numPages || page, page + 1))}
           >
             <ChevronRight className="size-4" />
           </Button>

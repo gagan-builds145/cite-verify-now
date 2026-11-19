@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "test:regression": "bun src/convex/lib/academic.test.ts && bun src/convex/lib/text.test.ts && bun src/convex/lib/evidence.test.ts && bun src/convex/lib/reconcile.test.ts",
+    "test:regression": "bun src/convex/lib/academic.test.ts && bun src/convex/lib/text.test.ts && bun src/convex/lib/evidence.test.ts && bun src/convex/lib/reconcile.test.ts && bun src/convex/lib/manuscript.fixture.test.ts && bun src/lib/report.test.ts",
     "format": "prettier --write .",
     "preview": "vite preview"
   },

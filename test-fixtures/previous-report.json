@@ -1,0 +1,24 @@
+{
+  "fixture": "previous-defective-output",
+  "referenceCount": 3,
+  "claimsExtracted": 12,
+  "preservedExplicitClaimIds": [],
+  "references": [
+    {
+      "refKey": "2",
+      "citedDoi": "10.1038/s41591-018-0300-7",
+      "citedTitle": "High-performance medicine: The convergence of human and artificial intelligence",
+      "previousStatus": "VERIFIED",
+      "matchedTitle": "Artificial Intelligence in Medicine: Today and Tomorrow",
+      "matchedDoi": "10.3389/fmed.2020.00027",
+      "matchedVenue": "Frontiers in Medicine"
+    }
+  ],
+  "knownDefects": [
+    "incorrect Frontiers substitution for Topol reference [2]",
+    "DOI resolution treated as sufficient identity",
+    "C1-C6 identifiers not preserved",
+    "12 claims merged or selected without explicit/narrative separation",
+    "section attribution defaulted to last heading on page"
+  ]
+}

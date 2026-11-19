@@ -15,7 +15,6 @@ import { useAction, useQuery } from "convex/react";
 import {
   AlertTriangle,
   Check,
-  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   FileCheck2,
@@ -282,8 +281,10 @@ export default function AdminAnnotations() {
 
   useEffect(() => {
     if (!me?.isReviewer) return;
-    if (tab === "annotation") void refresh();
-    else void refreshLicenses();
+    queueMicrotask(() => {
+      if (tab === "annotation") void refresh();
+      else void refreshLicenses();
+    });
   }, [me?.isReviewer, tab, refresh, refreshLicenses]);
 
   function clearFilters() {

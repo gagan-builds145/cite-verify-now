@@ -251,6 +251,18 @@ export function extractReferenceTitle(raw: string): string | undefined {
   return undefined;
 }
 
+export function extractReferenceVenue(raw: string, title?: string): string | undefined {
+  const cleaned = normalizeWhitespace(raw).replace(/^\[?\d{1,3}[\].)]\s*/, "");
+  const titleIndex = title ? cleaned.indexOf(title) : -1;
+  const tail = titleIndex >= 0 ? cleaned.slice(titleIndex + (title?.length ?? 0)) : cleaned;
+  const match =
+    /^[\s.]+([A-Z][A-Za-z&:()'’ -]{2,80}?)\s*,\s*(?:\d{1,4}\b|Vol\.?|volume\b)/.exec(tail) ??
+    /\b([A-Z][A-Za-z&:()'’ -]{2,80}?)\s*,\s*\d{1,4}\s*,\s*[A-Za-z0-9]/.exec(tail);
+  const venue = match?.[1]?.replace(/\s+/g, " ").trim();
+  if (!venue || /^(https?|doi|retrieved|available)/i.test(venue)) return undefined;
+  return venue.slice(0, 120);
+}
+
 export function extractReferenceAuthors(raw: string): string[] {
   const yearIndex = raw.search(/\((?:19|20)\d{2}|(?:19|20)\d{2}/);
   const segment = yearIndex > 0 ? raw.slice(0, yearIndex) : raw.slice(0, 120);
@@ -285,6 +297,7 @@ export function parseReferences(sectionText: string, max = 60): ParsedReference[
     const year = yearMatch ? Number(yearMatch[0]) : undefined;
     const authors = extractReferenceAuthors(rawText);
     const title = extractReferenceTitle(rawText);
+    const venue = extractReferenceVenue(rawText, title);
     const numberMatch = rawText.match(/^\[?\s*(\d{1,3})\s*[\].)]\s+/);
     const refKey = numbered && numberMatch ? numberMatch[1] : `${authors[0]?.split(" ")[0] ?? "Ref"}${year ?? index + 1}`;
     parsed.push({
@@ -294,6 +307,7 @@ export function parseReferences(sectionText: string, max = 60): ParsedReference[
       authors,
       year,
       doi,
+      venue,
       numbered,
     });
   });
@@ -684,8 +698,9 @@ function splitSentences(pageText: string): string[] {
   let buffer = "";
   for (const line of lines) {
     const numberedHeading = /^\d+(\.\d+)*\.?\s+[A-Z][A-Za-z ,:-]{2,70}$/.test(line);
+    const claimTableRow = /^C\d{1,3}\s*[|:.)–—-]/.test(line);
     const shortHeading = line.split(" ").length <= 8 && !/[.!?,;:]$/.test(line);
-    if (numberedHeading || shortHeading) {
+    if (numberedHeading || claimTableRow || shortHeading) {
       if (buffer) {
         paragraphs.push(buffer);
         buffer = "";

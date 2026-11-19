@@ -1,0 +1,21 @@
+{
+  "fixture": "reconstructed-from-specification",
+  "pages": [
+    {
+      "page": 1,
+      "text": "Clinical Integration of Artificial Intelligence and Retrieval-Augmented Evidence Systems: A Synthetic Verification Fixture\nCiteVerify Regression Working Group\nAbstract\nThis synthetic manuscript is a regression fixture. It contains three real cited publications, six explicitly identified demonstration claims, additional narrative claims and deliberately incorrect reporting metadata for testing.\n1. Introduction\nLarge language models encode clinical knowledge, but their factual reliability in clinical question answering remains contested.\nRetrieval augmentation grounds generated answers in external documents rather than relying only on model parameters.\n2. Evidence on clinical AI\n2.1 Background\nClinical AI systems have been evaluated across diagnostic and workflow tasks, but benchmark performance is not clinical effectiveness."
+    },
+    {
+      "page": 2,
+      "text": "2.2 Clinical integration\nTopol (2019) argued that high-performance medicine depends on the convergence of human and artificial intelligence and that clinical integration requires validation in real care settings.\n2.3 Comparative-study evidence\nNagendran et al. (2020) systematically reviewed studies comparing artificial intelligence with clinicians and found substantial limitations in study design, reporting standards and claims of deep learning performance.\nComparative performance in a retrospective study does not establish superiority across every specialty or deployment."
+    },
+    {
+      "page": 3,
+      "text": "3. Demonstration claims\nTable 1. Six explicit demonstration claims\nC1 | Retrieval augmentation can improve grounding in benchmark question-answering tasks. | [1]\nC2 | Clinical deployment requires task-specific validation. | [2]\nC3 | Large language models encode substantial clinical knowledge. | [3]\nC4 | Retrieval augmentation eliminates hallucination in every clinical deployment. | [2]\nC5 | Comparative studies of clinical AI require careful appraisal of design and reporting. | [1]\nC6 | Human oversight remains necessary in clinical AI deployment. | [2]\nAdditional narrative claim: Across three benchmark datasets, retrieval augmentation increased answer accuracy by 18.4% relative to a closed-book baseline (Nagendran et al., 2020).\n4. Discussion\nThe reviewed evidence supports a narrower conclusion than the universal demonstration claim. Retrieval can improve grounding, but clinical use requires validation and continued human oversight."
+    },
+    {
+      "page": 4,
+      "text": "5. Conclusion\nClinical AI deployment should preserve uncertainty, task-specific validation and human review.\nReferences\n[1] Nagendran, M., Chen, Y., Lovejoy, C., Gordon, A. C., Komorowski, M., Harvey, H., et al. (2020). Artificial intelligence versus clinicians: systematic review of design, reporting standards, and claims of deep learning studies. BMJ, 368, m689. https://doi.org/10.1136/bmj.m689\n[2] Topol, E. J. (2019). High-performance medicine: The convergence of human and artificial intelligence. Nature Medicine, 25, 44-56. https://doi.org/10.1038/s41591-018-0300-7\n[3] Rajpurkar, P., Chen, E., Banerjee, O., & Topol, E. J. (2022). AI in health and medicine. Nature Medicine, 28, 31-38. https://doi.org/10.1038/s41591-021-01614-0"
+    }
+  ]
+}
