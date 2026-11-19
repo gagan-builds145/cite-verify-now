@@ -29,7 +29,7 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { toast } from "sonner";
 
 type Paper = {
@@ -66,6 +66,8 @@ const EXAMPLES = [
 
 export default function Explorer() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const initialQuery = searchParams.get("q")?.trim() ?? "";
   const { isLoading: authLoading, isAuthenticated, signIn } = useAuth();
   const search = useAction(api.explorer.search);
   const savePaper = useMutation(api.library.save);
@@ -94,6 +96,7 @@ export default function Explorer() {
   const [summarizing, setSummarizing] = useState(false);
   const [savedKeys, setSavedKeys] = useState<Set<string>>(new Set());
   const sessionRequested = useRef(false);
+  const lastUrlQuery = useRef("");
 
   // Exploration is open to guests; a private anonymous session is created so
   // saving works without sending anyone through an account wall first.
@@ -175,6 +178,25 @@ export default function Explorer() {
       setLoadingMore(false);
     }
   };
+
+  useEffect(() => {
+    if (
+      !initialQuery ||
+      lastUrlQuery.current === initialQuery ||
+      authLoading ||
+      !isAuthenticated
+    ) {
+      return;
+    }
+    setQuery(initialQuery);
+    const timer = window.setTimeout(() => {
+      lastUrlQuery.current = initialQuery;
+      void runSearch(initialQuery);
+    }, 0);
+    return () => window.clearTimeout(timer);
+    // runSearch closes over the current search options; the URL query is the trigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialQuery, authLoading, isAuthenticated]);
 
   const handleSave = async (paper: Paper) => {
     try {

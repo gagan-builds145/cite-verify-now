@@ -78,9 +78,35 @@ const schema = defineSchema(
       email: v.optional(v.string()), // email of the user. do not remove
       emailVerificationTime: v.optional(v.number()), // email verification time. do not remove
       isAnonymous: v.optional(v.boolean()), // is the user anonymous. do not remove
+      dateOfBirth: v.optional(v.string()),
+      termsAcceptedAt: v.optional(v.number()),
+      registeredAt: v.optional(v.number()),
+      registrationMethod: v.optional(
+        v.union(v.literal("password"), v.literal("google"), v.literal("otp")),
+      ),
 
       role: v.optional(roleValidator), // role of the user. do not remove
     }).index("email", ["email"]), // index for the email. do not remove or modify
+
+    // One-time passwords used by the registered-user OTP login flow. The code
+    // is never exposed by a public query; it expires and is attempt-limited.
+    authOtps: defineTable({
+      email: v.string(),
+      userId: v.id("users"),
+      code: v.string(),
+      expiresAt: v.number(),
+      attempts: v.number(),
+      createdAt: v.number(),
+      consumedAt: v.optional(v.number()),
+    }).index("by_email", ["email"]),
+
+    // Server-side throttling for OTP issuance.
+    authRateLimits: defineTable({
+      key: v.string(),
+      count: v.number(),
+      windowStart: v.number(),
+      updatedAt: v.number(),
+    }).index("by_key", ["key"]),
 
     // One verification session for one uploaded paper.
     analyses: defineTable({

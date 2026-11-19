@@ -2,36 +2,40 @@ import { Email } from "@convex-dev/auth/providers/Email";
 import axios from "axios";
 import { RandomReader, generateRandomString } from "@oslojs/crypto/random";
 
-export const emailOtp = Email({
-  id: "email-otp",
-  maxAge: 60 * 15, // 15 minutes
-  // This function can be asynchronous
-  async generateVerificationToken() {
-    const random: RandomReader = {
-      read(bytes: Uint8Array) {
-        crypto.getRandomValues(bytes);
-      },
-    };
-    const alphabet = "0123456789";
-    return generateRandomString(random, alphabet, 6);
-  },
-  async sendVerificationRequest({ identifier: email, token }) {
-    try {
-      await axios.post(
-        freebuffEmailOtpUrl(),
-        { to: email, otp: token },
-        { headers: freebuffEmailOtpHeaders() },
-      );
-    } catch (error) {
-      throw freebuffEmailOtpError(error);
-    }
-  },
-});
+export function generateOtpCode(): string {
+  const random: RandomReader = {
+    read(bytes: Uint8Array) {
+      crypto.getRandomValues(bytes);
+    },
+  };
+  return generateRandomString(random, "0123456789", 6);
+}
 
 // Sign-in codes are sent by the Freebuff integrations gateway, which knows
 // this project by its own key: VLY_INTEGRATION_KEY, a Convex environment
-// variable set when the project was created. The email's wording is fixed by
-// the gateway.
+// variable set when the project was created. The email wording is fixed by the
+// gateway.
+export async function sendOtpEmail(email: string, token: string): Promise<void> {
+  try {
+    await axios.post(
+      freebuffEmailOtpUrl(),
+      { to: email, otp: token },
+      { headers: freebuffEmailOtpHeaders() },
+    );
+  } catch (error) {
+    throw freebuffEmailOtpError(error);
+  }
+}
+
+export const emailOtp = Email({
+  id: "email-otp",
+  maxAge: 60 * 15,
+  generateVerificationToken: generateOtpCode,
+  async sendVerificationRequest({ identifier: email, token }) {
+    await sendOtpEmail(email, token);
+  },
+});
+
 function freebuffEmailOtpUrl(): string {
   const base =
     process.env.VLY_INTEGRATION_BASE_URL || "https://integrations.vly.ai";

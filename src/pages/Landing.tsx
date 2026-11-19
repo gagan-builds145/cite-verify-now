@@ -1,3 +1,4 @@
+import { IntelligentSearch } from "@/components/IntelligentSearch";
 import { SiteFooter, SiteHeader } from "@/components/SiteChrome";
 import {
   FeatureIllustration,
@@ -20,7 +21,6 @@ import {
   Fingerprint,
   Link2,
   Lock,
-  MessageSquareQuote,
   ShieldCheck,
   Sparkle,
   Trash2,
@@ -156,7 +156,7 @@ export default function Landing() {
         {/* ---------------------------------------------------------- */}
         {/* Hero                                                       */}
         {/* ---------------------------------------------------------- */}
-        <section className="relative overflow-hidden border-b border-border">
+        <section className="relative overflow-x-clip border-b border-border">
           <div className="pointer-events-none absolute inset-0 paper-dots opacity-45 [mask-image:linear-gradient(to_bottom,black,transparent_88%)]" />
           <div className="pointer-events-none absolute -left-24 top-24 size-72 rounded-[44%_56%_63%_37%/48%_42%_58%_52%] bg-accent" />
           <div className="pointer-events-none absolute -right-28 top-40 size-[26rem] rounded-[58%_42%_39%_61%/45%_57%_43%_55%] bg-[var(--verdict-partial-soft)]/50" />
@@ -201,30 +201,12 @@ export default function Landing() {
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.19 }}
-                className="mt-8 flex flex-col gap-3 sm:flex-row"
+                className="mt-8 max-w-[560px]"
               >
-                <Button
-                  asChild
-                  size="lg"
-                  variant="brand"
-                  className="h-12 rounded-full px-6 text-[13.5px] font-semibold"
-                >
-                  <Link to="/analyze">
-                    <ArrowUpRight className="mr-2 size-4" />
-                    Upload Paper
-                  </Link>
-                </Button>
-                <Button
-                  asChild
-                  size="lg"
-                  variant="outline"
-                  className="h-12 rounded-full border-border bg-card px-6 text-[13.5px] font-semibold text-foreground shadow-none transition-colors hover:border-[var(--ink)]/50 hover:bg-accent"
-                >
-                  <Link to="/statements">
-                    <MessageSquareQuote className="mr-2 size-4" />
-                    Check a Statement
-                  </Link>
-                </Button>
+                <IntelligentSearch />
+                <p className="mt-2.5 pl-1 text-[10.5px] text-muted-foreground">
+                  Try “analyze a research paper” or “check a statement” — or ask for anything else.
+                </p>
               </motion.div>
 
               <motion.ul
@@ -572,8 +554,8 @@ export default function Landing() {
                 <span className="italic text-[var(--ink)]"> the citation.</span>
               </h2>
               <p className="mx-auto mt-4 max-w-xl text-[14px] leading-7 text-muted-foreground">
-                Upload a paper, or run the annotated demo manuscript and see the full chain of evidence
-                in under a minute.
+                Search for a paper to analyze, check a statement against the evidence, or run the
+                annotated demo manuscript and see the full chain in under a minute.
               </p>
               <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
                 <Button
@@ -582,9 +564,9 @@ export default function Landing() {
                   variant="brand"
                   className="h-12 rounded-full px-6 text-[13px] font-semibold"
                 >
-                  <Link to="/analyze">
-                    <ArrowUpRight className="mr-2 size-4" />
-                    Upload Paper
+                  <Link to="/analyze?demo=1">
+                    Try the demo
+                    <Sparkle className="ml-2 size-3.5" />
                   </Link>
                 </Button>
                 <Button
@@ -593,15 +575,9 @@ export default function Landing() {
                   variant="outline"
                   className="h-12 rounded-full border-border bg-card px-6 text-[13px] font-semibold shadow-none hover:bg-accent"
                 >
-                  <Link to="/analyze?demo=1">
-                    Try the demo
-                    <Sparkle className="ml-2 size-3.5" />
-                  </Link>
-                </Button>
-                <Button asChild size="lg" variant="ghost" className="h-12 rounded-full px-5 text-[13px]">
-                  <Link to="/statements">
-                    <MessageSquareQuote className="mr-2 size-4" />
-                    Check a statement
+                  <Link to="/about">
+                    See how verification works
+                    <ArrowUpRight className="ml-2 size-3.5" />
                   </Link>
                 </Button>
               </div>

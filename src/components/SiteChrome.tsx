@@ -104,17 +104,6 @@ export function SiteHeader({ transparent = false }: { transparent?: boolean }) {
               >
                 <Link to={signupHref}>Sign Up</Link>
               </Button>
-              <Button
-                asChild
-                variant="brand"
-                size="sm"
-                className="hidden h-9 rounded-full px-4 text-[13px] md:inline-flex"
-              >
-                <Link to="/analyze">
-                  Get Started
-                  <ArrowUpRight className="ml-1 size-3.5" />
-                </Link>
-              </Button>
             </>
           )}
           <Button
@@ -174,14 +163,6 @@ export function SiteHeader({ transparent = false }: { transparent?: boolean }) {
                     <Button
                       asChild
                       variant="brand"
-                      className="h-10 rounded-full sm:col-span-2"
-                      onClick={() => setOpen(false)}
-                    >
-                      <Link to="/analyze">Get Started</Link>
-                    </Button>
-                    <Button
-                      asChild
-                      variant="outline"
                       className="h-10 rounded-full"
                       onClick={() => setOpen(false)}
                     >
