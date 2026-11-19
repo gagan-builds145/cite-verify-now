@@ -1,11 +1,10 @@
-import { Button } from "@/components/ui/button";
 import {
   ArrowUpRight,
   BookOpenCheck,
   FileSearch,
   MessageSquareQuote,
-  Search,
-  Upload,
+  Plus,
+  type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
@@ -17,7 +16,7 @@ const MODES: {
   label: string;
   description: string;
   to: string;
-  icon: typeof Search;
+  icon: LucideIcon;
 }[] = [
   {
     key: "research",
@@ -90,10 +89,14 @@ export function IntelligentSearch({ className = "" }: { className?: string }) {
         className="mt-2.5 flex min-h-[78px] items-center gap-1.5 rounded-2xl border border-[#DCD9D0] bg-white p-2 shadow-[0_18px_45px_-24px_rgba(20,35,61,0.42)] transition-all duration-300 focus-within:border-[#2463B5]/45 focus-within:shadow-[0_22px_55px_-24px_rgba(20,35,61,0.5)] dark:border-border dark:bg-card sm:min-h-[82px] sm:gap-2 sm:p-2.5"
         role="search"
       >
-        <Search
-          className="ml-2.5 size-[19px] shrink-0 text-muted-foreground sm:ml-3"
-          aria-hidden="true"
-        />
+        <Link
+          to="/analyze"
+          aria-label="Upload paper"
+          title="Upload paper"
+          className="ml-1 flex size-11 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground sm:ml-1.5"
+        >
+          <Plus className="size-5" strokeWidth={2.25} />
+        </Link>
         <div className="min-w-0 flex-1">
           <label htmlFor="hero-research-search" className="sr-only">
             {activeMode.label}
@@ -108,14 +111,15 @@ export function IntelligentSearch({ className = "" }: { className?: string }) {
             className="h-12 w-full min-w-0 bg-transparent px-1 text-[16px] text-foreground outline-none placeholder:text-[13px] placeholder:text-muted-foreground/80 sm:text-[17px] sm:placeholder:text-[15px] lg:placeholder:text-[16px] [&::-webkit-search-cancel-button]:hidden"
           />
         </div>
-        <Button
+        <button
           type="submit"
           disabled={!query.trim()}
-          className="h-[58px] shrink-0 rounded-xl bg-[#14233D] px-4 text-[12px] font-semibold text-[#FBFAF7] shadow-[0_4px_0_#0B1729] transition-transform hover:bg-[#1C304D] active:translate-y-0.5 active:shadow-[0_2px_0_#0B1729] disabled:opacity-55 dark:bg-[var(--ink)] dark:text-[#0E1929] dark:shadow-[0_4px_0_var(--action-shadow)] dark:hover:bg-[#A9D0F8] sm:px-6 sm:text-[13px]"
+          className="flex size-[58px] shrink-0 items-center justify-center rounded-xl bg-[#14233D] text-[#FBFAF7] shadow-[0_4px_0_#0B1729] transition-all hover:bg-[#1C304D] active:translate-y-0.5 active:shadow-[0_2px_0_#0B1729] disabled:cursor-not-allowed disabled:opacity-55 dark:bg-[var(--ink)] dark:text-[#0E1929] dark:shadow-[0_4px_0_var(--action-shadow)] dark:hover:bg-[#A9D0F8]"
           aria-label={`Search with ${activeMode.label}`}
+          title={`Search with ${activeMode.label}`}
         >
-          Search
-        </Button>
+          <Plus className="size-6" strokeWidth={2.25} />
+        </button>
       </form>
 
       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 pl-1 text-[10.5px] text-muted-foreground">
@@ -123,14 +127,6 @@ export function IntelligentSearch({ className = "" }: { className?: string }) {
           <ArrowUpRight className="size-3 text-[var(--ink)]" />
           {activeMode.description}
         </span>
-        <span className="hidden size-1 rounded-full bg-border sm:block" />
-        <Link
-          to="/analyze"
-          className="inline-flex items-center gap-1.5 font-semibold text-foreground underline-offset-2 hover:text-[var(--ink)] hover:underline"
-        >
-          <Upload className="size-3" />
-          Upload Paper
-        </Link>
       </div>
     </div>
   );
