@@ -1,6 +1,10 @@
 import { AppShell } from "@/components/app/AppShell";
 import { ProcessingStages } from "@/components/app/ProcessingStages";
-import { IntelligentSearch, type SearchMode } from "@/components/IntelligentSearch";
+import {
+  IntelligentSearch,
+  type AttachmentStage,
+  type SearchMode,
+} from "@/components/IntelligentSearch";
 import { Button } from "@/components/ui/button";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -96,6 +100,7 @@ export default function Analyze() {
   const runAnalysis = useAction(api.runAnalysis.run);
 
   const [isProcessing, setIsProcessing] = useState(false);
+  const [composerStage, setComposerStage] = useState<AttachmentStage | null>(null);
   const [activeAction, setActiveAction] = useState<QuickAction | null>(null);
   const [preset, setPreset] = useState<SearchPreset | null>(null);
 
@@ -244,13 +249,15 @@ export default function Analyze() {
               </p>
             </motion.div>
 
-            <div className="mt-7">
-              <ProcessingStages
-                analysis={demoAnalysis}
-                claimCount={demoClaims?.length}
-                referenceCount={demoReferences?.length}
-              />
-            </div>
+            {(demoPhase !== "failed" || demoAnalysis) && (
+              <div className="mt-7">
+                <ProcessingStages
+                  analysis={demoAnalysis}
+                  claimCount={demoClaims?.length}
+                  referenceCount={demoReferences?.length}
+                />
+              </div>
+            )}
 
             {(demoPhase === "failed" || demoAnalysis?.status === "failed") && (
               <div className="mt-4 flex items-start gap-3 rounded-xl border border-[var(--verdict-contradicted)]/30 bg-[var(--verdict-contradicted-soft)] p-4">
@@ -300,7 +307,7 @@ export default function Analyze() {
       <main className="relative min-h-[calc(100dvh-3.5rem)] overflow-hidden">
         <div className="pointer-events-none absolute inset-0 paper-dots opacity-20 [mask-image:linear-gradient(to_bottom,black,transparent_72%)]" />
         <div className="relative mx-auto w-full max-w-5xl px-4 pb-14 pt-9 sm:px-6 sm:pt-12 lg:px-10 lg:pt-16">
-          {!isProcessing ? (
+          {!isProcessing && composerStage !== "done" && composerStage !== "failed" ? (
             <motion.div
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
@@ -321,13 +328,24 @@ export default function Analyze() {
               animate={{ opacity: 1, y: 0 }}
               className="mx-auto max-w-3xl text-center"
             >
-              <p className="eyebrow">Evidence audit running</p>
+              <p className="eyebrow">
+                {isProcessing
+                  ? "Evidence audit running"
+                  : composerStage === "done"
+                    ? "Evidence audit complete"
+                    : "Evidence audit needs attention"}
+              </p>
               <h1 className="mt-2.5 font-display text-[clamp(1.8rem,4vw,2.6rem)] leading-[1.08] tracking-[-0.035em]">
-                Your paper is being traced.
+                {isProcessing
+                  ? "Your paper is being traced."
+                  : composerStage === "done"
+                    ? "The verification run is ready."
+                    : "Review the attachment and try again."}
               </h1>
               <p className="mx-auto mt-2 max-w-lg text-[12.5px] leading-6 text-muted-foreground">
-                The attachment and question stay in this workspace. Only Open Workspace will leave
-                this page.
+                {isProcessing
+                  ? "The attachment and question stay in this workspace. Only Open Workspace will leave this page."
+                  : "The composer keeps the attachment, question and real processing state together."}
               </p>
             </motion.div>
           )}
@@ -342,6 +360,7 @@ export default function Analyze() {
               requireAttachment={Boolean(activeAction)}
               workspacePanel={preset?.panel}
               onProcessingChange={setIsProcessing}
+              onAttachmentStageChange={setComposerStage}
             />
           </div>
 
@@ -470,13 +489,6 @@ export default function Analyze() {
               is correct. Unresolved sources remain visible as unresolved.
             </p>
           </div>
-
-          {demoPhase === "failed" && demoError && (
-            <div className="mx-auto mt-4 flex max-w-5xl items-start gap-3 rounded-xl border border-[var(--verdict-contradicted)]/30 bg-[var(--verdict-contradicted-soft)] p-4">
-              <AlertTriangle className="mt-0.5 size-4 shrink-0 text-[var(--verdict-contradicted)]" />
-              <p className="text-[11.5px] leading-5 text-foreground/80">{demoError}</p>
-            </div>
-          )}
 
           {isProcessing && (
             <div className="mx-auto mt-4 flex max-w-[820px] items-center justify-center gap-2 text-[10.5px] text-muted-foreground">

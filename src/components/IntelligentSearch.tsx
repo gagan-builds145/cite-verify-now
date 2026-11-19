@@ -25,7 +25,7 @@ import { toast } from "sonner";
 
 export type SearchMode = "research" | "paper" | "statement";
 
-type AttachmentStage =
+export type AttachmentStage =
   | "ready"
   | "reading"
   | "starting"
@@ -108,6 +108,7 @@ export function IntelligentSearch({
   requireAttachment = false,
   workspacePanel,
   onProcessingChange,
+  onAttachmentStageChange,
 }: {
   className?: string;
   idPrefix?: string;
@@ -117,6 +118,7 @@ export function IntelligentSearch({
   requireAttachment?: boolean;
   workspacePanel?: "overview" | "claims" | "references" | "errors" | "corrections";
   onProcessingChange?: (active: boolean) => void;
+  onAttachmentStageChange?: (stage: AttachmentStage | null) => void;
 }) {
   const navigate = useNavigate();
   const { isAuthenticated, signIn } = useAuth();
@@ -153,6 +155,10 @@ export function IntelligentSearch({
   useEffect(() => {
     onProcessingChange?.(Boolean(busy));
   }, [busy, onProcessingChange]);
+
+  useEffect(() => {
+    onAttachmentStageChange?.(attachment?.stage ?? null);
+  }, [attachment?.stage, onAttachmentStageChange]);
 
   useEffect(() => {
     if (presetQuery === undefined) return;
