@@ -25,7 +25,7 @@ export type StatementReference = {
   venue?: string;
   doi?: string;
   url?: string;
-  status: "VERIFIED" | "POSSIBLE_MATCH";
+  status: "VERIFIED" | "PARTIALLY_VERIFIED";
   retrievalLevel: "full_text" | "abstract" | "metadata_only" | "unavailable";
   sourceName?: string;
   citationApa: string;

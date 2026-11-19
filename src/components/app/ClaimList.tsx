@@ -1,6 +1,7 @@
 import { EmptyStateIllustration } from "@/components/illustrations/Editorial";
 import { Input } from "@/components/ui/input";
 import {
+  CLAIM_CATEGORY_META,
   VERDICT_META,
   VERDICT_ORDER,
   type ClaimRecord,
@@ -8,7 +9,7 @@ import {
   type Verdict,
 } from "@/lib/analysis-ui";
 import { Search, SlidersHorizontal } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { ReferenceStatusBadge, VerdictBadge } from "./Badges";
 
 type Filter = "ALL" | Verdict;
@@ -112,13 +113,30 @@ export function ClaimList({
           </div>
         ) : (
           <ul className="divide-y divide-border">
-            {filtered.map((claim) => {
+            {filtered.map((claim, index) => {
               const primary = claim.referenceKeys
                 .map((key) => references.find((reference) => reference.refKey === key))
                 .find((reference): reference is ReferenceRecord => Boolean(reference));
               const active = claim.claimId === activeClaimId;
+              const category = claim.claimCategory ?? "AUTOMATIC_SCIENTIFIC_CLAIM";
+              const previousCategory =
+                index > 0
+                  ? (filtered[index - 1].claimCategory ?? "AUTOMATIC_SCIENTIFIC_CLAIM")
+                  : null;
+              const showGroup = sort === "document" && category !== previousCategory;
               return (
-                <li key={claim._id}>
+                <Fragment key={claim._id}>
+                  {showGroup && (
+                    <li className="bg-secondary/30 px-4 py-2">
+                      <p className="font-mono text-[9px] uppercase tracking-[0.1em] text-muted-foreground">
+                        {CLAIM_CATEGORY_META[category].label}
+                        {category === "EXPLICIT_DOCUMENT_CLAIM"
+                          ? ` · ${filtered.filter((row) => row.claimCategory === category).length} preserved`
+                          : ""}
+                      </p>
+                    </li>
+                  )}
+                  <li>
                   <button
                     type="button"
                     onClick={() => onSelectClaim(claim.claimId)}
@@ -128,7 +146,9 @@ export function ClaimList({
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-mono text-[10px] text-muted-foreground">
-                        {claim.claimId} · p.{claim.page}
+                        {claim.claimId}
+                        {claim.originalClaimId ? ` · source ${claim.originalClaimId}` : ""} · p.{claim.page}
+                        {claim.section ? ` · ${claim.section}` : ""}
                       </span>
                       <VerdictBadge verdict={claim.verdict} />
                     </div>
@@ -156,7 +176,8 @@ export function ClaimList({
                       )}
                     </div>
                   </button>
-                </li>
+                  </li>
+                </Fragment>
               );
             })}
           </ul>

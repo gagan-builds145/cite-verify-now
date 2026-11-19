@@ -342,27 +342,62 @@ function sectionName(line: string): string | undefined {
   return undefined;
 }
 
-/** Best-effort section label for a claim inside one page's text. */
-export function detectSection(pageText: string, claimText: string): string | undefined {
-  const lines = pageText.split(/\n+/);
-  const needle = normalizeForMatch(claimText).slice(0, 70);
-  let offset = 0;
-  let claimOffset = -1;
-  let current: string | undefined;
-  let found: string | undefined;
-  for (const line of lines) {
-    const name = sectionName(line);
-    if (name) current = name;
-    if (claimOffset === -1) {
-      const normalizedLine = normalizeForMatch(line);
-      if (needle.length > 20 && (normalizedLine.includes(needle.slice(0, 40)) || needle.includes(normalizedLine.slice(0, 40)))) {
-        claimOffset = offset;
-        found = current;
-      }
+/** Maps a compacted string back to the raw character offsets it came from. */
+function compactWithMap(value: string): { compact: string; map: number[] } {
+  let compact = "";
+  const map: number[] = [];
+  for (let index = 0; index < value.length; index += 1) {
+    const char = value[index].toLowerCase();
+    if (/[a-z0-9]/.test(char)) {
+      compact += char;
+      map.push(index);
     }
-    offset += line.length + 1;
   }
-  return found ?? current;
+  return { compact, map };
+}
+
+function headingLabel(line: string): string | undefined {
+  const cleaned = line.replace(/\s+/g, " ").trim();
+  if (!cleaned || cleaned.length > 110) return undefined;
+  const numbered = /^(\d+(?:\.\d+)*)[.)]?\s+([A-Z][A-Za-z0-9 ,:;/&()'’-]{2,90})$/.exec(cleaned);
+  if (numbered) {
+    const title = numbered[2].replace(/[:.]+$/, "").trim();
+    return `${numbered[1]} ${title}`;
+  }
+  const known = sectionName(cleaned);
+  return known === "References" ? undefined : known;
+}
+
+/**
+ * Section attribution based on the claim's actual source offset, not the last
+ * heading seen on the page. Returns undefined when the claim cannot be located,
+ * rather than guessing a section.
+ */
+export function detectSection(pageText: string, claimText: string): string | undefined {
+  const page = compactWithMap(pageText);
+  const claim = compactWithMap(claimText);
+  if (page.compact.length === 0 || claim.compact.length < 20) return undefined;
+  let claimIndex = page.compact.indexOf(claim.compact.slice(0, Math.min(160, claim.compact.length)));
+  if (claimIndex === -1) {
+    claimIndex = page.compact.indexOf(claim.compact.slice(0, 60));
+  }
+  if (claimIndex === -1) return undefined;
+
+  const headings: { compactOffset: number; label: string }[] = [];
+  const lines = pageText.split(/\n+/);
+  let rawOffset = 0;
+  for (const line of lines) {
+    const label = headingLabel(line);
+    if (label) {
+      const lineCompact = compactWithMap(line).compact;
+      if (lineCompact) headings.push({ compactOffset: page.compact.indexOf(lineCompact, compactWithMap(pageText.slice(0, rawOffset)).compact.length), label });
+    }
+    rawOffset += line.length + 1;
+  }
+  const preceding = headings
+    .filter((heading) => heading.compactOffset >= 0 && heading.compactOffset <= claimIndex)
+    .sort((a, b) => b.compactOffset - a.compactOffset)[0];
+  return preceding?.label;
 }
 
 /** Marks later bibliography entries that repeat an earlier DOI or title. */
@@ -467,6 +502,156 @@ export function markersToReferenceKeys(
       ? "Some citation markers could not be resolved unambiguously to a single bibliography entry."
       : undefined,
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* Claim provenance, categorization and deduplication                  */
+/* ------------------------------------------------------------------ */
+
+export type ClaimCategory =
+  | "EXPLICIT_DOCUMENT_CLAIM"
+  | "AUTOMATIC_SCIENTIFIC_CLAIM"
+  | "PARAPHRASED_CLAIM"
+  | "BACKGROUND_STATEMENT";
+
+export type ExtractionLocation = "TABLE" | "PARAGRAPH" | "LIST" | "UNKNOWN";
+
+export type ExplicitClaim = {
+  originalClaimId: string;
+  text: string;
+  page: number;
+  section?: string;
+  citationMarkers: string[];
+  parentId: string;
+  extractionLocation: ExtractionLocation;
+  claimCategory: ClaimCategory;
+  claimType: string;
+};
+
+const QUALIFIERS: [RegExp, string][] = [
+  [/\b(no|not|never|none|cannot|without)\b/i, "negation"],
+  [/\b(all|every|always|only|universally|completely|eliminates?)\b/i, "universal"],
+  [/\b(cause[sd]?|causal|leads? to|results? in)\b/i, "causal"],
+  [/\b(more|less|higher|lower|better|worse|superior|inferior|outperform[s]?)\b/i, "comparative"],
+  [/\b(associated|correlat(e|ed|ion))\b/i, "association"],
+];
+
+export function classifyClaimType(text: string): string {
+  if (/\b(we|this study|our study|the present study|we conducted|we used)\b/i.test(text)) {
+    return "METHODOLOGICAL";
+  }
+  if (/\b(cause[sd]?|leads? to|results? in)\b/i.test(text)) return "CAUSAL";
+  if (/\b(more|less|higher|lower|better|worse|superior|inferior|outperform[s]?)\b/i.test(text)) {
+    return "COMPARATIVE";
+  }
+  if (/(\d+(?:\.\d+)?\s?%|\bp\s?[<=]\s?0?\.\d+|\bn\s?=\s?\d+)/i.test(text)) {
+    return "QUANTITATIVE";
+  }
+  if (/\b(review|background|literature|has been proposed|is a documented)\b/i.test(text)) {
+    return "BACKGROUND";
+  }
+  return "EMPIRICAL";
+}
+
+function explicitClaimText(row: string): string {
+  const cells = row
+    .split("|")
+    .map((cell) => normalizeWhitespace(cell))
+    .filter(Boolean);
+  if (cells.length <= 1) return normalizeWhitespace(row);
+  return cells
+    .filter((cell) => !/^C\d{1,3}$/i.test(cell))
+    .sort((a, b) => b.length - a.length)[0] ?? normalizeWhitespace(row);
+}
+
+/**
+ * Preserves explicitly identified claims such as C1–C6 from a claim table or
+ * enumerated list. These are never renumbered away or replaced by narrative
+ * extraction.
+ */
+export function extractExplicitClaims(pages: PageText[], max = 40): ExplicitClaim[] {
+  const claims: ExplicitClaim[] = [];
+  const seen = new Set<string>();
+  for (const page of pages) {
+    const lines = page.text.split(/\n+/).map((line) => normalizeWhitespace(line)).filter(Boolean);
+    let tableCaption = "Explicit claims";
+    for (let index = 0; index < lines.length; index += 1) {
+      const line = lines[index];
+      if (/^table\s+\d+/i.test(line)) tableCaption = line.slice(0, 120);
+      const match = /^(?:\[?\s*)?(C\d{1,3})\b\s*(?:[|:.)–—-]\s*)?(.{18,520})$/i.exec(line);
+      if (!match) continue;
+      const originalClaimId = match[1].toUpperCase();
+      if (seen.has(originalClaimId)) continue;
+      let row = match[2];
+      if (row.length < 35 && index + 1 < lines.length) row = `${row} ${lines[index + 1]}`;
+      const text = explicitClaimText(row).slice(0, 500);
+      if (text.length < 25) continue;
+      seen.add(originalClaimId);
+      claims.push({
+        originalClaimId,
+        text,
+        page: page.page,
+        section: detectSection(page.text, text),
+        citationMarkers: findCitationMarkers(line),
+        parentId: tableCaption,
+        extractionLocation: line.includes("|") || tableCaption !== "Explicit claims" ? "TABLE" : "LIST",
+        claimCategory: "EXPLICIT_DOCUMENT_CLAIM",
+        claimType: classifyClaimType(text),
+      });
+      if (claims.length >= max) return claims;
+    }
+  }
+  return claims;
+}
+
+function claimScope(text: string): string {
+  const qualifiers = QUALIFIERS.filter(([pattern]) => pattern.test(text))
+    .map(([, label]) => label)
+    .sort();
+  const numbers = extractNumbers(text)
+    .filter((value) => !/^(19|20)\d{2}$/.test(value))
+    .sort();
+  return `${qualifiers.join("+")}::${numbers.join("+")}`;
+}
+
+export function claimSimilarity(a: string, b: string): number {
+  return diceSimilarity(normalizeForMatch(a), normalizeForMatch(b));
+}
+
+/**
+ * Duplicate detection preserves scientific scope. A negation, universal claim,
+ * causal claim, comparator or different numeric result is never merged into a
+ * neighbouring statement merely because the wording overlaps.
+ */
+export function claimsAreDuplicates(
+  a: {
+    text: string;
+    citationMarkers?: string[];
+    page?: number;
+    section?: string;
+    originalClaimId?: string;
+  },
+  b: {
+    text: string;
+    citationMarkers?: string[];
+    page?: number;
+    section?: string;
+    originalClaimId?: string;
+  },
+): boolean {
+  if (a.originalClaimId && b.originalClaimId && a.originalClaimId !== b.originalClaimId) {
+    return false;
+  }
+  const exact = normalizeForMatch(a.text) === normalizeForMatch(b.text);
+  if (claimScope(a.text) !== claimScope(b.text)) return false;
+  const similarity = exact ? 1 : claimSimilarity(a.text, b.text);
+  if (similarity < 0.86) return false;
+  const markersA = (a.citationMarkers ?? []).map(normalizeForMatch).sort().join("|");
+  const markersB = (b.citationMarkers ?? []).map(normalizeForMatch).sort().join("|");
+  if (markersA !== markersB) return false;
+  if (a.section && b.section && a.section !== b.section) return false;
+  if (a.page && b.page && a.page !== b.page) return false;
+  return true;
 }
 
 /* ------------------------------------------------------------------ */

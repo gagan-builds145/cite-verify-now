@@ -2,6 +2,7 @@ import {
   RETRIEVAL_LABEL,
   REVIEW_STATUS_LABEL,
   formatDateTime,
+  parseIdentity,
   type AnalysisRecord,
   type ClaimRecord,
   type ReferenceRecord,
@@ -38,6 +39,12 @@ export function safeFileName(title: string, suffix: string): string {
 export function buildClaimsCsv(claims: ClaimRecord[], references: ReferenceRecord[]): string {
   const header = [
     "claim_id",
+    "original_claim_id",
+    "claim_category",
+    "claim_type",
+    "extraction_location",
+    "parent_id",
+    "duplicate_of",
     "verdict",
     "review_status",
     "human_verdict",
@@ -61,6 +68,12 @@ export function buildClaimsCsv(claims: ClaimRecord[], references: ReferenceRecor
       .filter((reference): reference is ReferenceRecord => Boolean(reference));
     return [
       claim.claimId,
+      claim.originalClaimId ?? "",
+      claim.claimCategory ?? "",
+      claim.claimType ?? "",
+      claim.extractionLocation ?? "",
+      claim.parentId ?? "",
+      claim.duplicateOf ?? "",
       claim.verdict,
       claim.reviewStatus ? REVIEW_STATUS_LABEL[claim.reviewStatus] : "Not reviewed",
       claim.reviewVerdict ?? "",
@@ -89,6 +102,12 @@ export function buildReferencesCsv(references: ReferenceRecord[]): string {
     "duplicate_of",
     "retracted",
     "reference_text",
+    "cited_doi",
+    "doi_comparison",
+    "title_comparison",
+    "author_comparison",
+    "year_comparison",
+    "venue_comparison",
     "matched_title",
     "matched_authors",
     "matched_year",
@@ -103,13 +122,20 @@ export function buildReferencesCsv(references: ReferenceRecord[]): string {
   ];
   return [
     header.join(","),
-    ...references.map((reference) =>
-      [
+    ...references.map((reference) => {
+      const identity = parseIdentity(reference.identityJson);
+      return [
         reference.refKey,
         reference.status,
         reference.duplicateOf ?? "",
         reference.isRetracted ? "yes" : "no",
         reference.rawText,
+        reference.doi ?? "",
+        identity?.doi ?? "UNAVAILABLE",
+        identity?.title ?? "UNAVAILABLE",
+        identity?.authors ?? "UNAVAILABLE",
+        identity?.year ?? "UNAVAILABLE",
+        identity?.venue ?? "UNAVAILABLE",
         reference.matchedTitle ?? reference.title ?? "",
         (reference.matchedAuthors.length > 0 ? reference.matchedAuthors : reference.authors).join(
           "; ",
@@ -123,8 +149,8 @@ export function buildReferencesCsv(references: ReferenceRecord[]): string {
         reference.matchNotes.join(" | "),
         reference.retractionNote ?? "",
         reference.error ?? "",
-      ].map(escapeCsv),
-    ),
+      ].map(escapeCsv);
+    }),
   ].join("\r\n");
 }
 
@@ -158,6 +184,12 @@ export function buildJsonExport(
       },
       claims: claims.map((claim) => ({
         claimId: claim.claimId,
+        originalClaimId: claim.originalClaimId,
+        claimCategory: claim.claimCategory,
+        claimType: claim.claimType,
+        extractionLocation: claim.extractionLocation,
+        parentId: claim.parentId,
+        duplicateOf: claim.duplicateOf,
         text: claim.text,
         page: claim.page,
         section: claim.section,
@@ -189,6 +221,7 @@ export function buildJsonExport(
         matchedYear: reference.matchedYear,
         matchedVenue: reference.matchedVenue,
         matchedDoi: reference.matchedDoi,
+        identity: parseIdentity(reference.identityJson),
         sourceName: reference.sourceName,
         sourceUrl: reference.sourceUrl,
         retrievalLevel: reference.retrievalLevel,

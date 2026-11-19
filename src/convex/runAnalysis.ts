@@ -19,6 +19,7 @@ import {
   type ReferenceVerification,
   type RetrievalLevel,
 } from "./lib/academic";
+import { guardEvidenceVerdict, referenceUsableForEvidence } from "./lib/evidence";
 import {
   buildPaperModel,
   buildRetrievalContext,
@@ -27,7 +28,10 @@ import {
   validateEvidenceQuote,
 } from "./lib/statement";
 import {
+  claimsAreDuplicates,
+  classifyClaimType,
   detectSection,
+  extractExplicitClaims,
   extractHeuristicClaims,
   extractNumbers,
   findCitationMarkers,
@@ -35,6 +39,8 @@ import {
   findReferencesSection,
   markersToReferenceKeys,
   normalizeWhitespace,
+  type ClaimCategory,
+  type ExtractionLocation,
   overlapRatio,
   parseReferences,
   stripReferencesSection,
@@ -75,6 +81,20 @@ function locatePage(text: string, pages: PageText[], hintedPage?: number): PageT
     if (searchable(page.text).includes(shorter)) return page;
   }
   return undefined;
+}
+
+function claimCategoryFor(
+  markers: string[],
+  section: string | undefined,
+): ClaimCategory {
+  return markers.length === 0 && section && /abstract|introduction|background/i.test(section)
+    ? "BACKGROUND_STATEMENT"
+    : "AUTOMATIC_SCIENTIFIC_CLAIM";
+}
+
+function paragraphIdFor(page: PageText, claim: string): string {
+  const index = page.text.indexOf(claim.slice(0, 60));
+  return `p${page.page}-${Math.max(0, index)}`;
 }
 
 function contextFor(page: PageText, claim: string): string {
@@ -179,7 +199,13 @@ type RefRow = {
   authors: string[];
   year?: number;
   doi?: string;
-  status: "VERIFIED" | "POSSIBLE_MATCH" | "MISMATCH" | "UNVERIFIED" | "RETRIEVAL_FAILED";
+  status:
+    | "VERIFIED"
+    | "PARTIALLY_VERIFIED"
+    | "METADATA_MISMATCH"
+    | "UNVERIFIED"
+    | "NOT_FOUND"
+    | "LOOKUP_FAILED";
   matchScore?: number;
   matchedTitle?: string;
   matchedAuthors: string[];
@@ -197,20 +223,27 @@ type RefRow = {
   retractionUrl?: string;
   fullTextUrl?: string;
   fullTextSource?: string;
+  identityJson?: string;
 };
 
 type ClaimDraft = {
   claimId: string;
+  originalClaimId?: string;
+  claimCategory: ClaimCategory;
+  claimType: string;
+  extractionLocation: ExtractionLocation;
+  parentId?: string;
+  duplicateOf?: string;
   text: string;
   page: number;
-      context: string;
-    section?: string;
-    citationMarkers: string[];
-    referenceKeys: string[];
-    mappingConfidence: number;
-    mappingNote?: string;
-    confidence?: number;
-    sortIndex: number;
+  context: string;
+  section?: string;
+  citationMarkers: string[];
+  referenceKeys: string[];
+  mappingConfidence: number;
+  mappingNote?: string;
+  confidence?: number;
+  sortIndex: number;
 };
 
 type VerdictDraft = {
@@ -284,27 +317,67 @@ export const run = action({
       }
 
       const drafts: ClaimDraft[] = [];
-      const seenClaims = new Set<string>();
+
+      // Explicitly labelled claims are authoritative document structure. Keep
+      // every original ID even when the narrative extractor finds the same text.
+      const explicitClaims = extractExplicitClaims(claimPages, MAX_CLAIMS);
+      for (const claim of explicitClaims) {
+        drafts.push({
+          claimId: "",
+          originalClaimId: claim.originalClaimId,
+          claimCategory: claim.claimCategory,
+          claimType: claim.claimType,
+          extractionLocation: claim.extractionLocation,
+          parentId: claim.parentId,
+          text: claim.text,
+          page: claim.page,
+          context: claim.text,
+          section: claim.section,
+          citationMarkers: claim.citationMarkers,
+          referenceKeys: [],
+          mappingConfidence: 0,
+          sortIndex: drafts.length,
+        });
+      }
+      if (explicitClaims.length > 0) {
+        limitations.push(
+          `${explicitClaims.length} explicitly identified claim(s) were preserved with their original IDs and reported separately from narrative claims.`,
+        );
+      }
+
+      const isDuplicateDraft = (candidate: { text: string; citationMarkers: string[]; page: number; section?: string }) =>
+        drafts.some((draft) =>
+          claimsAreDuplicates(
+            { ...draft, originalClaimId: draft.originalClaimId },
+            { ...candidate, originalClaimId: undefined },
+          ),
+        );
+
       if (aiClaimResult.ok && aiClaimResult.claims.length > 0) {
         for (const claim of aiClaimResult.claims) {
           if (drafts.length >= MAX_CLAIMS) break;
           const located = locatePage(claim.text, claimPages, claim.page);
           if (!located) continue; // never keep text that cannot be found in the PDF
-          const key = searchable(claim.text).slice(0, 120);
-          if (seenClaims.has(key)) continue;
-          seenClaims.add(key);
           const claimMarkers = findCitationMarkers(claim.text);
           const aiMarkers = findCitationMarkers(claim.citationMarkers.join(" "));
           const markers = claimMarkers.length > 0 ? claimMarkers : aiMarkers;
+          const section = detectSection(located.text, claim.text);
+          if (isDuplicateDraft({ text: claim.text, citationMarkers: markers, page: located.page, section })) {
+            continue;
+          }
           drafts.push({
             claimId: "",
+            claimCategory: claimCategoryFor(markers, section),
+            claimType: classifyClaimType(claim.text),
+            extractionLocation: "PARAGRAPH",
+            parentId: paragraphIdFor(located, claim.text),
             text: normalizeWhitespace(claim.text),
             page: located.page,
             context:
               claim.context && searchable(located.text).includes(searchable(claim.context).slice(0, 80))
                 ? claim.context
                 : contextFor(located, claim.text),
-            section: detectSection(located.text, claim.text),
+            section,
             citationMarkers: markers,
             referenceKeys: [],
             mappingConfidence: 0,
@@ -312,23 +385,30 @@ export const run = action({
             sortIndex: drafts.length,
           });
         }
-        if (drafts.length > 0) engine = "ai";
+        if (aiClaimResult.claims.length > 0) engine = "ai";
       }
 
-      if (drafts.length === 0) {
+      if (drafts.length === explicitClaims.length) {
         const heuristics = extractHeuristicClaims(claimPages, {
           maxClaims: MAX_CLAIMS,
         });
         for (const claim of heuristics) {
+          if (drafts.length >= MAX_CLAIMS) break;
+          const page = claimPages.find((row) => row.page === claim.page);
+          const section = page ? detectSection(page.text, claim.text) : undefined;
+          if (isDuplicateDraft({ text: claim.text, citationMarkers: claim.markers, page: claim.page, section })) {
+            continue;
+          }
           drafts.push({
             claimId: "",
+            claimCategory: claimCategoryFor(claim.markers, section),
+            claimType: classifyClaimType(claim.text),
+            extractionLocation: "PARAGRAPH",
+            parentId: page ? paragraphIdFor(page, claim.text) : undefined,
             text: claim.text,
             page: claim.page,
             context: claim.context,
-            section: detectSection(
-              claimPages.find((page) => page.page === claim.page)?.text ?? "",
-              claim.text,
-            ),
+            section,
             citationMarkers: claim.markers,
             referenceKeys: [],
             mappingConfidence: 0,
@@ -344,6 +424,7 @@ export const run = action({
           );
         }
       }
+
 
       if (aiClaimResult.ok) {
         limitations.push(
@@ -363,6 +444,25 @@ export const run = action({
       drafts.forEach((draft, index) => {
         draft.claimId = `C${index + 1}`;
       });
+      // Preserve paraphrases as separate records with a duplicate relationship
+      // instead of silently merging them. Scope-changing statements never merge.
+      for (let index = 0; index < drafts.length; index += 1) {
+        const draft = drafts[index];
+        const original = drafts.find((candidate, candidateIndex) => {
+          if (candidateIndex >= index) return false;
+          if (candidate.duplicateOf) return false;
+          return (
+            claimsAreDuplicates(candidate, draft) &&
+            searchable(candidate.text) !== searchable(draft.text)
+          );
+        });
+        if (original) {
+          draft.duplicateOf = original.claimId;
+          if (draft.claimCategory === "AUTOMATIC_SCIENTIFIC_CLAIM") {
+            draft.claimCategory = "PARAPHRASED_CLAIM";
+          }
+        }
+      }
       const mapping = drafts.map((draft) => {
         const direct = markersToReferenceKeys(draft.citationMarkers, parsedReferences);
         if (direct.keys.length > 0) return direct;
@@ -455,6 +555,7 @@ export const run = action({
             retractionUrl: duplicateRow.retractionUrl,
             fullTextUrl: duplicateRow.fullTextUrl,
             fullTextSource: duplicateRow.fullTextSource,
+            identityJson: duplicateRow.identityJson,
           });
           continue;
         }
@@ -464,7 +565,7 @@ export const run = action({
           verification = await verifyReference(ref);
         } catch (error) {
           verification = {
-            status: "RETRIEVAL_FAILED",
+            status: "LOOKUP_FAILED",
             matchNotes: ["Reference lookup failed unexpectedly."],
             candidates: [],
             retrievalLevel: "unavailable",
@@ -504,10 +605,16 @@ export const run = action({
           retractionUrl: verification.retraction?.url,
           fullTextUrl: verification.fullText?.url,
           fullTextSource: verification.fullText?.source,
+          identityJson: verification.identity ? JSON.stringify(verification.identity) : undefined,
         };
         refRows.set(ref.refKey, row);
-        if (verification.status === "VERIFIED" || verification.status === "POSSIBLE_MATCH") verifiedCount += 1;
-        if (verification.status === "RETRIEVAL_FAILED") failureCount += 1;
+        if (
+          verification.status === "VERIFIED" ||
+          verification.status === "PARTIALLY_VERIFIED"
+        ) {
+          verifiedCount += 1;
+        }
+        if (verification.status === "LOOKUP_FAILED") failureCount += 1;
         if (verification.retraction) retractedCount += 1;
 
         await ctx.runMutation(internal.analyses.addReference, {
@@ -538,6 +645,7 @@ export const run = action({
           retractionUrl: row.retractionUrl,
           fullTextUrl: row.fullTextUrl,
           fullTextSource: row.fullTextSource,
+          identityJson: row.identityJson,
         });
 
         await setStage(
@@ -627,23 +735,27 @@ export const run = action({
           continue;
         }
 
-        const usableRefs = refs.filter(
-          (row) => row.status === "VERIFIED" || row.status === "POSSIBLE_MATCH",
-        );
+        const usableRefs = refs.filter((row) => referenceUsableForEvidence(row.status));
         if (usableRefs.length === 0) {
-          const blocked = refs.find((row) => row.status === "MISMATCH") ?? refs[0];
+          const blocked =
+            refs.find((row) => row.status === "METADATA_MISMATCH") ??
+            refs.find((row) => row.status === "LOOKUP_FAILED") ??
+            refs.find((row) => row.status === "NOT_FOUND") ??
+            refs[0];
           verdicts.set(draft.claimId, {
             verdict: "UNVERIFIED",
             explanation:
-              blocked.status === "MISMATCH"
-                ? `A publication with a closely matching title exists (${shortTitle(
+              blocked.status === "METADATA_MISMATCH"
+                ? `The cited DOI or metadata conflicts with the candidate publication (${shortTitle(
                     blocked.matchedTitle,
-                  )}), but its bibliographic details conflict with the reference, so it was not used as evidence.`
-                : blocked.status === "RETRIEVAL_FAILED"
-                  ? `The cited source could not be reached through the scholarly APIs, so its evidence could not be retrieved.`
-                  : `No matching publication could be located in Crossref or OpenAlex for this citation (${shortTitle(
-                      blocked.title,
-                    )}), so no evidence was available for comparison.`,
+                  )}). That publication was not used as evidence; the citation must be repaired before its claims can be checked.`
+                : blocked.status === "LOOKUP_FAILED"
+                  ? `The cited source could not be reached through the scholarly APIs, so its evidence could not be retrieved. This is a lookup failure, not evidence against the claim.`
+                  : blocked.status === "NOT_FOUND"
+                    ? `No identity-confirmed publication could be located for this citation (${shortTitle(
+                        blocked.title,
+                      )}). The claim remains unverified; missing evidence is not treated as contradiction.`
+                    : `The citation identity is unresolved or only partially established, so no publication was used as evidence. The claim remains unverified rather than contradicted.`,
             engine: "rules",
             level: "unavailable",
             reviewNeeded: true,
@@ -717,18 +829,16 @@ export const run = action({
             if (!target) continue;
             const validQuote = sanitizeQuote(judgement.evidenceQuote, target.passage ?? "");
             const level = target.ref.retrievalLevel;
-            let verdict = judgement.verdict;
-            let explanation = judgement.explanation;
-            if (level === "metadata_only") {
-              verdict = "UNVERIFIED";
-              explanation = `Only metadata was available for the cited source, so the claim could not be compared with its evidence. ${explanation}`;
-            }
-            if (verdict === "SUPPORTED" && !validQuote) {
-              // A support verdict needs a verifiable quote from the retrieved abstract.
-              verdict = "INSUFFICIENT_EVIDENCE";
-              explanation =
-                "The model judged the retrieved evidence supportive, but its quoted passage could not be verified verbatim in the retrieved text, so the verdict was downgraded. Manual review is required.";
-            }
+            const guarded = guardEvidenceVerdict({
+              verdict: judgement.verdict,
+              level,
+              validQuote: Boolean(validQuote),
+              sourceUsable: referenceUsableForEvidence(target.ref.status),
+            });
+            const verdict = guarded.verdict;
+            const explanation = guarded.reason
+              ? `${guarded.reason} ${judgement.explanation}`
+              : judgement.explanation;
             verdicts.set(judgement.claimId, {
               verdict,
               explanation: target.ref.isRetracted
@@ -775,6 +885,12 @@ export const run = action({
         await ctx.runMutation(internal.analyses.addClaim, {
           analysisId,
           claimId: draft.claimId,
+          originalClaimId: draft.originalClaimId,
+          claimCategory: draft.claimCategory,
+          claimType: draft.claimType,
+          extractionLocation: draft.extractionLocation,
+          parentId: draft.parentId,
+          duplicateOf: draft.duplicateOf,
           text: draft.text,
           page: draft.page,
           context: draft.context || draft.text,

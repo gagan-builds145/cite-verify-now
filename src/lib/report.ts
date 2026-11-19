@@ -1,11 +1,13 @@
 import { jsPDF } from "jspdf";
 import {
+  CLAIM_CATEGORY_META,
   REFERENCE_STATUS_META,
   RETRIEVAL_LABEL,
   VERDICT_META,
   countReferenceStatuses,
   countVerdicts,
   formatDateTime,
+  parseIdentity,
   shortDoi,
   truncate,
   type AnalysisRecord,
@@ -24,10 +26,11 @@ const VERDICT_RGB: Record<Verdict, [number, number, number]> = {
 
 const STATUS_RGB: Record<ReferenceRecord["status"], [number, number, number]> = {
   VERIFIED: [22, 122, 86],
-  POSSIBLE_MATCH: [164, 110, 18],
-  MISMATCH: [176, 48, 42],
+  PARTIALLY_VERIFIED: [164, 110, 18],
+  METADATA_MISMATCH: [176, 48, 42],
   UNVERIFIED: [112, 74, 158],
-  RETRIEVAL_FAILED: [95, 100, 110],
+  NOT_FOUND: [95, 100, 110],
+  LOOKUP_FAILED: [95, 100, 110],
 };
 
 const MARGIN = 52;
@@ -148,10 +151,11 @@ export function buildVerificationReport(
     ["Full text retrieved", String(fullTextCount)],
     ["Retracted sources", String(retracted.length)],
     ["Claims human-reviewed", `${reviewedClaims.length}/${claims.length}`],
-    ["Possible matches", String(referenceCounts.POSSIBLE_MATCH)],
-    ["Mismatched", String(referenceCounts.MISMATCH)],
-    ["Not located", String(referenceCounts.UNVERIFIED)],
-    ["Lookup failed", String(referenceCounts.RETRIEVAL_FAILED)],
+    ["Partially verified", String(referenceCounts.PARTIALLY_VERIFIED)],
+    ["Metadata mismatch", String(referenceCounts.METADATA_MISMATCH)],
+    ["Unverified", String(referenceCounts.UNVERIFIED)],
+    ["Not found", String(referenceCounts.NOT_FOUND)],
+    ["Lookup failed", String(referenceCounts.LOOKUP_FAILED)],
   ];
   const columnWidth = contentWidth / 2;
   for (let index = 0; index < summaryRows.length; index += 2) {
@@ -202,15 +206,24 @@ export function buildVerificationReport(
   if (claims.length === 0) {
     body("No evidence-bearing claims were extracted from this document.");
   }
+  let claimGroup: string | undefined;
   claims.forEach((claim) => {
+    const group = claim.claimCategory ?? "AUTOMATIC_SCIENTIFIC_CLAIM";
+    if (group !== claimGroup) {
+      claimGroup = group;
+      heading(CLAIM_CATEGORY_META[group].label);
+    }
     ensure(120);
     const verdictLabel = VERDICT_META[claim.verdict].label;
     const claimRefs = references.filter((reference) => claim.referenceKeys.includes(reference.refKey));
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
     doc.setTextColor(120, 124, 132);
+    const category = claim.claimCategory
+      ? CLAIM_CATEGORY_META[claim.claimCategory].short
+      : "Narrative";
     doc.text(
-      `${claim.claimId}  ·  p.${claim.page}${claim.section ? `  ·  ${claim.section}` : ""}`,
+      `${claim.claimId}${claim.originalClaimId ? ` (source ${claim.originalClaimId})` : ""}  ·  ${category}  ·  p.${claim.page}${claim.section ? `  ·  ${claim.section}` : ""}${claim.extractionLocation ? `  ·  ${claim.extractionLocation.toLowerCase()}` : ""}`,
       MARGIN,
       y,
     );
@@ -281,6 +294,33 @@ export function buildVerificationReport(
     });
     y += 13;
     body(reference.rawText, { size: 8.5, color: [50, 55, 65], gap: 3 });
+    const identity = parseIdentity(reference.identityJson);
+    if (identity) {
+      body(
+        `DOI identity: ${identity.doi} — cited ${reference.doi ?? "none"} vs candidate ${
+          reference.matchedDoi ?? "none"
+        }. ${identity.doiNote}`,
+        { size: 7.8, color: [85, 90, 100], gap: 2 },
+      );
+      body(
+        `Title identity: ${identity.title} (${Math.round(identity.titleSimilarity * 100)}%) · Authors: ${
+          identity.authors
+        } (${Math.round(identity.authorSimilarity * 100)}%) · Year: ${identity.year} · Venue: ${
+          identity.venue
+        } (${Math.round(identity.venueSimilarity * 100)}%)`,
+        { size: 7.8, color: [85, 90, 100], gap: 2 },
+      );
+    }
+    body(
+      `Final identity status: ${REFERENCE_STATUS_META[reference.status].label}. Retrieval: ${
+        RETRIEVAL_LABEL[reference.retrievalLevel]
+      }.`,
+      {
+        size: 8,
+        color: STATUS_RGB[reference.status],
+        gap: 2,
+      },
+    );
     if (reference.matchedTitle) {
       body(`Matched record: ${reference.matchedTitle}`, { size: 8.5, color: [40, 46, 56], gap: 2 });
       const meta = [

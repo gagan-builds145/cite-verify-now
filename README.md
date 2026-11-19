@@ -80,8 +80,9 @@ from stored claims.
   reduced confidence, unresolved-citation reporting.
 - Bibliography parsing, duplicate-reference detection, section detection for each claim.
 - Reference verification across Crossref / OpenAlex / DataCite / arXiv, with Semantic Scholar abstract
-  enrichment. Five statuses: `VERIFIED`, `POSSIBLE_MATCH`, `MISMATCH`, `UNVERIFIED`,
-  `RETRIEVAL_FAILED`.
+  enrichment. Six identity statuses: `VERIFIED`, `PARTIALLY_VERIFIED`,
+  `METADATA_MISMATCH`, `UNVERIFIED`, `NOT_FOUND`, `LOOKUP_FAILED`. Only identity-verified
+  records may supply evidence.
 - Open-access full-text retrieval from Europe PMC, with claim-specific passage selection; abstracts and
   metadata remain explicit fallbacks.
 - Retraction flags from OpenAlex (`is_retracted`) with the source record and a warning that a
@@ -148,14 +149,16 @@ from stored claims.
 
 | Status | Meaning |
 | --- | --- |
-| `VERIFIED` | DOI resolved, or title + corroborating metadata match |
-| `POSSIBLE_MATCH` | Close record, but at least one detail does not fully align |
-| `MISMATCH` | Same title/authors with conflicting year or DOI, or a DOI pointing elsewhere |
-| `UNVERIFIED` | No record above the match threshold was found |
-| `RETRIEVAL_FAILED` | Scholarly APIs were unreachable or rate-limited |
+| `VERIFIED` | DOI, title, authors, year and venue agree with a scholarly record |
+| `PARTIALLY_VERIFIED` | Core identity agrees, but a metadata field is missing or only partially matches |
+| `METADATA_MISMATCH` | DOI, title, authors, year or venue conflicts; the candidate is never used as evidence |
+| `UNVERIFIED` | A candidate exists, but identity is not established |
+| `NOT_FOUND` | The DOI did not resolve and no identity-confirmed record was found |
+| `LOOKUP_FAILED` | Scholarly APIs were unreachable or rate-limited; this is not a missing citation |
 
 A missing DOI or an unlocated record is **never** treated as proof of fabrication. Evidence is used
-only from `VERIFIED` or `POSSIBLE_MATCH` records. A sub-threshold record is shown only as a candidate.
+only from `VERIFIED` or `PARTIALLY_VERIFIED` records. A conflicting record is shown only as a candidate
+and its abstract is blocked from claim evidence.
 
 ---
 

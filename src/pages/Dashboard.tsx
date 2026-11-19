@@ -134,17 +134,16 @@ export default function Dashboard() {
     color: VERDICT_META[verdict].color,
   })).filter((entry) => entry.value > 0);
 
+  const statusKey: Record<ReferenceStatus, keyof NonNullable<AnalysisRecord["summary"]>> = {
+    VERIFIED: "refsVerified",
+    PARTIALLY_VERIFIED: "refsPartial",
+    METADATA_MISMATCH: "refsMetadataMismatch",
+    UNVERIFIED: "refsUnverified",
+    NOT_FOUND: "refsNotFound",
+    LOOKUP_FAILED: "refsFailed",
+  };
   const statusData = (Object.keys(REFERENCE_STATUS_META) as ReferenceStatus[]).map((status) => {
-    const key =
-      status === "VERIFIED"
-        ? "refsVerified"
-        : status === "POSSIBLE_MATCH"
-          ? "refsPossible"
-          : status === "MISMATCH"
-            ? "refsMismatch"
-            : status === "UNVERIFIED"
-              ? "refsUnverified"
-              : "refsFailed";
+    const key = statusKey[status];
     return {
       name: REFERENCE_STATUS_META[status].label,
       value: items.reduce((sum, item) => sum + (item.summary?.[key] ?? 0), 0),

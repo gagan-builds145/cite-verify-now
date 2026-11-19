@@ -13,6 +13,7 @@ import {
   REFERENCE_STATUS_META,
   RETRIEVAL_LABEL,
   parseCandidates,
+  parseIdentity,
   shortDoi,
   type ReferenceRecord,
   type ReferenceStatus,
@@ -153,7 +154,9 @@ export function ReferenceList({
                   <RetrievalBadge level={selected.retrievalLevel} />
                 </div>
                 <DialogTitle className="mt-2 text-lg leading-snug">
-                  {selected.matchedTitle ?? "No matching publication located"}
+                  {selected.status === "METADATA_MISMATCH"
+                    ? "Candidate record — not used as evidence"
+                    : (selected.matchedTitle ?? "No matching publication located")}
                 </DialogTitle>
                 <DialogDescription>
                   {REFERENCE_STATUS_META[selected.status].description}
@@ -207,9 +210,74 @@ export function ReferenceList({
                   )}
                 </div>
 
+                {(() => {
+                  const identity = parseIdentity(selected.identityJson);
+                  if (!identity) return null;
+                  return (
+                    <div>
+                      <p className="eyebrow">Identity comparison</p>
+                      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                        {[
+                          {
+                            label: "DOI",
+                            result: identity.doi,
+                            value: identity.doiNote,
+                          },
+                          {
+                            label: "Title",
+                            result: identity.title,
+                            value: `${Math.round(identity.titleSimilarity * 100)}% similarity`,
+                          },
+                          {
+                            label: "Authors",
+                            result: identity.authors,
+                            value: `${Math.round(identity.authorSimilarity * 100)}% surname overlap`,
+                          },
+                          {
+                            label: "Year / venue",
+                            result:
+                              identity.year === "MATCH" && identity.venue !== "MISMATCH"
+                                ? "MATCH"
+                                : identity.year === "MISMATCH" || identity.venue === "MISMATCH"
+                                  ? "MISMATCH"
+                                  : "PARTIAL",
+                            value: `Year ${identity.year.toLowerCase()} · venue ${identity.venue.toLowerCase()}`,
+                          },
+                        ].map((check) => (
+                          <div key={check.label} className="rounded-lg border border-border px-3 py-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-mono text-[9px] uppercase tracking-[0.06em] text-muted-foreground">
+                                {check.label}
+                              </span>
+                              <span
+                                className={`font-mono text-[9px] uppercase ${
+                                  check.result === "MATCH"
+                                    ? "text-[var(--verdict-supported)]"
+                                    : check.result === "MISMATCH"
+                                      ? "text-[var(--verdict-contradicted)]"
+                                      : "text-[var(--verdict-partial)]"
+                                }`}
+                              >
+                                {check.result.toLowerCase()}
+                              </span>
+                            </div>
+                            <p className="mt-1 text-[10.5px] leading-4 text-muted-foreground">
+                              {check.value}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
-                    <p className="eyebrow">Matched record</p>
+                    <p className="eyebrow">
+                      {selected.status === "METADATA_MISMATCH"
+                        ? "Candidate record (conflicting)"
+                        : "Matched record"}
+                    </p>
                     <dl className="mt-2 space-y-1.5 text-[12px] leading-5">
                       <MetaRow label="Title" value={selected.matchedTitle ?? "—"} />
                       <MetaRow

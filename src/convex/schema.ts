@@ -28,10 +28,11 @@ export const stageStatusValidator = v.union(
 
 export const referenceStatusValidator = v.union(
   v.literal("VERIFIED"),
-  v.literal("POSSIBLE_MATCH"),
-  v.literal("MISMATCH"),
+  v.literal("PARTIALLY_VERIFIED"),
+  v.literal("METADATA_MISMATCH"),
   v.literal("UNVERIFIED"),
-  v.literal("RETRIEVAL_FAILED"),
+  v.literal("NOT_FOUND"),
+  v.literal("LOOKUP_FAILED"),
 );
 
 export const verdictValidator = v.union(
@@ -40,6 +41,20 @@ export const verdictValidator = v.union(
   v.literal("CONTRADICTED"),
   v.literal("INSUFFICIENT_EVIDENCE"),
   v.literal("UNVERIFIED"),
+);
+
+export const claimCategoryValidator = v.union(
+  v.literal("EXPLICIT_DOCUMENT_CLAIM"),
+  v.literal("AUTOMATIC_SCIENTIFIC_CLAIM"),
+  v.literal("PARAPHRASED_CLAIM"),
+  v.literal("BACKGROUND_STATEMENT"),
+);
+
+export const extractionLocationValidator = v.union(
+  v.literal("TABLE"),
+  v.literal("PARAGRAPH"),
+  v.literal("LIST"),
+  v.literal("UNKNOWN"),
 );
 
 export const retrievalLevelValidator = v.union(
@@ -205,6 +220,7 @@ const schema = defineSchema(
       retractionUrl: v.optional(v.string()),
       fullTextUrl: v.optional(v.string()),
       fullTextSource: v.optional(v.string()),
+      identityJson: v.optional(v.string()),
     }).index("by_analysis", ["analysisId"]),
 
     // Messages sent through the public contact form (no email is sent).
@@ -218,6 +234,12 @@ const schema = defineSchema(
     analysisClaims: defineTable({
       analysisId: v.id("analyses"),
       claimId: v.string(),
+      originalClaimId: v.optional(v.string()),
+      claimCategory: v.optional(claimCategoryValidator),
+      claimType: v.optional(v.string()),
+      extractionLocation: v.optional(extractionLocationValidator),
+      parentId: v.optional(v.string()),
+      duplicateOf: v.optional(v.string()),
       text: v.string(),
       page: v.number(),
       context: v.string(),

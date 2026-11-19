@@ -4,6 +4,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import {
+  CLAIM_CATEGORY_META,
   RETRIEVAL_LABEL,
   REVIEW_STATUS_LABEL,
   VERDICT_META,
@@ -137,6 +138,18 @@ export function ClaimDetail({
             <span className="rounded border border-border px-1.5 py-0.5 font-mono text-[10.5px] text-muted-foreground">
               {claim.claimId}
             </span>
+            {claim.originalClaimId && (
+              <span className="rounded-full border border-[var(--verdict-supported)]/30 bg-[var(--verdict-supported-soft)] px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.05em] text-[var(--verdict-supported)]">
+                Source claim {claim.originalClaimId}
+              </span>
+            )}
+            <span className="rounded-full border border-border bg-secondary px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.05em] text-muted-foreground">
+              {claim.claimCategory
+                ? CLAIM_CATEGORY_META[claim.claimCategory].short
+                : "Narrative"}{
+                claim.extractionLocation ? ` · ${claim.extractionLocation.toLowerCase()}` : ""
+              }
+            </span>
             <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
               page {claim.page}
               {claim.section ? ` · ${claim.section}` : ""}
@@ -156,6 +169,20 @@ export function ClaimDetail({
             )}
           </div>
           <p className="mt-3 text-[15px] leading-7 text-foreground">{claim.text}</p>
+          <p className="mt-1.5 font-mono text-[9.5px] uppercase tracking-[0.06em] text-muted-foreground">
+            {claim.claimType ?? "Claim"}
+            {claim.parentId ? ` · ${claim.parentId}` : ""}
+            {claim.section ? ` · ${claim.section}` : " · section not resolved"}
+          </p>
+          {claim.duplicateOf && (
+            <button
+              type="button"
+              onClick={() => onSelectClaim(claim.duplicateOf ?? "")}
+              className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-[10.5px] text-muted-foreground hover:text-foreground"
+            >
+              Possible paraphrase of {claim.duplicateOf} — kept separately
+            </button>
+          )}
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <Button
               variant="outline"

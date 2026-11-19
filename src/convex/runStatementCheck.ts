@@ -53,7 +53,7 @@ type ReferenceResult = {
   venue?: string;
   doi?: string;
   url?: string;
-  status: "VERIFIED" | "POSSIBLE_MATCH";
+  status: "VERIFIED" | "PARTIALLY_VERIFIED";
   retrievalLevel: "full_text" | "abstract" | "metadata_only" | "unavailable";
   sourceName?: string;
   citationApa: string;
@@ -422,7 +422,11 @@ export const run = action({
               referenceCache.set(canonicalKey, verification);
             }
             const best = verification.best;
-            if (!best || (verification.status !== "VERIFIED" && verification.status !== "POSSIBLE_MATCH")) {
+            if (
+              !best ||
+              (verification.status !== "VERIFIED" &&
+                verification.status !== "PARTIALLY_VERIFIED")
+            ) {
               unresolvedReferences += 1;
               continue;
             }
@@ -444,7 +448,7 @@ export const run = action({
               venue,
               doi,
               url,
-              status: verification.status as "VERIFIED" | "POSSIBLE_MATCH",
+              status: verification.status as "VERIFIED" | "PARTIALLY_VERIFIED",
               retrievalLevel: verification.retrievalLevel,
               sourceName: best.source,
               citationApa: formatStatementCitation(paper, "APA"),

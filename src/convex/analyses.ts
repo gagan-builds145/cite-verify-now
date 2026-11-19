@@ -18,6 +18,8 @@ import {
   type PageText,
 } from "./lib/text";
 import {
+  claimCategoryValidator,
+  extractionLocationValidator,
   questionAnswerValidator,
   referenceStatusValidator,
   retrievalLevelValidator,
@@ -39,6 +41,16 @@ export const STAGES = [
 
 const MAX_PAGES = 80;
 const MAX_CHARS = 400_000;
+
+import {
+  normalizeReferenceStatus,
+  reconcileClaimsWithReferences,
+  type CurrentReferenceStatus,
+} from "./lib/reconcile";
+
+function normalizeReferenceRow<T extends { status: string }>(row: T) {
+  return { ...row, status: normalizeReferenceStatus(row.status) as CurrentReferenceStatus };
+}
 
 async function requireUser(ctx: QueryCtx | MutationCtx) {
   const userId = await getAuthUserId(ctx);
@@ -75,7 +87,13 @@ export const claims = query({
       .query("analysisClaims")
       .withIndex("by_analysis", (q) => q.eq("analysisId", args.analysisId))
       .collect();
-    return rows.sort((a, b) => a.sortIndex - b.sortIndex);
+    const referenceRows = await ctx.db
+      .query("analysisReferences")
+      .withIndex("by_analysis", (q) => q.eq("analysisId", args.analysisId))
+      .collect();
+    return reconcileClaimsWithReferences(rows, referenceRows).sort(
+      (a, b) => a.sortIndex - b.sortIndex,
+    );
   },
 });
 
@@ -84,10 +102,11 @@ export const references = query({
   handler: async (ctx, args) => {
     const analysis = await assertOwner(ctx, args.analysisId);
     if (!analysis) return [];
-    return await ctx.db
+    const rows = await ctx.db
       .query("analysisReferences")
       .withIndex("by_analysis", (q) => q.eq("analysisId", args.analysisId))
       .collect();
+    return rows.map(normalizeReferenceRow);
   },
 });
 
@@ -104,14 +123,17 @@ export const list = query({
 
     return await Promise.all(
       analyses.map(async (analysis) => {
-        const claimRows = await ctx.db
+        const rawClaimRows = await ctx.db
           .query("analysisClaims")
           .withIndex("by_analysis", (q) => q.eq("analysisId", analysis._id))
           .collect();
-        const referenceRows = await ctx.db
-                .query("analysisReferences")
-      .withIndex("by_analysis", (q) => q.eq("analysisId", analysis._id))
-      .collect();
+        const referenceRows = (
+          await ctx.db
+            .query("analysisReferences")
+            .withIndex("by_analysis", (q) => q.eq("analysisId", analysis._id))
+            .collect()
+        ).map(normalizeReferenceRow);
+        const claimRows = reconcileClaimsWithReferences(rawClaimRows, referenceRows);
         return {
           ...analysis,
           summary: {
@@ -126,10 +148,11 @@ export const list = query({
             claimsWithCitation: claimRows.filter((c) => c.referenceKeys.length > 0).length,
             references: referenceRows.length,
             refsVerified: referenceRows.filter((r) => r.status === "VERIFIED").length,
-            refsPossible: referenceRows.filter((r) => r.status === "POSSIBLE_MATCH").length,
-            refsMismatch: referenceRows.filter((r) => r.status === "MISMATCH").length,
+            refsPartial: referenceRows.filter((r) => r.status === "PARTIALLY_VERIFIED").length,
+            refsMetadataMismatch: referenceRows.filter((r) => r.status === "METADATA_MISMATCH").length,
             refsUnverified: referenceRows.filter((r) => r.status === "UNVERIFIED").length,
-            refsFailed: referenceRows.filter((r) => r.status === "RETRIEVAL_FAILED").length,
+            refsNotFound: referenceRows.filter((r) => r.status === "NOT_FOUND").length,
+            refsFailed: referenceRows.filter((r) => r.status === "LOOKUP_FAILED").length,
             refsFullText: referenceRows.filter((r) => r.retrievalLevel === "full_text").length,
             refsAbstract: referenceRows.filter((r) => r.retrievalLevel === "abstract").length,
             refsRetracted: referenceRows.filter((r) => r.isRetracted).length,
@@ -150,17 +173,21 @@ export const bundle = query({
       .query("analysisClaims")
       .withIndex("by_analysis", (q) => q.eq("analysisId", args.analysisId))
       .collect();
-    const references = await ctx.db
-      .query("analysisReferences")
-      .withIndex("by_analysis", (q) => q.eq("analysisId", args.analysisId))
-      .collect();
+    const references = (
+      await ctx.db
+        .query("analysisReferences")
+        .withIndex("by_analysis", (q) => q.eq("analysisId", args.analysisId))
+        .collect()
+    ).map(normalizeReferenceRow);
     const reviewRows = await ctx.db
       .query("reviews")
       .withIndex("by_analysis", (q) => q.eq("analysisId", args.analysisId))
       .collect();
     return {
       analysis,
-      claims: claims.sort((a, b) => a.sortIndex - b.sortIndex),
+      claims: reconcileClaimsWithReferences(claims, references).sort(
+        (a, b) => a.sortIndex - b.sortIndex,
+      ),
       references,
       reviews: reviewRows.sort((a, b) => b.createdAt - a.createdAt),
     };
@@ -198,7 +225,7 @@ export const recommendations = query({
         const key = (ref.matchedDoi ?? title).toLowerCase();
         if (seen.has(key)) continue;
         seen.add(key);
-        if (ref.status !== "VERIFIED" && ref.status !== "POSSIBLE_MATCH") continue;
+        if (ref.status !== "VERIFIED" && ref.status !== "PARTIALLY_VERIFIED") continue;
         output.push({
           title,
           authors: ref.matchedAuthors.length > 0 ? ref.matchedAuthors : ref.authors,
@@ -545,6 +572,7 @@ export const addReference = internalMutation({
     retractionUrl: v.optional(v.string()),
     fullTextUrl: v.optional(v.string()),
     fullTextSource: v.optional(v.string()),
+    identityJson: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const analysis = await ctx.db.get(args.analysisId);
@@ -573,6 +601,12 @@ export const addClaim = internalMutation({
   args: {
     analysisId: v.id("analyses"),
     claimId: v.string(),
+    originalClaimId: v.optional(v.string()),
+    claimCategory: v.optional(claimCategoryValidator),
+    claimType: v.optional(v.string()),
+    extractionLocation: v.optional(extractionLocationValidator),
+    parentId: v.optional(v.string()),
+    duplicateOf: v.optional(v.string()),
     text: v.string(),
     page: v.number(),
     context: v.string(),
@@ -617,13 +651,17 @@ export const bundleForAction = internalQuery({
       .query("analysisClaims")
       .withIndex("by_analysis", (q) => q.eq("analysisId", args.analysisId))
       .collect();
-    const references = await ctx.db
-      .query("analysisReferences")
-      .withIndex("by_analysis", (q) => q.eq("analysisId", args.analysisId))
-      .collect();
+    const references = (
+      await ctx.db
+        .query("analysisReferences")
+        .withIndex("by_analysis", (q) => q.eq("analysisId", args.analysisId))
+        .collect()
+    ).map(normalizeReferenceRow);
     return {
       analysis,
-      claims: claims.sort((a, b) => a.sortIndex - b.sortIndex),
+      claims: reconcileClaimsWithReferences(claims, references).sort(
+        (a, b) => a.sortIndex - b.sortIndex,
+      ),
       references,
     };
   },

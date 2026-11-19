@@ -7,10 +7,23 @@ export type Verdict =
 
 export type ReferenceStatus =
   | "VERIFIED"
-  | "POSSIBLE_MATCH"
-  | "MISMATCH"
+  | "PARTIALLY_VERIFIED"
+  | "METADATA_MISMATCH"
   | "UNVERIFIED"
-  | "RETRIEVAL_FAILED";
+  | "NOT_FOUND"
+  | "LOOKUP_FAILED";
+
+export type ReferenceIdentity = {
+  doi: "MATCH" | "PARTIAL" | "MISMATCH" | "UNAVAILABLE";
+  doiNote: string;
+  title: "MATCH" | "PARTIAL" | "MISMATCH" | "UNAVAILABLE";
+  titleSimilarity: number;
+  authors: "MATCH" | "PARTIAL" | "MISMATCH" | "UNAVAILABLE";
+  authorSimilarity: number;
+  year: "MATCH" | "PARTIAL" | "MISMATCH" | "UNAVAILABLE";
+  venue: "MATCH" | "PARTIAL" | "MISMATCH" | "UNAVAILABLE";
+  venueSimilarity: number;
+};
 
 export type RetrievalLevel = "full_text" | "abstract" | "metadata_only" | "unavailable";
 
@@ -30,9 +43,21 @@ export type QuestionAnswerRecord = {
   limitations: string[];
 };
 
+export type ClaimCategory =
+  | "EXPLICIT_DOCUMENT_CLAIM"
+  | "AUTOMATIC_SCIENTIFIC_CLAIM"
+  | "PARAPHRASED_CLAIM"
+  | "BACKGROUND_STATEMENT";
+
 export type ClaimRecord = {
   _id: string;
   claimId: string;
+  originalClaimId?: string;
+  claimCategory?: ClaimCategory;
+  claimType?: string;
+  extractionLocation?: "TABLE" | "PARAGRAPH" | "LIST" | "UNKNOWN";
+  parentId?: string;
+  duplicateOf?: string;
   text: string;
   page: number;
   context: string;
@@ -108,6 +133,7 @@ export type ReferenceRecord = {
   retractionUrl?: string;
   fullTextUrl?: string;
   fullTextSource?: string;
+  identityJson?: string;
 };
 
 export type AnalysisSummary = {
@@ -119,9 +145,10 @@ export type AnalysisSummary = {
   unverified: number;
   references: number;
   refsVerified: number;
-  refsPossible: number;
-  refsMismatch: number;
+  refsPartial: number;
+  refsMetadataMismatch: number;
   refsUnverified: number;
+  refsNotFound: number;
   refsFailed: number;
   reviewNeeded: number;
   reviewed: number;
@@ -223,31 +250,56 @@ export const REFERENCE_STATUS_META: Record<
     label: "Verified",
     color: "var(--verdict-supported)",
     soft: "var(--verdict-supported-soft)",
-    description: "A scholarly record matches the reference on title and corroborating metadata.",
+    description: "DOI, title, authors, year and venue agree with a scholarly record.",
   },
-  POSSIBLE_MATCH: {
-    label: "Possible match",
+  PARTIALLY_VERIFIED: {
+    label: "Partially verified",
     color: "var(--verdict-partial)",
     soft: "var(--verdict-partial-soft)",
-    description: "A close record was found, but one or more bibliographic details do not fully align.",
+    description: "Core identity agrees, but at least one metadata field is missing or only partially matches.",
   },
-  MISMATCH: {
-    label: "Mismatch",
+  METADATA_MISMATCH: {
+    label: "Metadata mismatch",
     color: "var(--verdict-contradicted)",
     soft: "var(--verdict-contradicted-soft)",
-    description: "A closely titled work exists, but publication details conflict with the reference.",
+    description: "A candidate exists, but its DOI, title, authors, year or venue conflicts. It is never used as evidence.",
   },
   UNVERIFIED: {
-    label: "Not located",
+    label: "Unverified",
     color: "var(--verdict-unverified)",
     soft: "var(--verdict-unverified-soft)",
-    description: "No matching record was located in the searched scholarly indexes.",
+    description: "A candidate was returned, but bibliographic identity was not established.",
   },
-  RETRIEVAL_FAILED: {
+  NOT_FOUND: {
+    label: "Not found",
+    color: "var(--verdict-unverified)",
+    soft: "var(--verdict-unverified-soft)",
+    description: "The DOI did not resolve and no identity-confirmed record was found.",
+  },
+  LOOKUP_FAILED: {
     label: "Lookup failed",
     color: "var(--verdict-insufficient)",
     soft: "var(--verdict-insufficient-soft)",
-    description: "The scholarly APIs could not be reached for this reference.",
+    description: "Scholarly services could not be queried. This is not evidence that the citation is false.",
+  },
+};
+
+export const CLAIM_CATEGORY_META: Record<ClaimCategory, { label: string; short: string }> = {
+  EXPLICIT_DOCUMENT_CLAIM: {
+    label: "Explicit document claim",
+    short: "Explicit",
+  },
+  AUTOMATIC_SCIENTIFIC_CLAIM: {
+    label: "Automatically extracted scientific claim",
+    short: "Narrative",
+  },
+  PARAPHRASED_CLAIM: {
+    label: "Paraphrased or repeated claim",
+    short: "Paraphrase",
+  },
+  BACKGROUND_STATEMENT: {
+    label: "Background statement",
+    short: "Background",
   },
 };
 
@@ -310,13 +362,25 @@ export function countVerdicts(claims: ClaimRecord[]): Record<Verdict, number> {
 export function countReferenceStatuses(references: ReferenceRecord[]): Record<ReferenceStatus, number> {
   const counts: Record<ReferenceStatus, number> = {
     VERIFIED: 0,
-    POSSIBLE_MATCH: 0,
-    MISMATCH: 0,
+    PARTIALLY_VERIFIED: 0,
+    METADATA_MISMATCH: 0,
     UNVERIFIED: 0,
-    RETRIEVAL_FAILED: 0,
+    NOT_FOUND: 0,
+    LOOKUP_FAILED: 0,
   };
   for (const reference of references) counts[reference.status] += 1;
   return counts;
+}
+
+export function parseIdentity(json: string | undefined): ReferenceIdentity | null {
+  if (!json) return null;
+  try {
+    const parsed = JSON.parse(json) as ReferenceIdentity;
+    if (!parsed || typeof parsed !== "object" || !parsed.doiNote) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
 }
 
 export function parseCandidates(json: string): CandidateRecord[] {

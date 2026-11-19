@@ -15,10 +15,25 @@ import {
 
 export type ReferenceStatus =
   | "VERIFIED"
-  | "POSSIBLE_MATCH"
-  | "MISMATCH"
+  | "PARTIALLY_VERIFIED"
+  | "METADATA_MISMATCH"
   | "UNVERIFIED"
-  | "RETRIEVAL_FAILED";
+  | "NOT_FOUND"
+  | "LOOKUP_FAILED";
+
+export type IdentityComparison = "MATCH" | "PARTIAL" | "MISMATCH" | "UNAVAILABLE";
+
+export type ReferenceIdentity = {
+  doi: IdentityComparison;
+  doiNote: string;
+  title: IdentityComparison;
+  titleSimilarity: number;
+  authors: IdentityComparison;
+  authorSimilarity: number;
+  year: IdentityComparison;
+  venue: IdentityComparison;
+  venueSimilarity: number;
+};
 
 export type RetrievalLevel = "full_text" | "abstract" | "metadata_only" | "unavailable";
 
@@ -47,10 +62,13 @@ export type ReferenceVerification = {
   best?: ScholarlyRecord;
   candidates: ScholarlyRecord[];
   retrievalLevel: RetrievalLevel;
+  identity?: ReferenceIdentity;
   error?: string;
   fullText?: { text: string; url?: string; source: string };
   retraction?: { note: string; url?: string };
 };
+
+export type DoiLookupState = "matched" | "not_found" | "lookup_failed" | "not_provided";
 
 type FetchResult = { ok: boolean; data?: unknown };
 
@@ -126,6 +144,309 @@ function authorAgreement(ref: ParsedReference, record: ScholarlyRecord): boolean
   return refSurnames.some((surname) => surname.length > 2 && recordSurnames.includes(surname));
 }
 
+export function normalizeDoi(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  return value
+    .trim()
+    .replace(/^https?:\/\/doi\.org\//i, "")
+    .replace(/^doi:\s*/i, "")
+    .replace(/[.,;]+$/, "")
+    .toLowerCase();
+}
+
+/**
+ * Title identity is stricter than topical similarity. A contained title (for
+ * example an omitted subtitle) is strong evidence; token overlap alone is not.
+ */
+export function titleIdentitySimilarity(a: string, b: string): number {
+  const left = normalizeForMatch(a);
+  const right = normalizeForMatch(b);
+  if (!left || !right) return 0;
+  if (left === right) return 1;
+  if (left.length >= 20 && right.length >= 20 && (left.includes(right) || right.includes(left))) {
+    return 0.94;
+  }
+  return diceSimilarity(left, right);
+}
+
+export function authorIdentitySimilarity(ref: ParsedReference, record: ScholarlyRecord): number {
+  const refSurnames = new Set(
+    ref.authors
+      .map((author) => normalizeForMatch(author.split(/[\s,]+/)[0] ?? author))
+      .filter((name) => name.length > 2),
+  );
+  const recordSurnames = new Set(
+    record.authors
+      .map((author) => normalizeForMatch(author.split(/[\s,]+/).pop() ?? author))
+      .filter((name) => name.length > 2),
+  );
+  if (refSurnames.size === 0 || recordSurnames.size === 0) return 0;
+  let shared = 0;
+  for (const surname of refSurnames) if (recordSurnames.has(surname)) shared += 1;
+  return shared / Math.min(refSurnames.size, recordSurnames.size);
+}
+
+function compareAuthors(ref: ParsedReference, record: ScholarlyRecord): IdentityComparison {
+  if (ref.authors.length === 0 || record.authors.length === 0) return "UNAVAILABLE";
+  const similarity = authorIdentitySimilarity(ref, record);
+  if (similarity >= 0.5) return "MATCH";
+  if (similarity > 0) return "PARTIAL";
+  return "MISMATCH";
+}
+
+function compareYear(ref: ParsedReference, record: ScholarlyRecord): IdentityComparison {
+  if (!ref.year || !record.year) return "UNAVAILABLE";
+  const delta = Math.abs(ref.year - record.year);
+  if (delta === 0) return "MATCH";
+  if (delta === 1) return "PARTIAL";
+  return "MISMATCH";
+}
+
+function compareVenue(ref: ParsedReference, record: ScholarlyRecord): { result: IdentityComparison; similarity: number } {
+  if (!ref.venue || !record.venue) return { result: "UNAVAILABLE", similarity: 0 };
+  const similarity = diceSimilarity(ref.venue, record.venue);
+  if (similarity >= 0.6) return { result: "MATCH", similarity };
+  if (similarity >= 0.3) return { result: "PARTIAL", similarity };
+  return { result: "MISMATCH", similarity };
+}
+
+function compareTitle(ref: ParsedReference, record: ScholarlyRecord): { result: IdentityComparison; similarity: number } {
+  const similarity = titleIdentitySimilarity(ref.title ?? ref.rawText, record.title);
+  if (similarity >= 0.86) return { result: "MATCH", similarity };
+  if (similarity >= 0.58) return { result: "PARTIAL", similarity };
+  return { result: "MISMATCH", similarity };
+}
+
+type IdentityAssessment = {
+  status: ReferenceStatus;
+  best?: ScholarlyRecord;
+  score: number;
+  notes: string[];
+  identity: ReferenceIdentity;
+  usable: boolean;
+};
+
+/**
+ * Deterministic bibliographic identity assessment. This is deliberately
+ * independent from API ranking: a resolver score can order candidates, but it
+ * can never promote a candidate to VERIFIED.
+ */
+export function assessReferenceIdentity(
+  ref: ParsedReference,
+  candidates: ScholarlyRecord[],
+  doiLookup: DoiLookupState,
+  lookupFailed = false,
+): IdentityAssessment {
+  const notes: string[] = [];
+  const refDoi = normalizeDoi(ref.doi);
+
+  if (candidates.length === 0) {
+    const failed = lookupFailed || doiLookup === "lookup_failed";
+    const status: ReferenceStatus = failed ? "LOOKUP_FAILED" : "NOT_FOUND";
+    notes.push(
+      failed
+        ? "The scholarly indexes could not be queried reliably, so reference identity is unresolved."
+        : refDoi
+          ? "The DOI did not resolve and no bibliographic candidate was found."
+          : "No bibliographic candidate was found for this reference.",
+    );
+    return {
+      status,
+      score: 0,
+      notes,
+      usable: false,
+      identity: {
+        doi: refDoi ? (failed ? "UNAVAILABLE" : "MISMATCH") : "UNAVAILABLE",
+        doiNote: refDoi
+          ? failed
+            ? "DOI lookup could not be completed."
+            : "The referenced DOI did not resolve to an identity-confirmed record."
+          : "No DOI supplied.",
+        title: "UNAVAILABLE",
+        titleSimilarity: 0,
+        authors: "UNAVAILABLE",
+        authorSimilarity: 0,
+        year: "UNAVAILABLE",
+        venue: "UNAVAILABLE",
+        venueSimilarity: 0,
+      },
+    };
+  }
+
+  const ranked = candidates
+    .map((record) => {
+      const title = compareTitle(ref, record);
+      const authors = compareAuthors(ref, record);
+      const year = compareYear(ref, record);
+      const venue = compareVenue(ref, record);
+      const doiMatch = Boolean(
+        refDoi && normalizeDoi(record.doi) && refDoi === normalizeDoi(record.doi),
+      );
+      const doiConflict = Boolean(
+        refDoi && normalizeDoi(record.doi) && refDoi !== normalizeDoi(record.doi),
+      );
+      let score = title.similarity * 0.7;
+      if (authors === "MATCH") score += 0.12;
+      else if (authors === "PARTIAL") score += 0.04;
+      else if (authors === "MISMATCH") score -= 0.15;
+      if (year === "MATCH") score += 0.08;
+      else if (year === "PARTIAL") score += 0.03;
+      else if (year === "MISMATCH") score -= 0.12;
+      if (venue.result === "MATCH") score += 0.05;
+      else if (venue.result === "MISMATCH") score -= 0.05;
+      if (doiMatch) score += 0.25;
+      if (doiConflict) score -= 0.3;
+      return { record, title, authors, year, venue, doiMatch, doiConflict, score };
+    })
+    .sort((a, b) => b.score - a.score);
+
+  const statedDoiMatch = refDoi
+    ? ranked.find((entry) => entry.doiMatch)
+    : undefined;
+  const selected = statedDoiMatch ?? ranked[0];
+  const { record } = selected;
+
+  const identity: ReferenceIdentity = {
+    doi: refDoi
+      ? selected.doiMatch
+        ? "MATCH"
+        : selected.doiConflict
+          ? "MISMATCH"
+          : "UNAVAILABLE"
+      : "UNAVAILABLE",
+    doiNote: refDoi
+      ? selected.doiMatch
+        ? "Referenced DOI exactly matches the candidate DOI."
+        : selected.doiConflict
+          ? `Referenced DOI differs from the candidate DOI (${record.doi}).`
+          : "The referenced DOI could not be matched to this candidate."
+      : "No DOI supplied in the reference.",
+    title: selected.title.result,
+    titleSimilarity: selected.title.similarity,
+    authors: selected.authors,
+    authorSimilarity: authorIdentitySimilarity(ref, record),
+    year: selected.year,
+    venue: selected.venue.result,
+    venueSimilarity: selected.venue.similarity,
+  };
+
+  notes.push(`Title identity ${Math.round(identity.titleSimilarity * 100)}%.`);
+  if (refDoi) {
+    notes.push(identity.doiNote);
+  }
+  if (identity.authors === "MISMATCH") notes.push("Author identity conflicts with the reference.");
+  if (identity.year === "MISMATCH") notes.push("Publication year conflicts with the reference.");
+  if (identity.venue === "MISMATCH") notes.push("Journal or venue conflicts with the reference.");
+
+  const hardConflict =
+    selected.title.result === "MISMATCH" ||
+    selected.authors === "MISMATCH" ||
+    selected.year === "MISMATCH" ||
+    selected.venue.result === "MISMATCH";
+
+  if (refDoi && !selected.doiMatch) {
+    if (!selected.doiConflict) {
+      const metadataAgrees =
+        selected.title.result === "MATCH" &&
+        selected.authors !== "MISMATCH" &&
+        selected.year !== "MISMATCH" &&
+        selected.venue.result !== "MISMATCH";
+      if (metadataAgrees) {
+        notes.push(
+          "The citation DOI did not resolve, but title, authors, year and venue independently agree. DOI identity remains unconfirmed.",
+        );
+        return {
+          status: "PARTIALLY_VERIFIED",
+          best: record,
+          score: selected.score,
+          notes,
+          identity,
+          usable: true,
+        };
+      }
+      notes.push("The DOI did not resolve and the candidate metadata does not establish identity.");
+      return { status: "UNVERIFIED", best: record, score: selected.score, notes, identity, usable: false };
+    }
+    const status: ReferenceStatus =
+      selected.title.similarity >= 0.8 && selected.authors !== "MISMATCH"
+        ? "METADATA_MISMATCH"
+        : "UNVERIFIED";
+    notes.push(
+      status === "METADATA_MISMATCH"
+        ? "A similarly titled record exists, but its DOI differs. It is not treated as the cited publication."
+        : "The referenced DOI could not be identity-matched to the best bibliographic candidate.",
+    );
+    return { status, best: record, score: selected.score, notes, identity, usable: false };
+  }
+
+  if (hardConflict) {
+    notes.push("Bibliographic metadata conflict prevents identity verification.");
+    return {
+      status: "METADATA_MISMATCH",
+      best: record,
+      score: selected.score,
+      notes,
+      identity,
+      usable: false,
+    };
+  }
+
+  const completeIdentity =
+    selected.title.result === "MATCH" &&
+    selected.authors === "MATCH" &&
+    selected.year !== "UNAVAILABLE" &&
+    selected.venue.result !== "UNAVAILABLE";
+  const partialOnly =
+    selected.title.result === "MATCH" &&
+    (selected.authors === "UNAVAILABLE" ||
+      selected.year === "UNAVAILABLE" ||
+      selected.year === "PARTIAL" ||
+      selected.venue.result === "UNAVAILABLE" ||
+      selected.venue.result === "PARTIAL");
+
+  if (completeIdentity && (selected.doiMatch || !refDoi)) {
+    notes.push(
+      selected.doiMatch
+        ? "DOI, title, authors, year and venue agree."
+        : "Title, authors, year and venue agree; no DOI was supplied to compare.",
+    );
+    return { status: "VERIFIED", best: record, score: selected.score, notes, identity, usable: true };
+  }
+  if (selected.title.result === "MATCH" && selected.authors !== "MISMATCH" && selected.year !== "MISMATCH") {
+    notes.push(
+      selected.doiMatch
+        ? "DOI and core bibliographic identity agree; one metadata field is unavailable or does not exactly match."
+        : "Core bibliographic identity agrees; no DOI comparison was possible.",
+    );
+    return {
+      status: "PARTIALLY_VERIFIED",
+      best: record,
+      score: selected.score,
+      notes,
+      identity,
+      usable: true,
+    };
+  }
+  if (
+    selected.title.result === "PARTIAL" &&
+    selected.authors === "MATCH" &&
+    selected.year !== "MISMATCH"
+  ) {
+    notes.push("The title only partially matches. The record is not used as confirmed evidence without review.");
+    return {
+      status: partialOnly ? "PARTIALLY_VERIFIED" : "UNVERIFIED",
+      best: record,
+      score: selected.score,
+      notes,
+      identity,
+      usable: false,
+    };
+  }
+
+  notes.push("The closest candidate does not establish bibliographic identity.");
+  return { status: "UNVERIFIED", best: record, score: selected.score, notes, identity, usable: false };
+}
+
 function stripMarkup(value: string): string {
   return normalizeWhitespace(
     value
@@ -180,12 +501,18 @@ async function crossrefByDoi(doi: string): Promise<FetchResult & { record?: Scho
   return { ok: true, record: record ?? undefined };
 }
 
-async function crossrefSearch(query: string, rows = 5): Promise<ScholarlyRecord[]> {
+async function crossrefSearch(
+  query: string,
+  rows = 5,
+): Promise<{ records: ScholarlyRecord[]; failed: boolean }> {
   const url = `https://api.crossref.org/works?query.bibliographic=${encodeURIComponent(query)}&rows=${rows}&select=DOI,title,author,issued,container-title,abstract,URL,type`;
   const result = await getJson(url);
-  if (!result.ok) return [];
+  if (!result.ok) return { records: [], failed: true };
   const items = (result.data as { message?: { items?: CrossrefItem[] } })?.message?.items ?? [];
-  return items.map(mapCrossref).filter((item): item is ScholarlyRecord => item !== null);
+  return {
+    records: items.map(mapCrossref).filter((item): item is ScholarlyRecord => item !== null),
+    failed: false,
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -551,11 +878,12 @@ function scoreCandidate(ref: ParsedReference, record: ScholarlyRecord): Scholarl
     notes.push("Venue matches");
   }
 
-  if (ref.doi && record.doi && normalizeForMatch(ref.doi) === normalizeForMatch(record.doi)) {
-    score = 1;
-    notes.push("DOI resolves to this record");
-  } else if (ref.doi && record.doi && normalizeForMatch(ref.doi) !== normalizeForMatch(record.doi)) {
-    notes.push("Different DOI in matched record");
+  if (ref.doi && record.doi && normalizeDoi(ref.doi) === normalizeDoi(record.doi)) {
+    score += 0.12;
+    notes.push("Referenced DOI matches this record");
+  } else if (ref.doi && record.doi && normalizeDoi(ref.doi) !== normalizeDoi(record.doi)) {
+    score -= 0.2;
+    notes.push("Different DOI in candidate record");
   }
 
   return {
@@ -583,106 +911,67 @@ export async function verifyReference(ref: ParsedReference): Promise<ReferenceVe
   const candidates: ScholarlyRecord[] = [];
   const matchNotes: string[] = [];
   let apiFailed = false;
-  let doiResolved = false;
+  let doiLookup: DoiLookupState = ref.doi ? "not_found" : "not_provided";
 
   if (ref.doi) {
     const direct = await crossrefByDoi(ref.doi);
     if (direct.record) {
-      const titleSimilarity = diceSimilarity(ref.title ?? ref.rawText, direct.record.title);
       candidates.push(direct.record);
-      if (titleSimilarity >= 0.5) {
-        doiResolved = true;
-        matchNotes.push("Reference DOI resolved through Crossref.");
-      } else {
-        matchNotes.push("The DOI resolves to a publication with a different title.");
-      }
+      doiLookup = "matched";
+      matchNotes.push("Referenced DOI resolved through Crossref.");
     } else {
       // Many arXiv and dataset DOIs are registered with DataCite, not Crossref.
       const dataCite = await dataCiteByDoi(ref.doi);
       if (dataCite.record) {
         candidates.push(dataCite.record);
-        if (diceSimilarity(ref.title ?? ref.rawText, dataCite.record.title) >= 0.5) {
-          doiResolved = true;
-          matchNotes.push("Reference DOI resolved through DataCite.");
-        } else {
-          matchNotes.push("The DOI resolves to a publication with a different title.");
-        }
+        doiLookup = "matched";
+        matchNotes.push("Referenced DOI resolved through DataCite.");
       } else {
-        apiFailed = apiFailed || (!direct.ok && !dataCite.ok);
-        matchNotes.push("The DOI in the reference did not resolve through Crossref or DataCite.");
+        if (!direct.ok && !dataCite.ok) apiFailed = true;
+        matchNotes.push(
+          "The referenced DOI did not resolve. DOI resolution is treated separately from bibliographic identity.",
+        );
       }
     }
   }
 
   const query = referenceSearchQuery(ref);
-  const crossrefRecords = await crossrefSearch(query);
-  if (crossrefRecords.length === 0) apiFailed = true;
-  candidates.push(...crossrefRecords);
+  const crossref = await crossrefSearch(query);
+  if (crossref.failed) apiFailed = true;
+  candidates.push(...crossref.records);
 
   const openAlex = await openAlexSearch(query);
   if (openAlex.failed) apiFailed = true;
   candidates.push(...openAlex.records);
 
-  // arXiv is queried only when the indexes have not produced a credible match.
   const preliminary = dedupeRecords(candidates)
     .map((record) => scoreCandidate(ref, record))
     .sort((a, b) => (b.matchScore ?? 0) - (a.matchScore ?? 0));
-  if (!doiResolved && (preliminary[0]?.matchScore ?? 0) < 0.62) {
+  if (doiLookup !== "matched" && (preliminary[0]?.matchScore ?? 0) < 0.62) {
     const arxiv = await arxivSearch(ref.title ?? ref.rawText.slice(0, 140));
     candidates.push(...arxiv);
   }
 
-  const scored = dedupeRecords(candidates)
+  const uniqueCandidates = dedupeRecords(candidates);
+  const lookupFailed = uniqueCandidates.length === 0 && apiFailed;
+  if (lookupFailed) doiLookup = "lookup_failed";
+  const assessment = assessReferenceIdentity(ref, uniqueCandidates, doiLookup, lookupFailed);
+  matchNotes.push(...assessment.notes);
+
+  const shortlist = uniqueCandidates
     .map((record) => scoreCandidate(ref, record))
-    .sort((a, b) => (b.matchScore ?? 0) - (a.matchScore ?? 0));
-
-  const shortlist = scored.slice(0, 3);
-  const best = shortlist[0];
-
-  if (!best) {
-    return {
-      status: apiFailed ? "RETRIEVAL_FAILED" : "UNVERIFIED",
-      matchNotes:
-        matchNotes.length > 0
-          ? matchNotes
-          : ["No matching record was returned by Crossref or OpenAlex."],
-      candidates: [],
-      retrievalLevel: "unavailable",
-      error: apiFailed
-        ? "Scholarly APIs could not be reached or returned an error while checking this reference."
-        : undefined,
-    };
+    .sort((a, b) => (b.matchScore ?? 0) - (a.matchScore ?? 0))
+    .slice(0, 3);
+  const best = assessment.best;
+  const status = assessment.status;
+  if (status === "LOOKUP_FAILED") {
+    matchNotes.push("Scholarly APIs were unreachable or rate-limited; this is not a missing citation.");
+  } else if (status === "NOT_FOUND") {
+    matchNotes.push("No identity-confirmed scholarly record was found for this reference.");
   }
 
-  const titleScore = diceSimilarity(ref.title ?? ref.rawText, best.title);
-  const score = best.matchScore ?? 0;
-  const authorMatch = authorAgreement(ref, best);
-  const doiConflict = Boolean(
-    ref.doi &&
-      best.doi &&
-      normalizeForMatch(ref.doi) !== normalizeForMatch(best.doi) &&
-      titleScore >= 0.75,
-  );
-  let status: ReferenceStatus;
-  if (doiResolved || score >= 0.82) {
-    status = "VERIFIED";
-  } else if (score >= 0.62) {
-    status = "POSSIBLE_MATCH";
-  } else if (titleScore >= 0.9 && authorMatch) {
-    status = "MISMATCH";
-    matchNotes.push(
-      "A record with the same title and authors exists, but its year or DOI conflicts with the reference.",
-    );
-  } else if (doiConflict) {
-    status = "MISMATCH";
-    matchNotes.push("The DOI in the reference resolves to a different publication record.");
-  } else {
-    status = "UNVERIFIED";
-    matchNotes.push("Closest indexed record scored below the match threshold.");
-  }
-
-  const usable = status === "VERIFIED" || status === "POSSIBLE_MATCH";
-  let evidenceRecord = usable ? shortlist.find((record) => record.abstract) ?? best : undefined;
+  const usable = assessment.usable;
+  let evidenceRecord = usable && best ? best : undefined;
   if (usable && evidenceRecord && !evidenceRecord.abstract && evidenceRecord.doi) {
     const semantic = await semanticScholarByDoi(evidenceRecord.doi);
     if (semantic?.abstract) {
@@ -691,9 +980,9 @@ export async function verifyReference(ref: ParsedReference): Promise<ReferenceVe
     }
   }
 
-  const retraction = usable
+  const retraction = usable && best
     ? (() => {
-        const flagged = shortlist.find((record) => record.isRetracted);
+        const flagged = shortlist.find((record) => record.isRetracted) ?? (best.isRetracted ? best : undefined);
         if (flagged) {
           return {
             note: "OpenAlex marks this publication as retracted.",
@@ -705,9 +994,15 @@ export async function verifyReference(ref: ParsedReference): Promise<ReferenceVe
     : undefined;
 
   let fullText: { text: string; url?: string; source: string } | null = null;
-  if (usable && evidenceRecord) {
-    fullText = await europePmcFullText(evidenceRecord.doi ?? ref.doi, evidenceRecord.pmcid);
-    if (fullText) matchNotes.push("Open-access full text retrieved from Europe PMC.");
+  if (usable && evidenceRecord && evidenceRecord.doi) {
+    // Only fetch full text for the identity-matched candidate's own DOI. Using a
+    // failed reference DOI could retrieve a different publication.
+    fullText = await europePmcFullText(evidenceRecord.doi, evidenceRecord.pmcid);
+    if (fullText) {
+      matchNotes.push("Open-access full text retrieved from Europe PMC.");
+    } else {
+      matchNotes.push("No open-access full text was retrieved; evidence level reflects the actual access.");
+    }
   }
 
   // A direct DOI record from OpenAlex carries retraction and OA flags that the
@@ -737,18 +1032,19 @@ export async function verifyReference(ref: ParsedReference): Promise<ReferenceVe
 
   return {
     status,
-    matchScore: score,
+    matchScore: assessment.score,
     matchNotes,
-    // A sub-threshold or conflicting record is shown as a candidate to inspect,
-    // never presented as "the cited publication" or used as evidence.
-    best: usable || status === "MISMATCH" ? evidenceRecord ?? best : undefined,
+    // A conflicting record is shown for inspection, never presented as the
+    // cited publication and never used as evidence.
+    best: usable || status === "METADATA_MISMATCH" ? evidenceRecord ?? best : undefined,
     candidates: shortlist,
     retrievalLevel,
+    identity: assessment.identity,
     fullText: fullText ?? undefined,
     retraction: retractionFromDoi ?? retraction,
     error:
-      apiFailed && status !== "VERIFIED"
-        ? "Some scholarly APIs did not respond; match may be incomplete."
+      (apiFailed && !usable) || (status === "LOOKUP_FAILED")
+        ? "Some scholarly APIs did not respond or the DOI lookup failed; identity may be incomplete."
         : undefined,
   };
 }

@@ -181,6 +181,13 @@ Strict rules:
 - INSUFFICIENT_EVIDENCE: evidence exists but does not contain the information needed to judge.
 - UNVERIFIED: no usable evidence text was retrieved.
 - Numbers in the claim must appear in the evidence for SUPPORTED. If they do not, use PARTIALLY_SUPPORTED or INSUFFICIENT_EVIDENCE.
+- Absence of supporting evidence is never CONTRADICTED.
+- A study count or a small sample does not disprove a universal claim by itself.
+- Correlation is not causation. Comparable performance is not superior performance.
+- Evidence from one specialty does not establish performance across all specialties.
+- A benchmark result does not establish clinical effectiveness.
+- A broad review is not automatically proof of every implementation.
+- Preserve conditions, limitations and uncertainty in the explanation.
 - evidenceQuote must be ONE contiguous, word-for-word span copied from the supplied evidence (max 45 words). No ellipses, no added quotation marks, do not join separate sentences. Never paraphrase, never invent it.
 - explanation: max 55 words, concrete, names what matches or is missing.
 Return strict JSON only.`;
