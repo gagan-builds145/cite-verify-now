@@ -75,7 +75,7 @@ export default function Explorer() {
   const library = useQuery(api.library.list);
 
   const [mode, setMode] = useState<Mode>("keywords");
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
   const [yearFrom, setYearFrom] = useState("");
   const [yearTo, setYearTo] = useState("");
   const [sort, setSort] = useState<"relevance" | "date">("relevance");
@@ -253,8 +253,8 @@ export default function Explorer() {
               Research Explorer
             </h1>
             <p className="mt-2 max-w-xl text-[13px] leading-6 text-muted-foreground">
-              Search Crossref and OpenAlex by keywords, title, author or DOI. Save what matters, read
-              the abstract, and open a citation graph — every record keeps its source.
+              Discover relevant research papers, explore citation connections and save publications in
+              your research library.
             </p>
           </div>
           <Link

@@ -49,7 +49,7 @@ export default function Assistant() {
   const [selectedId, setSelectedId] = useState<Id<"analyses"> | null>(
     (searchParams.get("analysis") as Id<"analyses"> | null) ?? null,
   );
-  const [question, setQuestion] = useState("");
+  const [question, setQuestion] = useState(() => searchParams.get("q") ?? "");
   const [sending, setSending] = useState(false);
   const [engine, setEngine] = useState<"ai" | "retrieval" | null>(null);
   const endRef = useRef<HTMLDivElement>(null);

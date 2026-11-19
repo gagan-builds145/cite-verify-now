@@ -155,6 +155,7 @@ createRoot(document.getElementById("root")!).render(
                 }
               />
               <Route path="/explorer" element={<Explorer />} />
+              <Route path="/explore" element={<Explorer />} />
               <Route
                 path="/library"
                 element={

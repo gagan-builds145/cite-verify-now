@@ -1,3 +1,4 @@
+import { HowItWorksVideo } from "@/components/HowItWorksVideo";
 import { IntelligentSearch } from "@/components/IntelligentSearch";
 import { SiteFooter, SiteHeader } from "@/components/SiteChrome";
 import {
@@ -60,37 +61,37 @@ const FEATURES: {
   {
     kind: "claims",
     title: "AI-Powered Claim Extraction",
-    body: "Evidence-bearing sentences are pulled from the manuscript with page and section context — never invented to fill a quota.",
+    body: "Automatically identify scientific claims and connect them to their corresponding citations and bibliography entries.",
     note: "Claims stay verbatim",
   },
   {
     kind: "citations",
     title: "Citation Verification",
-    body: "Every marker is matched to one bibliography entry, then resolved against Crossref and OpenAlex records.",
+    body: "Check academic references against trusted research databases and identify missing or inconsistent publication details.",
     note: "DOI + author + year",
   },
   {
     kind: "evidence",
     title: "Original Evidence Retrieval",
-    body: "Open-access full text is fetched from Europe PMC, with abstracts or metadata used only when that is all that exists.",
+    body: "Trace every research claim to its original source and inspect the available supporting evidence.",
     note: "Retrieval level labelled",
   },
   {
     kind: "references",
     title: "Reference Validation",
-    body: "Title, DOI, authors, year and venue are checked together. A missing DOI is never treated as proof of fabrication.",
+    body: "Validate publication details using scholarly records. Missing information is flagged for review rather than treated as proof of fabrication.",
     note: "No fake-paper claims",
   },
   {
     kind: "retraction",
     title: "Retraction Detection",
-    body: "OpenAlex retraction flags surface on the cited record and on the claim it supports, with the source link intact.",
+    body: "Identify available retraction and correction notices to help assess the reliability of cited research.",
     note: "Flags, not automatic guilt",
   },
   {
     kind: "discovery",
     title: "Research Discovery",
-    body: "Search real scholarly indexes, save papers, map citation networks and export citations from one workspace.",
+    body: "Find related studies, explore citation connections and organize useful research papers.",
     note: "Crossref · OpenAlex",
   },
 ];
@@ -104,25 +105,25 @@ const STEPS: {
   {
     kind: "upload",
     title: "Upload Research Paper",
-    body: "Drop a text-based PDF into the workspace. It is parsed in your browser and never uploaded as a file.",
+    body: "Upload your research paper and let CiteVerify extract claims, identify citations and organize the evidence.",
     note: "PDF stays local",
   },
   {
     kind: "extract",
     title: "Extract Claims and Citations",
-    body: "Claims are located with their page and section, then citation markers are linked to bibliography entries.",
+    body: "Automatically identify scientific claims and connect them to their corresponding citations and bibliography entries.",
     note: "Unresolved links stay visible",
   },
   {
     kind: "retrieve",
     title: "Retrieve Original Research Evidence",
-    body: "References are matched in scholarly indexes and evidence is retrieved from open full text, abstracts or metadata.",
+    body: "Trace every research claim to its original source and inspect the available supporting evidence.",
     note: "Sources keep their URLs",
   },
   {
     kind: "report",
     title: "Generate Verification Results",
-    body: "Each claim receives a written verdict, a retrievable passage and a record of your own human review.",
+    body: "Review evidence-backed verdicts, source passages and human-review records.",
     note: "Export PDF, CSV or JSON",
   },
 ];
@@ -162,23 +163,13 @@ export default function Landing() {
           <div className="pointer-events-none absolute -right-28 top-40 size-[26rem] rounded-[58%_42%_39%_61%/45%_57%_43%_55%] bg-[var(--verdict-partial-soft)]/50" />
           <div className="pointer-events-none absolute bottom-16 left-1/3 size-24 rounded-full border border-[var(--ink)]/20" />
 
-          <div className="relative mx-auto grid w-full max-w-6xl items-center gap-10 px-5 pb-16 pt-12 sm:px-8 lg:grid-cols-[1fr_1.03fr] lg:gap-8 lg:pb-20 lg:pt-16">
-            <div className="max-w-[580px]">
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.45 }}
-                className="inline-flex items-center gap-2 rounded-full border border-[var(--ink)]/20 bg-accent px-3.5 py-1.5 text-[11px] font-semibold tracking-[0.02em] text-[var(--ink)]"
-              >
-                <Sparkle className="size-3.5" />
-                AI-Powered Research Intelligence
-              </motion.div>
-
+          <div className="relative mx-auto grid w-full max-w-6xl items-center gap-10 px-5 pb-16 pt-12 sm:px-8 lg:grid-cols-[1.12fr_1fr] lg:gap-8 lg:pb-20 lg:pt-16">
+            <div className="max-w-[640px]">
               <motion.h1
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
-                className="mt-6 font-display text-[clamp(2.65rem,5.1vw,4.15rem)] leading-[1.01] tracking-[-0.045em] text-foreground"
+                transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+                className="font-display text-[clamp(2.65rem,5.1vw,4.15rem)] leading-[1.01] tracking-[-0.045em] text-foreground"
               >
                 Don&apos;t just trust
                 <br />
@@ -187,47 +178,14 @@ export default function Landing() {
                 <span className="italic text-[var(--ink)]">Verify the evidence.</span>
               </motion.h1>
 
-              <motion.p
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.12 }}
-                className="mt-6 max-w-[520px] text-[15.5px] leading-[1.75] text-muted-foreground sm:text-[16px]"
-              >
-                Automatically verify academic references, trace claims to original research, and
-                discover whether cited evidence actually supports what&apos;s written.
-              </motion.p>
-
               <motion.div
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.19 }}
-                className="mt-8 max-w-[560px]"
+                transition={{ duration: 0.6, delay: 0.12 }}
+                className="mt-9"
               >
                 <IntelligentSearch />
-                <p className="mt-2.5 pl-1 text-[10.5px] text-muted-foreground">
-                  Try “analyze a research paper” or “check a statement” — or ask for anything else.
-                </p>
               </motion.div>
-
-              <motion.ul
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.7, delay: 0.32 }}
-                className="mt-7 flex flex-wrap gap-x-5 gap-y-2.5 text-[11.5px] font-medium text-muted-foreground"
-              >
-                <li className="inline-flex items-center gap-1.5">
-                  <span className="flex size-4 items-center justify-center rounded-full bg-[#DDF3E7]">
-                    <Check className="size-2.5 text-[#2F7A57]" />
-                  </span>
-                  No account needed for a first analysis
-                </li>
-                <li className="inline-flex items-center gap-1.5">
-                  <span className="flex size-4 items-center justify-center rounded-full bg-accent">
-                    <Lock className="size-2.5 text-[var(--ink)]" />
-                  </span>
-                  PDF stays in your browser
-                </li>
-              </motion.ul>
             </div>
 
             <motion.div
@@ -321,6 +279,8 @@ export default function Landing() {
               </p>
             </Reveal>
 
+            <HowItWorksVideo />
+
             <div className="relative mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
               <div className="pointer-events-none absolute left-[12%] right-[12%] top-[84px] hidden border-t-2 border-dashed border-[var(--ink)]/25 lg:block" />
               {STEPS.map((step, index) => (
@@ -377,8 +337,8 @@ export default function Landing() {
                 <span className="italic text-[#A9C8EC]"> its receipt.</span>
               </h2>
               <p className="mt-4 max-w-md text-[13.5px] leading-7 text-[#FBFAF7]/65">
-                CiteVerify never asks you to trust a score. Each claim keeps the exact passage, the
-                matched publication and the retrieval status that produced the conclusion.
+                Explore the exact source passages behind each verdict and understand why a claim was
+                supported, contradicted or left unresolved.
               </p>
               <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-white/20 px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.1em] text-[#FBFAF7]/65">
                 <Link2 className="size-3" />
@@ -422,9 +382,8 @@ export default function Landing() {
                 <span className="italic text-[var(--ink)]"> not just the label.</span>
               </h2>
               <p className="mt-4 max-w-md text-[14px] leading-7 text-muted-foreground">
-                A verdict is only useful if you can challenge it. Open any claim to see its citation,
-                matched record, retrieved passage and a written explanation of what matched — or what
-                was missing.
+                Review the claim, matched publication and retrieved passage behind every verification
+                result.
               </p>
               <ul className="mt-6 space-y-3">
                 {[
@@ -476,8 +435,8 @@ export default function Landing() {
                 <span className="italic text-[var(--ink)]"> our data asset.</span>
               </h2>
               <p className="mt-4 max-w-xl text-[14px] leading-7 text-muted-foreground">
-                The PDF is parsed in the browser and stored locally, so the viewer works without a
-                server-side copy. Extracted text is purged from the database after the report is built.
+                Your research documents are handled with privacy in mind. View how document processing
+                and temporary data storage work.
               </p>
 
               <div className="mt-6 grid gap-2.5 sm:grid-cols-2">

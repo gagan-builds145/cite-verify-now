@@ -30,7 +30,7 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 
 type Phase = "idle" | "reading" | "ready" | "analyzing" | "failed";
 
@@ -62,6 +62,7 @@ function validateFile(file: { name: string; size: number; type: string }): strin
 
 export default function StatementCheck() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { isLoading: authLoading, isAuthenticated, signIn } = useAuth();
   const createCheck = useMutation(api.statements.create);
   const runCheck = useAction(api.runStatementCheck.run);
@@ -74,7 +75,9 @@ export default function StatementCheck() {
   const [bytes, setBytes] = useState<Uint8Array | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [statementText, setStatementText] = useState("");
+  const [statementText, setStatementText] = useState(
+    () => searchParams.get("q") ?? searchParams.get("statement") ?? "",
+  );
   const [checkId, setCheckId] = useState<Id<"statementChecks"> | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
