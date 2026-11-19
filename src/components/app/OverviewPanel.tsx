@@ -25,6 +25,7 @@ export function OverviewPanel({
   onSelectClaim,
   onOpenClaims,
   onOpenReferences,
+  onShowPage,
 }: {
   analysis: AnalysisRecord;
   claims: ClaimRecord[];
@@ -32,6 +33,7 @@ export function OverviewPanel({
   onSelectClaim: (claimId: string) => void;
   onOpenClaims: () => void;
   onOpenReferences: () => void;
+  onShowPage?: (page: number) => void;
 }) {
   const verdicts = countVerdicts(claims);
   const refStatuses = countReferenceStatuses(references);
@@ -65,6 +67,75 @@ export function OverviewPanel({
           </p>
         )}
       </div>
+
+      {analysis.question && (
+        <section className="border-b border-border bg-accent/25 px-4 py-5">
+          <p className="font-mono text-[9px] uppercase tracking-[0.1em] text-[var(--ink)]">
+            Your question
+          </p>
+          <p className="mt-1.5 text-[12.5px] font-medium leading-6 text-foreground">
+            {analysis.question}
+          </p>
+          {analysis.questionAnswer ? (
+            <>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <VerdictBadge verdict={analysis.questionAnswer.verdict} />
+                <span className="rounded-full border border-border bg-card px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.06em] text-muted-foreground">
+                  {analysis.questionAnswer.relevance.replace(/_/g, " ").toLowerCase()}
+                </span>
+              </div>
+              <p className="mt-3 text-[12px] leading-6 text-foreground/85">
+                {analysis.questionAnswer.answer}
+              </p>
+              {analysis.questionAnswer.evidence.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  <p className="font-mono text-[9px] uppercase tracking-[0.08em] text-muted-foreground">
+                    Paper passages behind this answer
+                  </p>
+                  {analysis.questionAnswer.evidence.map((item, index) => (
+                    <div
+                      key={`${item.page}-${index}`}
+                      className="rounded-lg border border-border bg-card px-3 py-2.5"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <button
+                          type="button"
+                          onClick={() => onShowPage?.(item.page)}
+                          disabled={!onShowPage}
+                          className="font-mono text-[9px] uppercase tracking-[0.06em] text-[var(--ink)] hover:underline disabled:no-underline"
+                        >
+                          Page {item.page}
+                          {item.section ? ` · ${item.section}` : ""}
+                        </button>
+                        <span className="font-mono text-[8.5px] uppercase tracking-[0.06em] text-muted-foreground">
+                          {item.relationship === "SUPPORTS"
+                            ? "Supports"
+                            : item.relationship === "CONTRADICTS"
+                              ? "Contradicts"
+                              : "Context"}
+                        </span>
+                      </div>
+                      <blockquote className="mt-1.5 border-l-2 border-[var(--ink)]/30 pl-2.5 text-[11px] leading-5 text-foreground/80">
+                        “{item.quote}”
+                      </blockquote>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {analysis.questionAnswer.limitations.length > 0 && (
+                <p className="mt-3 text-[10px] leading-4 text-muted-foreground">
+                  {analysis.questionAnswer.limitations[0]}
+                </p>
+              )}
+            </>
+          ) : (
+            <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
+              This analysis record has a question but no stored question-aware answer. The
+              full-paper verification results below are still available.
+            </p>
+          )}
+        </section>
+      )}
 
       <section className="border-b border-border px-4 py-5">
         <div className="flex items-center justify-between">

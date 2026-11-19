@@ -6,6 +6,7 @@ import type { Id } from "./_generated/dataModel";
 import { action } from "./_generated/server";
 import {
   aiConfigured,
+  answerQuestionWithAI,
   extractClaimsWithAI,
   judgeEvidenceWithAI,
   type EvidenceItem,
@@ -18,6 +19,13 @@ import {
   type ReferenceVerification,
   type RetrievalLevel,
 } from "./lib/academic";
+import {
+  buildPaperModel,
+  buildRetrievalContext,
+  fallbackRelevance,
+  retrieveEvidenceChunks,
+  validateEvidenceQuote,
+} from "./lib/statement";
 import {
   detectSection,
   extractHeuristicClaims,
@@ -786,6 +794,159 @@ export const run = action({
         });
       }
 
+      /* -------------------- question-aware answer -------------------- */
+      const question = analysis.question?.trim();
+      if (question) {
+        await setStage(
+          "question_answered",
+          "active",
+          "Retrieving passages relevant to the research question",
+        );
+
+        const model = buildPaperModel(pages, {
+          title: analysis.title,
+          authors: analysis.authors,
+          abstract: analysis.abstract,
+        });
+        const chunks = retrieveEvidenceChunks(question, model, 12);
+        const context = buildRetrievalContext(chunks);
+
+        let relevance: "RELEVANT" | "PARTIALLY_RELEVANT" | "IRRELEVANT" | "CANNOT_DETERMINE" =
+          chunks.length > 0 ? "CANNOT_DETERMINE" : "IRRELEVANT";
+        let questionVerdict: Verdict = chunks.length > 0 ? "INSUFFICIENT_EVIDENCE" : "UNVERIFIED";
+        let questionAnswer =
+          chunks.length > 0
+            ? "The paper's retrieved passages were found, but no semantically validated answer could be produced. The passages are shown below for inspection; no support or contradiction verdict is asserted."
+            : "No readable passage from the uploaded paper could be retrieved for this question. The paper does not establish an answer.";
+        let selections: {
+          sourceId: string;
+          quote?: string;
+          relationship: "SUPPORTS" | "CONTRADICTS" | "NEUTRAL";
+        }[] = [];
+        const questionLimitations: string[] = [
+          "Question-aware answers are limited to retrieved passages from the uploaded paper; this is not a literature-wide review.",
+        ];
+        let questionAiUsed = false;
+
+        if (aiConfigured() && chunks.length > 0) {
+          const ai = await answerQuestionWithAI({
+            question,
+            title: analysis.title,
+            authors: analysis.authors,
+            abstract: analysis.abstract,
+            sections: model.sections,
+            context,
+          });
+          if (ai.ok && ai.result) {
+            relevance = ai.result.relevance;
+            questionVerdict = ai.result.verdict;
+            questionAnswer = ai.result.answer;
+            selections = ai.result.evidence;
+            questionLimitations.push(...ai.result.limitations);
+            questionAiUsed = true;
+          }
+        }
+
+        if (!questionAiUsed) {
+          const fallback = fallbackRelevance(question, chunks);
+          relevance = fallback.relevance;
+          const best = fallback.best;
+          if (best) {
+            const quote = bestEvidenceSentence(question, best.text);
+            if (quote) {
+              selections = [{ sourceId: best.id, quote, relationship: "NEUTRAL" }];
+            }
+          }
+          questionLimitations.push(
+            "Semantic question answering was unavailable. The closest retrieved paper passage is shown without asserting support or contradiction.",
+          );
+        }
+
+        const bySource = new Map(chunks.map((chunk) => [chunk.id, chunk]));
+        const questionEvidence: {
+          quote: string;
+          page: number;
+          section?: string;
+          relationship: "SUPPORTS" | "CONTRADICTS" | "NEUTRAL";
+        }[] = [];
+        for (const selection of selections) {
+          const chunk = bySource.get(selection.sourceId);
+          if (!chunk) continue;
+          const quote = validateEvidenceQuote(selection.quote, chunk.text);
+          if (!quote) continue;
+          if (
+            questionEvidence.some(
+              (item) => item.quote.toLowerCase() === quote.toLowerCase() && item.page === chunk.page,
+            )
+          ) {
+            continue;
+          }
+          questionEvidence.push({
+            quote,
+            page: chunk.page,
+            section: chunk.section,
+            relationship: selection.relationship,
+          });
+          if (questionEvidence.length >= 5) break;
+        }
+
+        const hasSupport = questionEvidence.some((item) => item.relationship === "SUPPORTS");
+        const hasContradiction = questionEvidence.some((item) => item.relationship === "CONTRADICTS");
+        if (
+          (relevance === "IRRELEVANT" || relevance === "CANNOT_DETERMINE") &&
+          ["SUPPORTED", "PARTIALLY_SUPPORTED", "CONTRADICTED"].includes(questionVerdict)
+        ) {
+          questionVerdict = "INSUFFICIENT_EVIDENCE";
+          questionAnswer =
+            "Topical overlap is not enough to answer this question. The paper does not establish a validated answer from the retrieved passages.";
+        }
+        if (questionVerdict === "SUPPORTED" && !hasSupport) {
+          questionVerdict = "INSUFFICIENT_EVIDENCE";
+          questionAnswer =
+            "The paper did not provide a validated passage that explicitly supports this answer. Review the retrieved passages below rather than treating the proposed answer as established.";
+        } else if (questionVerdict === "SUPPORTED" && hasContradiction) {
+          questionVerdict = "PARTIALLY_SUPPORTED";
+          questionAnswer =
+            "The paper contains both supporting and conflicting passages for this question. The answer is therefore only partially supported.";
+        }
+        if (questionVerdict === "CONTRADICTED" && !hasContradiction) {
+          questionVerdict = hasSupport ? "PARTIALLY_SUPPORTED" : "INSUFFICIENT_EVIDENCE";
+          questionAnswer =
+            "The paper did not provide a validated contradictory passage, so the proposed contradiction is not asserted as established.";
+        }
+        if (questionVerdict === "PARTIALLY_SUPPORTED" && !hasSupport && !hasContradiction) {
+          questionVerdict = "INSUFFICIENT_EVIDENCE";
+          questionAnswer =
+            "The retrieved paper passages do not validate partial support for this answer. The paper does not establish the answer from the available evidence.";
+        }
+
+        if (questionEvidence.length === 0) {
+          questionLimitations.push("No exact passage from the uploaded paper could be validated for this question.");
+        }
+        if (questionVerdict === "UNVERIFIED") {
+          questionAnswer =
+            "The uploaded paper does not provide a readable passage that can answer this question. This is not evidence of contradiction; it means the paper does not establish the answer in the retrieved text.";
+        }
+
+        await ctx.runMutation(internal.analyses.setQuestionAnswer, {
+          analysisId,
+          questionAnswer: {
+            question,
+            verdict: questionVerdict,
+            relevance,
+            answer: questionAnswer.slice(0, 1800),
+            evidence: questionEvidence,
+            limitations: Array.from(new Set(questionLimitations)).slice(0, 6),
+          },
+        });
+        if (questionAiUsed) engine = "ai";
+        await setStage(
+          "question_answered",
+          "complete",
+          `${questionEvidence.length} paper passage(s) · ${questionVerdict.replace(/_/g, " ").toLowerCase()}`,
+        );
+      }
+
       /* -------------------- 8. report -------------------- */
       const supported = Array.from(verdicts.values()).filter((v) => v.verdict === "SUPPORTED").length;
       await setStage("report_ready", "active", "Assembling the verification report");
@@ -794,7 +955,7 @@ export const run = action({
       );
       await ctx.runMutation(internal.analyses.complete, {
         analysisId,
-        engine: aiVerdictCount > 0 ? "ai" : "rules",
+        engine,
         limitations,
         referencesFound: parsedReferences.length,
         referencesSkipped: Math.max(0, parsedReferences.length - targets.length),

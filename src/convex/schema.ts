@@ -68,6 +68,22 @@ export const evidenceRelationshipValidator = v.union(
   v.literal("NEUTRAL"),
 );
 
+export const questionEvidenceValidator = v.object({
+  quote: v.string(),
+  page: v.number(),
+  section: v.optional(v.string()),
+  relationship: evidenceRelationshipValidator,
+});
+
+export const questionAnswerValidator = v.object({
+  question: v.string(),
+  verdict: verdictValidator,
+  relevance: statementRelevanceValidator,
+  answer: v.string(),
+  evidence: v.array(questionEvidenceValidator),
+  limitations: v.array(v.string()),
+});
+
 const schema = defineSchema(
   {
     // default auth tables using convex auth.
@@ -120,6 +136,8 @@ const schema = defineSchema(
       title: v.string(),
       authors: v.array(v.string()),
       abstract: v.optional(v.string()),
+      question: v.optional(v.string()),
+      questionAnswer: v.optional(questionAnswerValidator),
       status: v.union(
         v.literal("processing"),
         v.literal("ready"),

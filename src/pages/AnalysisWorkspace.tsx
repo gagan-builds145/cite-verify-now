@@ -396,6 +396,7 @@ export default function AnalysisWorkspace() {
               onSelectClaim={handleSelectClaim}
               onOpenClaims={() => setPanel("claims")}
               onOpenReferences={() => setPanel("references")}
+              onShowPage={handleShowPage}
             />
           )}
 

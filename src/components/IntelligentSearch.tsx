@@ -226,6 +226,7 @@ export function IntelligentSearch({ className = "" }: { className?: string }) {
             fileName: current.file.name,
             fileSize: current.file.size,
             pages: extracted.pages,
+            question: query.trim() || undefined,
           });
         } catch (createError) {
           lastError = createError;

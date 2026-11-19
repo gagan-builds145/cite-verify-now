@@ -16,6 +16,20 @@ export type RetrievalLevel = "full_text" | "abstract" | "metadata_only" | "unava
 
 export type ReviewStatus = "approved" | "rejected" | "overridden";
 
+export type QuestionAnswerRecord = {
+  question: string;
+  verdict: Verdict;
+  relevance: "RELEVANT" | "PARTIALLY_RELEVANT" | "IRRELEVANT" | "CANNOT_DETERMINE";
+  answer: string;
+  evidence: {
+    quote: string;
+    page: number;
+    section?: string;
+    relationship: "SUPPORTS" | "CONTRADICTS" | "NEUTRAL";
+  }[];
+  limitations: string[];
+};
+
 export type ClaimRecord = {
   _id: string;
   claimId: string;
@@ -125,6 +139,8 @@ export type AnalysisRecord = {
   title: string;
   authors: string[];
   abstract?: string;
+  question?: string;
+  questionAnswer?: QuestionAnswerRecord;
   status: "processing" | "ready" | "failed";
   stages: {
     key: string;

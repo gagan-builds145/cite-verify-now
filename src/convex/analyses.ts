@@ -18,6 +18,7 @@ import {
   type PageText,
 } from "./lib/text";
 import {
+  questionAnswerValidator,
   referenceStatusValidator,
   retrievalLevelValidator,
   reviewDecisionValidator,
@@ -237,6 +238,7 @@ export const create = mutation({
     pages: v.array(v.object({ page: v.number(), text: v.string() })),
     isDemo: v.optional(v.boolean()),
     title: v.optional(v.string()),
+    question: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userId = await requireUser(ctx);
@@ -265,7 +267,13 @@ export const create = mutation({
     }
 
     const referenceSection = findReferencesSection(capped);
-    const stages = STAGES.map((stage, index) => ({
+    const question = args.question?.trim().slice(0, 2000);
+    const stages: {
+      key: string;
+      label: string;
+      status: "pending" | "active" | "complete" | "failed" | "skipped";
+      detail?: string;
+    }[] = STAGES.map((stage, index) => ({
       key: stage.key,
       label: stage.label,
       status:
@@ -276,6 +284,14 @@ export const create = mutation({
             : ("pending" as const),
       detail: index === 1 ? `${capped.length} pages · ${total.toLocaleString()} characters` : undefined,
     }));
+    if (question) {
+      stages.splice(stages.length - 1, 0, {
+        key: "question_answered",
+        label: "Question answered from paper evidence",
+        status: "pending" as const,
+        detail: undefined,
+      });
+    }
 
     const analysisId = await ctx.db.insert("analyses", {
       userId,
@@ -286,6 +302,7 @@ export const create = mutation({
       title: normalizeWhitespace(args.title ?? guessTitle(capped)).slice(0, 300),
       authors: guessAuthors(capped),
       abstract: guessAbstract(capped),
+      question: question || undefined,
       status: "processing",
       stages,
       engine: "rules",
@@ -307,7 +324,7 @@ export const create = mutation({
     await ctx.db.insert("activity", {
       userId,
       kind: "analysis_started",
-      message: `Started verification of “${normalizeWhitespace(args.title ?? guessTitle(capped)).slice(0, 120)}”`,
+      message: `Started verification of “${normalizeWhitespace(args.title ?? guessTitle(capped)).slice(0, 120)}”${question ? " with a research question" : ""}`,
       analysisId,
       createdAt: Date.now(),
     });
@@ -465,6 +482,17 @@ export const complete = internalMutation({
       analysisId: args.analysisId,
       createdAt: Date.now(),
     });
+    return null;
+  },
+});
+
+export const setQuestionAnswer = internalMutation({
+  args: {
+    analysisId: v.id("analyses"),
+    questionAnswer: questionAnswerValidator,
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.analysisId, { questionAnswer: args.questionAnswer });
     return null;
   },
 });

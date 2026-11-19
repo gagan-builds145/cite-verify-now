@@ -149,6 +149,8 @@ export function buildJsonExport(
         status: analysis.status,
         engine: analysis.engine,
         analysedAt: formatDateTime(analysis.completedAt ?? analysis._creationTime),
+        question: analysis.question,
+        questionAnswer: analysis.questionAnswer,
         limitations: analysis.limitations,
         claimsSkipped: analysis.claimsSkipped,
         referencesFound: analysis.referencesFound,

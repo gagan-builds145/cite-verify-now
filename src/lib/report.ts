@@ -170,6 +170,33 @@ export function buildVerificationReport(
   }
   y += 8;
 
+  /* Question-aware answer */
+  if (analysis.questionAnswer) {
+    heading("Question answered from the paper");
+    body(`Question: ${analysis.questionAnswer.question}`, {
+      size: 10,
+      color: [25, 30, 40],
+      bold: true,
+      gap: 4,
+    });
+    body(`Verdict: ${VERDICT_META[analysis.questionAnswer.verdict].label}`, {
+      size: 8.5,
+      color: VERDICT_RGB[analysis.questionAnswer.verdict],
+      gap: 4,
+    });
+    body(analysis.questionAnswer.answer, { size: 9.5, color: [55, 60, 70], gap: 6 });
+    analysis.questionAnswer.evidence.forEach((item) => {
+      body(
+        `Page ${item.page}${item.section ? ` · ${item.section}` : ""} · ${item.relationship.toLowerCase()} — “${item.quote}”`,
+        { size: 8.5, color: [75, 80, 90], indent: 10, gap: 3 },
+      );
+    });
+    analysis.questionAnswer.limitations.forEach((limitation) => {
+      body(`• ${limitation}`, { size: 8, color: [110, 115, 125], gap: 2 });
+    });
+    y += 8;
+  }
+
   /* Claim traceability */
   heading("Claim → citation → source → evidence");
   if (claims.length === 0) {
