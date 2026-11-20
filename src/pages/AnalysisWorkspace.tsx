@@ -5,6 +5,7 @@ import { EngineBadge, PrivacyBadge } from "@/components/app/Badges";
 import { OverviewPanel } from "@/components/app/OverviewPanel";
 import { PdfViewer } from "@/components/app/PdfViewer";
 import { ProcessingStages } from "@/components/app/ProcessingStages";
+import { QualityPanel } from "@/components/app/QualityPanel";
 import { ReferenceList } from "@/components/app/ReferenceList";
 import { LogoMark } from "@/components/Brand";
 import {
@@ -48,7 +49,7 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { toast } from "sonner";
 
-type Panel = "overview" | "claims" | "references" | "errors" | "corrections";
+type Panel = "overview" | "claims" | "references" | "errors" | "corrections" | "quality";
 type MobileView = "document" | "results";
 
 export default function AnalysisWorkspace() {
@@ -84,6 +85,7 @@ export default function AnalysisWorkspace() {
     panelParam === "references" ||
     panelParam === "errors" ||
     panelParam === "corrections" ||
+    panelParam === "quality" ||
     panelParam === "overview"
       ? panelParam
       : "overview";
@@ -375,6 +377,7 @@ export default function AnalysisWorkspace() {
                 { key: "references" as const, label: "Citations", count: references.length },
                 { key: "errors" as const, label: "Errors", count: analysis.correctionsFound },
                 { key: "corrections" as const, label: "Corrections", count: analysis.correctionsApplied },
+                { key: "quality" as const, label: "Quality", count: undefined },
               ]
             ).map((tab) => (
               <button
@@ -441,6 +444,14 @@ export default function AnalysisWorkspace() {
               analysis={analysis}
               analysisId={analysisId}
               initialStatus={panel === "corrections" ? "APPLIED" : "ALL"}
+              onShowPage={handleShowPage}
+            />
+          )}
+
+          {panel === "quality" && (
+            <QualityPanel
+              analysisId={analysisId}
+              onOpenClaim={handleSelectClaim}
               onShowPage={handleShowPage}
             />
           )}

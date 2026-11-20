@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "test:regression": "bun src/convex/lib/academic.test.ts && bun src/convex/lib/text.test.ts && bun src/convex/lib/evidence.test.ts && bun src/convex/lib/reconcile.test.ts && bun src/convex/lib/retrieval.test.ts && bun src/convex/lib/correction/engine.test.ts && bun src/lib/correction-export.test.ts && bun src/convex/lib/manuscript.fixture.test.ts && bun src/lib/report.test.ts",
+    "test:regression": "bun src/convex/lib/academic.test.ts && bun src/convex/lib/text.test.ts && bun src/convex/lib/evidence.test.ts && bun src/convex/lib/reconcile.test.ts && bun src/convex/lib/retrieval.test.ts && bun src/convex/lib/researchQuality.test.ts && bun src/convex/lib/correction/engine.test.ts && bun src/lib/correction-export.test.ts && bun src/convex/lib/manuscript.fixture.test.ts && bun src/lib/report.test.ts",
     "format": "prettier --write .",
     "preview": "vite preview"
   },
@@ -70,6 +70,7 @@
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.4.0",
     "tailwindcss": "^4.1.17",
+    "tesseract.js": "6.0.1",
     "vaul": "^1.1.2",
     "zod": "^4.1.13"
   },

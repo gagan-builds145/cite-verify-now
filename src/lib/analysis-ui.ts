@@ -198,6 +198,16 @@ export type AnalysisRecord = {
   correctionsApplied?: number;
   correctionsPending?: number;
   completedAt?: number;
+  extraction?: {
+    page: number;
+    method: "pdf_text" | "ocr";
+    quality: "HIGH" | "MEDIUM" | "LOW" | "FAILED";
+    confidence?: number;
+    engine?: string;
+    warnings: string[];
+  }[];
+  qualityStatus?: "pending" | "complete" | "failed";
+  qualityCheckedAt?: number;
   _creationTime: number;
   summary?: AnalysisSummary;
 };

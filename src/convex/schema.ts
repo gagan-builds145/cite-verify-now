@@ -70,6 +70,46 @@ export const reviewDecisionValidator = v.union(
   v.literal("overridden"),
 );
 
+export const freshnessStatusValidator = v.union(
+  v.literal("CURRENT"),
+  v.literal("NEWER_EVIDENCE_AVAILABLE"),
+  v.literal("POSSIBLY_OUTDATED"),
+  v.literal("SUPERSEDED"),
+  v.literal("RETRACTED"),
+  v.literal("CORRECTED"),
+  v.literal("FRESHNESS_UNKNOWN"),
+);
+
+export const publicationStatusValidator = v.union(
+  v.literal("ACTIVE"),
+  v.literal("CORRECTED"),
+  v.literal("RETRACTED"),
+  v.literal("EXPRESSION_OF_CONCERN"),
+  v.literal("WITHDRAWN"),
+  v.literal("STATUS_UNKNOWN"),
+);
+
+export const evidenceCoverageValidator = v.union(
+  v.literal("FULL_TEXT_REVIEWED"),
+  v.literal("ABSTRACT_ONLY"),
+  v.literal("METADATA_ONLY"),
+  v.literal("FULL_TEXT_UNAVAILABLE"),
+  v.literal("EXTRACTION_INCOMPLETE"),
+);
+
+export const extractionQualityValidator = v.union(
+  v.literal("HIGH"),
+  v.literal("MEDIUM"),
+  v.literal("LOW"),
+  v.literal("FAILED"),
+);
+
+export const qualityReviewStateValidator = v.union(
+  v.literal("PENDING"),
+  v.literal("REVIEWED"),
+  v.literal("NEEDS_REVIEW"),
+);
+
 export const correctionCategoryValidator = v.union(
   v.literal("LANGUAGE"),
   v.literal("CITATION"),
@@ -308,6 +348,22 @@ const schema = defineSchema(
       correctionsApplied: v.optional(v.number()),
       correctionsPending: v.optional(v.number()),
       completedAt: v.optional(v.number()),
+      extraction: v.optional(
+        v.array(
+          v.object({
+            page: v.number(),
+            method: v.string(),
+            quality: extractionQualityValidator,
+            confidence: v.optional(v.number()),
+            engine: v.optional(v.string()),
+            warnings: v.array(v.string()),
+          }),
+        ),
+      ),
+      qualityCheckedAt: v.optional(v.number()),
+      qualityStatus: v.optional(
+        v.union(v.literal("pending"), v.literal("complete"), v.literal("failed")),
+      ),
     }).index("by_user", ["userId"]),
 
     // Extracted page text. Deleted as soon as the pipeline finishes so the
@@ -402,6 +458,75 @@ const schema = defineSchema(
     })
       .index("by_analysis", ["analysisId"])
       .index("by_analysis_status", ["analysisId", "approvalStatus"]),
+
+    // Per-claim evidence freshness findings. These are advisory and never
+    // replace the five existing claim verdicts.
+    evidenceFreshness: defineTable({
+      analysisId: v.id("analyses"),
+      claimId: v.string(),
+      referenceKey: v.string(),
+      freshnessStatus: freshnessStatusValidator,
+      originalTitle: v.string(),
+      originalYear: v.optional(v.number()),
+      originalDoi: v.optional(v.string()),
+      originalUrl: v.optional(v.string()),
+      newerTitle: v.optional(v.string()),
+      newerYear: v.optional(v.number()),
+      newerDoi: v.optional(v.string()),
+      newerUrl: v.optional(v.string()),
+      newerType: v.optional(v.string()),
+      comparison: v.string(),
+      retrievalProvider: v.string(),
+      retrievedAt: v.number(),
+      reviewState: qualityReviewStateValidator,
+      reviewerNote: v.optional(v.string()),
+      reviewerName: v.optional(v.string()),
+      reviewedAt: v.optional(v.number()),
+    })
+      .index("by_analysis", ["analysisId"])
+      .index("by_analysis_claim", ["analysisId", "claimId"]),
+
+    // Publication notices and integrity status for cited references.
+    publicationIntegrity: defineTable({
+      analysisId: v.id("analyses"),
+      referenceKey: v.string(),
+      publicationStatus: publicationStatusValidator,
+      title: v.string(),
+      doi: v.optional(v.string()),
+      publisher: v.optional(v.string()),
+      year: v.optional(v.number()),
+      noticeTitle: v.optional(v.string()),
+      noticeDoi: v.optional(v.string()),
+      noticeDate: v.optional(v.string()),
+      noticeUrl: v.optional(v.string()),
+      source: v.string(),
+      lastCheckedAt: v.number(),
+      reviewState: qualityReviewStateValidator,
+      reviewerNote: v.optional(v.string()),
+      reviewerName: v.optional(v.string()),
+      reviewedAt: v.optional(v.number()),
+    })
+      .index("by_analysis", ["analysisId"])
+      .index("by_analysis_reference", ["analysisId", "referenceKey"]),
+
+    // How much source text was actually available for each claim/reference.
+    evidenceCoverage: defineTable({
+      analysisId: v.id("analyses"),
+      claimId: v.string(),
+      referenceKey: v.string(),
+      coverageLevel: evidenceCoverageValidator,
+      sourceType: v.string(),
+      retrievalMethod: v.string(),
+      extractionMethod: v.string(),
+      passage: v.optional(v.string()),
+      page: v.optional(v.number()),
+      section: v.optional(v.string()),
+      sourceUrl: v.optional(v.string()),
+      retrievalTimestamp: v.number(),
+      limitation: v.optional(v.string()),
+    })
+      .index("by_analysis", ["analysisId"])
+      .index("by_analysis_claim", ["analysisId", "claimId"]),
 
     // Append-only audit history for every correction decision. Rows are never
     // updated or deleted by correction mutations.

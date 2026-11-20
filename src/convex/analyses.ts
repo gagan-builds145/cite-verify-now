@@ -314,6 +314,23 @@ export const create = mutation({
     isDemo: v.optional(v.boolean()),
     title: v.optional(v.string()),
     question: v.optional(v.string()),
+    extraction: v.optional(
+      v.array(
+        v.object({
+          page: v.number(),
+          method: v.union(v.literal("pdf_text"), v.literal("ocr")),
+          quality: v.union(
+            v.literal("HIGH"),
+            v.literal("MEDIUM"),
+            v.literal("LOW"),
+            v.literal("FAILED"),
+          ),
+          confidence: v.optional(v.number()),
+          engine: v.optional(v.string()),
+          warnings: v.array(v.string()),
+        }),
+      ),
+    ),
   },
   handler: async (ctx, args) => {
     const userId = await requireUser(ctx);
@@ -386,7 +403,20 @@ export const create = mutation({
         referenceSection
           ? "Only the bibliography section is parsed for references."
           : "No bibliography heading was detected, so references could not be parsed.",
+        ...(args.extraction?.some((page) => page.method === "ocr")
+          ? [
+              "One or more pages were processed with OCR. OCR text is not a verified quotation; uncertain characters and low-confidence pages require review against the original PDF.",
+            ]
+          : []),
       ],
+      extraction: args.extraction?.slice(0, MAX_PAGES).map((page) => ({
+        page: page.page,
+        method: page.method,
+        quality: page.quality,
+        confidence: page.confidence,
+        engine: page.engine?.slice(0, 80),
+        warnings: page.warnings.slice(0, 6).map((warning) => warning.slice(0, 500)),
+      })),
       isDemo: args.isDemo ?? false,
     });
 

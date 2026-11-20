@@ -117,6 +117,7 @@ export function IntelligentSearch({
   const { isAuthenticated, signIn } = useAuth();
   const createAnalysis = useMutation(api.analyses.create);
   const runAnalysis = useAction(api.runAnalysis.run);
+  const runQualityReview = useAction(api.quality.run);
   const createStatementCheck = useMutation(api.statements.create);
   const runStatementCheck = useAction(api.runStatementCheck.run);
 
@@ -228,15 +229,26 @@ export function IntelligentSearch({
     try {
       // PDF.js is heavy; load it only when a paper is actually submitted.
       const { extractPdfText } = await import("@/lib/pdf");
-      const extracted = await extractPdfText(current.bytes, (page, totalPages) => {
-        patchAttachment(token, { progress: Math.round((page / totalPages) * 100) });
-      });
+      const extracted = await extractPdfText(
+        current.bytes,
+        (page, totalPages) => {
+          patchAttachment(token, { progress: Math.round((page / totalPages) * 100) });
+        },
+        (page, totalPages) => {
+          patchAttachment(token, {
+            progress: Math.round((page / Math.max(1, totalPages)) * 100),
+          });
+        },
+      );
       if (tokenRef.current !== token) return;
 
-      if (extracted.imageOnly) {
+      if (extracted.imageOnly && !extracted.ocrUsed) {
         throw new Error(
-          "This PDF has no selectable text layer — it looks like a scanned document. OCR is not available in this deployment. Export a text-based PDF or run OCR before attaching it.",
+          "This PDF has no selectable text layer and OCR could not recover readable text. Review the OCR warnings and try a clearer scan.",
         );
+      }
+      if (extracted.pages.every((page) => page.text.trim().length === 0)) {
+        throw new Error("No readable text could be extracted from this PDF, including OCR.");
       }
       if (extracted.pages.length === 0) {
         throw new Error("No readable pages were found in this PDF.");
@@ -288,6 +300,7 @@ export function IntelligentSearch({
             fileSize: current.file.size,
             pages: extracted.pages,
             question: query.trim() || undefined,
+            extraction: extracted.pageDetails,
           });
         } catch (createError) {
           lastError = createError;
@@ -308,6 +321,13 @@ export function IntelligentSearch({
       if (tokenRef.current !== token) return;
       if (result && result.ok === false) {
         throw new Error(result.error ?? "The verification could not be completed.");
+      }
+
+      const quality = await runQualityReview({ analysisId });
+      if (!quality.ok) {
+        toast.warning("Verification finished; quality review incomplete", {
+          description: quality.error ?? "Freshness and publication-integrity checks did not complete.",
+        });
       }
 
       patchAttachment(token, { stage: "done", progress: 100 });
@@ -449,6 +469,14 @@ export function IntelligentSearch({
                         <>
                           <span className="size-0.5 rounded-full bg-current opacity-50" />
                           <span>{attachment.extracted.pages.length} pages</span>
+                          <span className="size-0.5 rounded-full bg-current opacity-50" />
+                          <span>
+                            {attachment.extracted.scanType === "searchable"
+                              ? "searchable PDF"
+                              : attachment.extracted.scanType === "image_only"
+                                ? "scanned · OCR"
+                                : "mixed text/OCR"}
+                          </span>
                         </>
                       )}
                       <span
@@ -459,6 +487,11 @@ export function IntelligentSearch({
                         {stageLabel(attachment)}
                       </span>
                     </p>
+                    {attachment.extracted?.warnings.length ? (
+                      <p className="mt-1 line-clamp-2 text-[9.5px] leading-4 text-[var(--verdict-partial)]">
+                        {attachment.extracted.warnings[0]}
+                      </p>
+                    ) : null}
                   </div>
                   <button
                     type="button"
