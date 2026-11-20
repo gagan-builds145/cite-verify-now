@@ -299,6 +299,11 @@ export const run = action({
       }
 
       const pages: PageText[] = document.pages;
+      if (analysis.extraction?.some((page) => page.method === "ocr")) {
+        limitations.push(
+          "One or more pages were processed with OCR. OCR text is not a verified quotation; uncertain characters and low-confidence pages require review against the original PDF.",
+        );
+      }
 
       /* -------------------- references (deterministic) -------------------- */
       const referenceSection = findReferencesSection(pages);
