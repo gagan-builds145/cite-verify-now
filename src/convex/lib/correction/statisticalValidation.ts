@@ -104,7 +104,16 @@ export function findStatisticalCorrections(pages: PageText[]): CorrectionCandida
   };
 
   for (const page of pages) {
-    for (const sentence of sentenceSpans(page.text)) {
+    const lineJoinedText = page.text.replace(/\s*\n\s*/g, " ");
+    const sentences = [
+      ...sentenceSpans(page.text),
+      ...sentenceSpans(lineJoinedText),
+    ];
+    const seenSentences = new Set<string>();
+    for (const sentence of sentences) {
+      const sentenceKey = normalizeWhitespace(sentence.text);
+      if (seenSentences.has(sentenceKey)) continue;
+      seenSentences.add(sentenceKey);
       const zeroP = /\bp\s*=\s*0(?:\.0+)?\b/i.exec(sentence.text);
       if (zeroP) {
         const proposed = sentence.text.replace(zeroP[0], "p < 0.001");

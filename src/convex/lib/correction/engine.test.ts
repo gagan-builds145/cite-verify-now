@@ -193,6 +193,49 @@ test("percentage arithmetic is recalculated without touching the reported observ
   assert.equal(percentage.correctionLevel, "EVIDENCE_BACKED_CORRECTION");
 });
 
+test("a missing ethics statement is only proposed when human research is indicated", () => {
+  const nonHuman = runCorrectionEngine({
+    analysisId: "non-human-ethics",
+    pages: [
+      {
+        page: 1,
+        text:
+          "1 Introduction\n" +
+          "This methodological review analyzes published benchmark documentation and software artifacts. ".repeat(8) +
+          "No human research or animal procedure was involved in this work.",
+      },
+    ],
+    claims: [],
+    references: [],
+    now: 1,
+  });
+  assert.equal(
+    nonHuman.corrections.some((item) => item.errorType === "MISSING_ETHICS_STATEMENT"),
+    false,
+  );
+});
+
+test("percentage arithmetic is detected when PDF extraction splits the sentence across lines", () => {
+  const split = runCorrectionEngine({
+    analysisId: "line-split-percentage",
+    pages: [
+      {
+        page: 1,
+        text: "2 Methods\nThe study enrolled 40 participants and\n10 of 40 (30%) responded.\nThe result was significant at p = 0.",
+      },
+    ],
+    claims: [],
+    references: [],
+    now: 1,
+  });
+  const percentage = split.corrections.find(
+    (item) => item.errorType === "PERCENTAGE_ARITHMETIC",
+  );
+  assert.ok(percentage);
+  assert.match(percentage.proposedText, /25%/);
+  assert.equal(percentage.validationStatus, "PASSED");
+});
+
 test("p = 0 is flagged and contradictory claims are never rewritten as the opposite", () => {
   assert.ok(result.corrections.some((item) => item.errorType === "P_VALUE_REPORTING"));
   const contradiction = result.corrections.find((item) => item.errorType === "CONTRADICTED_CLAIM");
@@ -257,6 +300,25 @@ test("approved corrections apply deterministically and restore removes them", ()
   const untouched = applyAcceptedCorrections(pages, restored);
   assert.equal(untouched.appliedCorrectionIds.length, 0);
   assert.equal(untouched.pages[0].text, pages[0].text);
+});
+
+test("applied sentence corrections do not duplicate terminal punctuation", () => {
+  const document = applyAcceptedCorrections(pages, [
+    {
+      ...result.corrections[0],
+      correctionId: "CR-PUNCTUATION",
+      errorType: "REPEATED_WORD",
+      originalText: "The the study enrolled 40 participants  and 10 of 40 (30%) responded.",
+      proposedText: "The study enrolled 40 participants and 10 of 40 (30%) responded.",
+      bibliography: undefined,
+      approvalStatus: "APPROVED",
+      applicationStatus: "APPLIED",
+    },
+  ]);
+  const changed = document.pages.find((page) => page.text.includes("The study enrolled"));
+  assert.ok(changed);
+  assert.match(changed.text, /responded\.\s/);
+  assert.doesNotMatch(changed.text, /responded\.\./);
 });
 
 test("stale correction versions are rejected before a decision can overwrite them", () => {

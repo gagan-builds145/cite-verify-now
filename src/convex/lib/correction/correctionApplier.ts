@@ -74,10 +74,14 @@ export function applyAcceptedCorrections(
       for (const id of ids) skipped.push({ correctionId: id, reason: "Page no longer available." });
       continue;
     }
-    const span = locateSpan(page.text, correction.originalText);
+    let span = locateSpan(page.text, correction.originalText);
     if (!span) {
       for (const id of ids) skipped.push({ correctionId: id, reason: "Original text no longer matches the document." });
       continue;
+    }
+    const terminal = /[.!?;:,]$/.exec(correction.proposedText.trimEnd())?.[0];
+    if (terminal && page.text[span.end] === terminal) {
+      span = { ...span, end: span.end + 1 };
     }
     const ranges = occupied.get(page.page) ?? [];
     if (ranges.some((range) => span.start < range.end && span.end > range.start)) {
