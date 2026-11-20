@@ -172,7 +172,7 @@ export type ReferenceInput = {
     | "LOOKUP_FAILED";
   matchedTitle?: string;
   matchedAuthors: string[];
-  matchedYear?: number;
+  matchedYear?: number | null;
   matchedDoi?: string;
   matchedVenue?: string;
   matchedVolume?: string;

@@ -18,6 +18,7 @@ import { runCorrectionEngine } from "./lib/correction/engine";
 import { correctionStats } from "./lib/correction/correctionAudit";
 import type { CorrectionDraft } from "./lib/correction/types";
 import {
+  normalizeMatchedYear,
   selectRelevantPassage,
   verifyReference,
   type ReferenceVerification,
@@ -218,7 +219,7 @@ type RefRow = {
   matchScore?: number;
   matchedTitle?: string;
   matchedAuthors: string[];
-  matchedYear?: number;
+  matchedYear?: number | null;
   matchedDoi?: string;
   matchedVenue?: string;
   matchedVolume?: string;
@@ -623,7 +624,7 @@ export const run = action({
           matchScore: verification.matchScore,
           matchedTitle: best?.title,
           matchedAuthors: best?.authors ?? [],
-          matchedYear: best?.year,
+          matchedYear: normalizeMatchedYear(best?.year),
           matchedDoi: best?.doi,
           matchedVenue: best?.venue,
           matchedVolume: best?.volume,

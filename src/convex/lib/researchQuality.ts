@@ -245,13 +245,13 @@ export async function checkPublicationIntegrity(input: {
       note: input.retractionNote ?? "OpenAlex marks this publication as retracted.",
     };
   }
-  const titleStatus = /^retracted\s*[:\-]/i.test(input.title.trim())
+  const titleStatus = /^retracted\s*[:-]/i.test(input.title.trim())
     ? "RETRACTED"
-    : /^expression of concern\s*[:\-]/i.test(input.title.trim())
+    : /^expression of concern\s*[:-]/i.test(input.title.trim())
       ? "EXPRESSION_OF_CONCERN"
-      : /^withdrawn\s*[:\-]/i.test(input.title.trim())
+      : /^withdrawn\s*[:-]/i.test(input.title.trim())
         ? "WITHDRAWN"
-        : /^corrected\s*[:\-]/i.test(input.title.trim())
+        : /^corrected\s*[:-]/i.test(input.title.trim())
           ? "CORRECTED"
           : undefined;
   if (titleStatus) {

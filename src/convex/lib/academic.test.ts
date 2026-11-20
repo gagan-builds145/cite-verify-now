@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
   assessReferenceIdentity,
+  normalizeMatchedYear,
   type DoiLookupState,
   type ScholarlyRecord,
 } from "./academic";
@@ -116,6 +117,16 @@ test("an unresolved DOI with agreeing metadata is partial, not a mismatch", () =
   assert.equal(result.status, "PARTIALLY_VERIFIED");
   assert.equal(result.usable, true);
   assert.equal(result.identity.doi, "UNAVAILABLE");
+});
+
+test("missing and invalid publication years normalize to null, never zero or a current year", () => {
+  assert.equal(normalizeMatchedYear(null), null);
+  assert.equal(normalizeMatchedYear(undefined), null);
+  assert.equal(normalizeMatchedYear(""), null);
+  assert.equal(normalizeMatchedYear("not-a-year"), null);
+  assert.equal(normalizeMatchedYear(Number.NaN), null);
+  assert.equal(normalizeMatchedYear("2008"), 2008);
+  assert.equal(normalizeMatchedYear(2019), 2019);
 });
 
 test("missing corroborating metadata can only partially verify identity", () => {

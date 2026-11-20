@@ -80,7 +80,7 @@ export const run = action({
         status: string;
         matchedTitle?: string;
         matchedAuthors: string[];
-        matchedYear?: number;
+        matchedYear?: number | null;
         matchedDoi?: string;
         matchedVenue?: string;
         sourceName?: string;

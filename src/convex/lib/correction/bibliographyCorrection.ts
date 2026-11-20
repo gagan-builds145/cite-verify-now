@@ -236,7 +236,7 @@ function metadataBase(
     originalAuthors: reference.authors,
     verifiedAuthors: reference.matchedAuthors,
     originalYear: reference.year,
-    verifiedYear: reference.matchedYear,
+    verifiedYear: reference.matchedYear ?? undefined,
     originalTitle: reference.title,
     verifiedTitle: reference.matchedTitle,
     originalDoi: reference.doi,

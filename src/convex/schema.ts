@@ -399,7 +399,7 @@ const schema = defineSchema(
       matchNotes: v.array(v.string()),
       matchedTitle: v.optional(v.string()),
       matchedAuthors: v.array(v.string()),
-      matchedYear: v.optional(v.number()),
+      matchedYear: v.optional(v.union(v.float64(), v.null())),
       matchedDoi: v.optional(v.string()),
       matchedVenue: v.optional(v.string()),
       matchedVolume: v.optional(v.string()),

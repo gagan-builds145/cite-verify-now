@@ -151,6 +151,12 @@ function authorAgreement(ref: ParsedReference, record: ScholarlyRecord): boolean
   return refSurnames.some((surname) => surname.length > 2 && recordSurnames.includes(surname));
 }
 
+export function normalizeMatchedYear(rawYear: unknown): number | null {
+  if (rawYear === null || rawYear === undefined || rawYear === "") return null;
+  const year = Number(rawYear);
+  return Number.isFinite(year) ? year : null;
+}
+
 export function normalizeDoi(value: string | undefined): string | undefined {
   if (!value) return undefined;
   return value
@@ -498,7 +504,7 @@ function mapCrossref(item: CrossrefItem): ScholarlyRecord | null {
     source: "Crossref",
     title,
     authors,
-    year: item.issued?.["date-parts"]?.[0]?.[0],
+    year: normalizeMatchedYear(item.issued?.["date-parts"]?.[0]?.[0]) ?? undefined,
     doi: item.DOI,
     venue: item["container-title"]?.[0],
     volume: item.volume,
@@ -506,8 +512,8 @@ function mapCrossref(item: CrossrefItem): ScholarlyRecord | null {
     pages: item.page,
     articleNumber: item["article-number"],
     publisher: item.publisher,
-    publishedOnline: item["published-online"]?.["date-parts"]?.[0]?.[0],
-    publishedPrint: item["published-print"]?.["date-parts"]?.[0]?.[0],
+    publishedOnline: normalizeMatchedYear(item["published-online"]?.["date-parts"]?.[0]?.[0]) ?? undefined,
+    publishedPrint: normalizeMatchedYear(item["published-print"]?.["date-parts"]?.[0]?.[0]) ?? undefined,
     url: item.DOI ? `https://doi.org/${item.DOI}` : item.URL,
     abstract: item.abstract ? stripMarkup(item.abstract) : undefined,
     type: item.type,
@@ -584,7 +590,7 @@ function mapOpenAlex(work: OpenAlexWork): ScholarlyRecord | null {
     authors: (work.authorships ?? [])
       .map((authorship) => authorship.author?.display_name ?? "")
       .filter(Boolean),
-    year: work.publication_year,
+    year: normalizeMatchedYear(work.publication_year) ?? undefined,
     doi,
     venue: work.primary_location?.source?.display_name,
     volume: work.biblio?.volume,
@@ -594,7 +600,7 @@ function mapOpenAlex(work: OpenAlexWork): ScholarlyRecord | null {
         ? `${work.biblio.first_page}-${work.biblio.last_page}`
         : work.biblio?.first_page,
     publisher: work.primary_location?.source?.host_organization_name,
-    publishedOnline: work.publication_date ? Number(work.publication_date.slice(0, 4)) : undefined,
+    publishedOnline: normalizeMatchedYear(work.publication_date?.slice(0, 4)) ?? undefined,
     url: doi ? `https://doi.org/${doi}` : work.id,
     abstract: reconstructAbstract(work.abstract_inverted_index),
     type: work.type,
@@ -732,7 +738,7 @@ async function dataCiteByDoi(doi: string): Promise<FetchResult & { record?: Scho
       source: "DataCite",
       title,
       authors: (attributes?.creators ?? []).map((creator) => creator.name ?? "").filter(Boolean),
-      year: attributes?.publicationYear,
+      year: normalizeMatchedYear(attributes?.publicationYear) ?? undefined,
       doi: attributes?.doi ?? doi,
       venue:
         typeof attributes?.publisher === "string" ? attributes.publisher : attributes?.publisher?.name,
@@ -778,7 +784,7 @@ function parseArxivFeed(xml: string): ScholarlyRecord[] {
       source: "arXiv",
       title,
       authors,
-      year: published ? Number(published) : undefined,
+      year: normalizeMatchedYear(published) ?? undefined,
       doi: id ? `10.48550/arXiv.${id}` : undefined,
       venue: "arXiv",
       url: id ? `https://arxiv.org/abs/${id}` : undefined,
@@ -860,7 +866,7 @@ async function semanticScholarByDoi(doi: string): Promise<ScholarlyRecord | null
     source: "Semantic Scholar",
     title: normalizeWhitespace(paper.title),
     authors: (paper.authors ?? []).map((author) => author.name ?? "").filter(Boolean),
-    year: paper.year,
+    year: normalizeMatchedYear(paper.year) ?? undefined,
     doi: paper.externalIds?.DOI ?? doi,
     venue: paper.venue,
     url: paper.url ?? `https://doi.org/${doi}`,

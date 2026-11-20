@@ -38,7 +38,7 @@ type Bundle = {
     refKey: string;
     matchedTitle?: string;
     title?: string;
-    matchedYear?: number;
+    matchedYear?: number | null;
     year?: number;
     status: string;
     retrievalLevel: string;
